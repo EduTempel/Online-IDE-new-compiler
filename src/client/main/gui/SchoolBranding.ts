@@ -12,7 +12,24 @@
 export const SCHOOL_IMPRINT_URL = "https://gsg-os.de/impressum/";
 export const SCHOOL_PRIVACY_URL = "https://gsg-os.de/datenschutzerklaerung/";
 
-type ThemeLike ={ name: string, cssColors: { [color: string]: string } };
+/** Verwaltung der Lerngruppen und Konten (eigenes Backend, Menü "Klassen, Benutzer, Tests") */
+export const SCHOOL_ADMIN_URL = "/verwaltung/";
+
+/**
+ * Login-Seite: Knopf "Mit IServ anmelden" zeigen, wenn der Server IServ eingerichtet hat
+ * (Elemente mit Klasse gsg-iserv-only in index.html, Abfrage /api/login-optionen des Backends).
+ */
+export function showIServLoginIfEnabled() {
+    fetch("/api/login-optionen")
+        .then((r) => (r.ok ? r.json() : { iserv: false }))
+        .then((o: { iserv?: boolean }) => {
+            if (!o.iserv) return;
+            document.querySelectorAll<HTMLElement>(".gsg-iserv-only").forEach((el) => (el.hidden = false));
+        })
+        .catch(() => { /* Backend nicht erreichbar: nur lokales Login */ });
+}
+
+type ThemeLike = { name: string, cssColors: { [color: string]: string } };
 
 const NAVY = "#00376D";
 const NAVY_HOVER = "#0b4a8a";

@@ -10,7 +10,7 @@ import { WorkspaceExporter } from "../../workspace/WorkspaceImporterExporter.js"
 import { IssueReporter } from "./IssueReporter.js";
 import * as monaco from 'monaco-editor'
 import { GuiMessages } from "./language/GuiMessages.js";
-import { SCHOOL_IMPRINT_URL, SCHOOL_PRIVACY_URL } from "./SchoolBranding.js";
+import { SCHOOL_ADMIN_URL, SCHOOL_IMPRINT_URL, SCHOOL_PRIVACY_URL } from "./SchoolBranding.js";
 import { SettingsGUI } from "../../settings/SettingsGUI.js";
 import { ImportRepositoryGUI } from "./ImportRepositoryGUI.js";
 
@@ -340,11 +340,8 @@ export class MainMenu {
                     action: async () => {
                         let response = await ajaxAsync("servlet/getSingleUseSessionToken", {}) as GetSingleUseSessionTokenResponse;
                         if (response.success) {
-                            if(this.main.isProduction){
-                                window.open("https://teacherbackend.online-ide.de?" + SINGLEUSETOKEN + "=" + response.singleUseSessionToken + "&lang=" + language);
-                            } else {
-                                window.open("http://localhost:3001?" + SINGLEUSETOKEN + "=" + response.singleUseSessionToken + "&lang=" + language);
-                            }
+                            // eigene Verwaltung (Lerngruppen und Konten) statt teacherbackend.online-ide.de
+                            window.open(SCHOOL_ADMIN_URL + "?" + SINGLEUSETOKEN + "=" + response.singleUseSessionToken + "&lang=" + language);
                         }
                     }
                 }

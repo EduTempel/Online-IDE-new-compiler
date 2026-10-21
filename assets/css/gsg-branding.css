@@ -258,3 +258,49 @@
         padding: 12px 16px;
     }
 }
+
+/* ------------------------------------------------------------------ IServ-Anmeldung */
+
+.joeCssFence #login.gsg-login .gsg-iserv-button {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 11px 16px;
+    border-radius: 8px;
+    background: var(--gsg-navy);
+    color: #ffffff;
+    font-weight: 600;
+    text-align: center;
+    text-decoration: none;
+}
+
+.joeCssFence #login.gsg-login .gsg-iserv-button:hover {
+    background: #0b4a8a;
+}
+
+.joeCssFence #login.gsg-login .gsg-iserv-button:focus-visible {
+    outline: 3px solid var(--gsg-green);
+    outline-offset: 2px;
+}
+
+.joeCssFence #login.gsg-login .gsg-iserv-button[hidden],
+.joeCssFence #login.gsg-login .gsg-login-divider[hidden] {
+    display: none;
+}
+
+.joeCssFence #login.gsg-login .gsg-login-divider {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    margin: 16px 0;
+    color: var(--gsg-muted);
+    font-size: 0.85em;
+}
+
+.joeCssFence #login.gsg-login .gsg-login-divider::before,
+.joeCssFence #login.gsg-login .gsg-login-divider::after {
+    content: "";
+    flex: 1;
+    border-top: 1px solid var(--gsg-line);
+}

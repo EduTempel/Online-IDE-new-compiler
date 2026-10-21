@@ -49,7 +49,11 @@ export default {
             '/servlet': 'http://' + serverIP + ':5500',
             '/sprites': 'http://' + serverIP + ':5500',
             '/servlet/websocket': { target: 'ws://' + serverIP + ':5500', ws: true },
-            '/servlet/pushWebsocket': { target: 'ws://' + serverIP + ':5500', ws: true }
+            '/servlet/pushWebsocket': { target: 'ws://' + serverIP + ':5500', ws: true },
+            // eigenes Backend: Verwaltung, API, IServ-Login
+            '/verwaltung': 'http://' + serverIP + ':5500',
+            '/api': 'http://' + serverIP + ':5500',
+            '/auth': 'http://' + serverIP + ':5500',
             // '/servlet/subscriptionwebsocket': { target: 'ws://localhost:5500', ws: true },
         }, 
         port: 3000
