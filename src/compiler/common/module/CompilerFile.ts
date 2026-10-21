@@ -49,6 +49,15 @@ export class CompilerFile {
         return this.lastSavedVersion == this.getLocalVersion();
     }
 
+    /**
+     * Als gespeichert markieren – aber nur bis zu der Version, die tatsächlich zum Server
+     * geschickt wurde. Änderungen, die während des Speicherns getippt wurden, bleiben
+     * "ungespeichert" und werden beim nächsten Mal mitgeschickt.
+     */
+    setSavedAtVersion(version: number) {
+        this.lastSavedVersion = version;
+    }
+
     setSaved(isSaved: boolean) {
         if (isSaved) {
             this.lastSavedVersion = this.getLocalVersion();

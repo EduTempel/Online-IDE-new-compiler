@@ -135,6 +135,7 @@ export class NetworkManager {
 
         let workspacesToUpdate: Workspace[] = [];
         let filesToUpdate: GUIFile[] = [];
+        let sentVersions: number[] = [];    // Stand jeder Datei beim Verschicken
 
         for (let ws of this.main.workspaceList) {
 
@@ -147,6 +148,7 @@ export class NetworkManager {
             for (let file of ws.getFiles()) {
                 if (!file.isSaved()) {
                     this.forcedUpdatesInARow = 0;
+                    sentVersions.push(file.getLocalVersion());
                     fdList.push(file.getFileData(ws));
                     // console.log("Save file " + file.name);
                     filesToUpdate.push(file);
@@ -176,7 +178,7 @@ export class NetworkManager {
                     that.errorHappened = !response.success;
                     if (!that.errorHappened) {
 
-                        filesToUpdate.forEach(file => file.setSaved(true));
+                        filesToUpdate.forEach((file, i) => file.setSavedAtVersion(sentVersions[i]));
                         workspacesToUpdate.forEach(ws => ws.saved = true);
 
                         if (response.workspaces != null) {
