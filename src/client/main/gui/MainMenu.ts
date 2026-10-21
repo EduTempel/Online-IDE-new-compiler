@@ -10,6 +10,7 @@ import { WorkspaceExporter } from "../../workspace/WorkspaceImporterExporter.js"
 import { IssueReporter } from "./IssueReporter.js";
 import * as monaco from 'monaco-editor'
 import { GuiMessages } from "./language/GuiMessages.js";
+import { SCHOOL_IMPRINT_URL, SCHOOL_PRIVACY_URL } from "./SchoolBranding.js";
 import { SettingsGUI } from "../../settings/SettingsGUI.js";
 import { ImportRepositoryGUI } from "./ImportRepositoryGUI.js";
 
@@ -302,11 +303,11 @@ export class MainMenu {
                             },
                             {
                                 identifier: GuiMessages.Imprint(),
-                                link: "https://www.learnj.de/doku.php?id=ide:impressum"
+                                link: SCHOOL_IMPRINT_URL
                             },
                             {
                                 identifier: GuiMessages.PrivacyPolicy(),
-                                link: "https://www.learnj.de/doku.php?id=ide:datenschutzerklaerung"
+                                link: SCHOOL_PRIVACY_URL
                             },
                             {
                                 identifier: "<div class='jo_menu_version'>" + GuiMessages.Version() + " " + APP_VERSION + " (" + BUILD_DATE + ")</div>",

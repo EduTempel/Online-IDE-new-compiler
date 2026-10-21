@@ -8,7 +8,11 @@
  * Eigene Datei, damit Updates des Originals möglichst ohne Konflikte übernommen werden können.
  */
 
-type ThemeLike = { name: string, cssColors: { [color: string]: string } };
+/** Rechtliche Seiten der Schule (Login-Seite: index.html, Hilfe-Menü: MainMenu.ts) */
+export const SCHOOL_IMPRINT_URL = "https://gsg-os.de/impressum/";
+export const SCHOOL_PRIVACY_URL = "https://gsg-os.de/datenschutzerklaerung/";
+
+type ThemeLike ={ name: string, cssColors: { [color: string]: string } };
 
 const NAVY = "#00376D";
 const NAVY_HOVER = "#0b4a8a";
