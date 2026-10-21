@@ -1,0 +1,260 @@
+/*
+ * Gestaltung für das Graf-Stauffenberg-Gymnasium Osnabrück (GSG).
+ * Logofarben: Dunkelblau #00376D, Grün #45B82F.
+ * Gleiche Datei in Java-IDE und SQL-IDE. Wird nach den Original-Stylesheets geladen (IDEStarter.ts) und überschreibt nur,
+ * was für Login-Seite und Schulfarben nötig ist. Farben im laufenden Editor: SchoolBranding.ts.
+ */
+
+.joeCssFence {
+    --gsg-navy: #00376D;
+    --gsg-navy-dark: #002448;
+    --gsg-navy-tint: #e6eef6;
+    --gsg-green: #45B82F;
+    --gsg-green-text: #2c7a1d;      /* Grün für Text auf Weiß (Kontrast ≥ 4,5:1) */
+    --gsg-page: #eef3f8;
+    --gsg-ink: #14263a;
+    --gsg-muted: #52637a;
+    --gsg-line: #c9d5e2;
+    --gsg-error: #b42318;
+
+    /* Ausgangswerte, bevor ThemeManager das Theme setzt */
+    --loginButtonBackground: var(--gsg-navy);
+    --loginButtonFontColor: #ffffff;
+    --loginButtonHover: #0b4a8a;
+    --loginButtonActive: var(--gsg-navy-dark);
+    --loginMessageColor: var(--gsg-error);
+}
+
+/* ------------------------------------------------------------------ Login-Seite */
+
+.joeCssFence #login.gsg-login {
+    background: var(--gsg-page);
+    color: var(--gsg-ink);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 16px;            /* feste Basis: Java- und SQL-IDE setzen unterschiedliche Grundgrößen */
+    min-height: 100%;
+    height: 100%;
+    overflow: auto;
+    flex-direction: column;
+}
+
+.joeCssFence #login.gsg-login .gsg-login-main {
+    flex: 1 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 16px 24px;
+    box-sizing: border-box;
+}
+
+.joeCssFence #login.gsg-login .gsg-login-card {
+    width: min(26em, 100%);
+    box-sizing: border-box;
+    background: #ffffff;
+    border-radius: 16px;
+    border-top: 6px solid var(--gsg-green);
+    box-shadow: 0 1px 2px rgba(0, 36, 72, 0.08), 0 12px 32px rgba(0, 36, 72, 0.12);
+    padding: 28px 28px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.joeCssFence #login.gsg-login .gsg-login-logo {
+    width: 112px;
+    height: 112px;
+    margin: 0 0 12px;
+}
+
+.joeCssFence #login.gsg-login .gsg-login-title {
+    margin: 0;
+    font-size: 1.9em;
+    line-height: 1.15;
+    font-weight: 700;
+    color: var(--gsg-navy);
+    letter-spacing: -0.01em;
+}
+
+.joeCssFence #login.gsg-login .gsg-login-school {
+    margin: 6px 0 22px;
+    font-size: 0.95em;
+    color: var(--gsg-muted);
+    text-wrap: balance;
+}
+
+.joeCssFence #login.gsg-login #login-center {
+    position: static;
+    width: 100%;
+    height: auto;
+    padding: 0;
+    border: none;
+    background: transparent;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.joeCssFence #login.gsg-login #login-center > form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+    margin: 0;
+}
+
+.joeCssFence #login.gsg-login #login-center input {
+    width: 100%;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 11px 12px;
+    font-size: 1em !important;
+    font-family: inherit;
+    color: var(--gsg-ink) !important;
+    background-color: #ffffff !important;
+    border: 1px solid var(--gsg-line) !important;
+    border-radius: 8px;
+    outline: none;
+}
+
+.joeCssFence #login.gsg-login #login-center input::placeholder {
+    color: var(--gsg-muted);
+    opacity: 1;
+}
+
+.joeCssFence #login.gsg-login #login-center input:focus {
+    border-color: var(--gsg-navy) !important;
+    box-shadow: 0 0 0 3px rgba(69, 184, 47, 0.45);
+}
+
+.joeCssFence #login.gsg-login #login-message {
+    position: static;
+    width: auto;
+    height: auto;
+    min-height: 1.2em;
+    line-height: 1.35;
+    font-size: 0.9em;
+    text-align: left;
+    color: var(--gsg-error);
+}
+
+.joeCssFence #login.gsg-login #login-message:empty {
+    min-height: 0;
+}
+
+.joeCssFence #login.gsg-login #login-button {
+    position: static;
+    width: 100%;
+    box-sizing: border-box;
+    height: auto;
+    padding: 11px 16px;
+    line-height: 1.3;
+    font-size: 1em;
+    font-weight: 600;
+    text-align: center;
+    border: none;
+    border-radius: 8px;
+    background-color: var(--gsg-navy);
+    color: #ffffff;
+    transition: background-color 0.15s ease;
+}
+
+.joeCssFence #login.gsg-login #login-button:hover {
+    background-color: #0b4a8a;
+}
+
+.joeCssFence #login.gsg-login #login-button:active {
+    transform: none;
+    background-color: var(--gsg-navy-dark);
+}
+
+.joeCssFence #login.gsg-login #login-button:focus-visible,
+.joeCssFence #login.gsg-login #login-center #login-button.jo_active {
+    background-color: var(--gsg-navy);
+    outline: 3px solid var(--gsg-green);
+    outline-offset: 2px;
+}
+
+.joeCssFence #login.gsg-login #login-spinner {
+    height: auto;
+    width: auto;
+    display: flex;
+    justify-content: center;
+}
+
+.joeCssFence #login.gsg-login #login-spinner > img {
+    margin: 14px 0 0;
+    height: 32px;
+    /* Original-Spinner ist hell für dunklen Hintergrund – hier dunkelblau einfärben */
+    filter: brightness(0) saturate(100%) invert(15%) sepia(68%) saturate(2560%) hue-rotate(196deg) brightness(92%);
+}
+
+.joeCssFence #login.gsg-login .versionDiv {
+    margin-top: 14px;
+    font-size: 0.8em;
+    color: var(--gsg-muted);
+    text-align: center;
+}
+
+/* Fußzeile */
+.joeCssFence #login.gsg-login #login-footer {
+    position: static;
+    flex: 0 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px 24px;
+    padding: 14px 24px;
+    background: var(--gsg-navy);
+    color: #ffffff;
+    font-size: 0.9em;
+    box-sizing: border-box;
+    width: 100%;
+}
+
+.joeCssFence #login.gsg-login #login-datenschutz {
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 20px;
+}
+
+.joeCssFence #login.gsg-login #login-footer a {
+    color: #ffffff !important;
+    padding: 0;
+    text-decoration: underline;
+    text-decoration-color: var(--gsg-green);
+    text-decoration-thickness: 2px;
+    text-underline-offset: 3px;
+}
+
+.joeCssFence #login.gsg-login #login-footer a:hover {
+    color: #d8f1d2 !important;
+}
+
+.joeCssFence #login.gsg-login .gsg-credits {
+    flex-basis: 100%;
+    font-size: 0.78em;
+    color: #c4d4e6;
+}
+
+.joeCssFence #login.gsg-login .gsg-sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+    .joeCssFence #login.gsg-login .gsg-login-card {
+        padding: 22px 18px 16px;
+    }
+
+    .joeCssFence #login.gsg-login #login-footer {
+        padding: 12px 16px;
+    }
+}

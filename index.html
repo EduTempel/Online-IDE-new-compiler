@@ -4,11 +4,12 @@
 <head>
     <meta charset='utf-8'>
     <meta http-equiv='X-UA-Compatible' content='IE=edge'>
-    <title>Online-IDE</title>
+    <title>Java-IDE · GSG Osnabrück</title>
+    <link rel="icon" type="image/png" href="assets/graphics/gsg/favicon-64.png">
+    <link rel="apple-touch-icon" href="assets/graphics/gsg/apple-touch-icon.png">
+    <meta name="theme-color" content="#00376D">
     <meta name='viewport' content='width=device-width, initial-scale=1, maximum-scale=1.0, minimal-ui'>
 
-    <!-- VIDIS -->
-    <script src="https://repo.vidis.schule/repository/vidis-cdn/latest/vidisLogin.umd.js"></script>
 
     <script type="module" src="/src/client/main/IDEStarter.ts"></script>
 </head>
@@ -33,114 +34,42 @@
         </div>
     </div>
 
-    <!-- Login-Seite -->
-    <div id="login">
-        <!-- <div id="jo_login_new">
-            <div>Neu:</div>
-            <ul>
-                <li><a target="_blank" href="https://www.learnj.de/doku.php?id=api:documentation:kara:start">Java Kara</a></li>
-                <li><a target="_blank" href="https://www.learnj.de/doku.php?id=api:documentation:hamster:start">Java Hamster</a></li>
-                <li><a target="_blank" href="https://www.learnj.de/doku.php?id=api:documentation:grafik:gui">GUI-Elemente (TextField, Checkbox, Radiobutton, Button)</a></li>
-                <li><a target="_blank" href="https://www.learnj.de/doku.php?id=api:documentation:files:start">Files-API zum lesenden/schreiben Zugriff auf Datendateien im Workspace</a></li>
-                <li><a target="_blank" href="https://www.learnj.de/doku.php?id=api:documentation:http:start">Http-Requests (=> Zugriff auf Online-APIs)</a></li>
-                <li><a target="_blank" href="https://www.learnj.de/doku.php?id=api:documentation:http:start#aufbereiten_der_json-daten_jsonparser">Json-Parser</a></li>
-            </ul>
-        </div> -->
-        <!-- <div id="beta-version">
-            <div></div>
-            <div> <a style="color: rgb(94, 136, 159)" href="https://www.learnj.de/1213/doku.php?id=anhang:assembler:start" target="_blank">Neu: Maschinenspracheprogrammierung in der Online-IDE</a></div>
-        </div> -->
-        <a class="isidigitaldiv silent" style="display: none" href="https://www.bildungspakt-bayern.de/isi-preistraeger-2022-gy-ingolstadt/"
-            target="_blank">
-            <img class="isidigitalimg" src="assets/graphics/isi_digital_2022.png"
-                alt="1. Preisträger beim isi Digital-Wettbewerb 2022" style="width: 300px">
-        </a>
-        <!-- <div id="login-heading" class="jo_login_div">Online-IDE</div> -->
-        <img src="assets/graphics/Logo1.png" alt="Logo der Online-IDE"
-            style="width: 250px; margin: 30px auto 10px auto">
-        <div style="flex-grow: 1" class="jo_login_div"></div>
-        <div class="jo_login_div">
-            <div id="login-center">
-                <input id="login-username" type="text" placeholder="Benutzername" spellcheck="false" tabindex="1">
-                <input id="login-password" type="password" placeholder="Passwort" spellcheck="false" tabindex="2">
-                <div id="login-message"></div>
-                <div id="login-button" tabindex="3">Login</div>
-            </div>
-        </div>
-        <div id="versionDiv" class="versionDiv"></div>
-        <div class="versionDiv silent" style="display: none"><a target="_blank" href="https://www.learnj.de/1213/doku.php?id=anhang:assembler:start">Neu: Maschinenspracheprogrammierung in der Online-IDE</a></div>
-        <div id="login-spinner" class="jo_login_div">
-            <img src="assets/graphics/ball-triangle.svg">
-        </div>
-        <div class="jo_infodiv silent" style="display: none">
-            <div class="jo_infodiv_line">
-                <a href="https://www.learnj.de/doku.php?id=api:ide_manual:start" target="_blank">
-                    <div class="jo_infodiv_box" id="jo_video_button">
-                        <img src="assets/graphics/film.png" class="jo_infobox_leftimage" alt="">
-                        <div>Video-Tutorials zur Online-IDE</div>
-                    </div>
-                </a>
-                <div class="jo_infodiv_box" id="jo_testuser-login-button">
-                    <img src="assets/graphics/test.png" class="jo_infobox_leftimage" alt="">
-                    <div>Login als Testuser (*)</div>
+    <!-- Login-Seite: angepasst für das Graf-Stauffenberg-Gymnasium Osnabrück (Texte/Links: SchoolBranding.ts, Stil: gsg-branding.css) -->
+    <div id="login" class="gsg-login">
+        <main class="gsg-login-main">
+            <div class="gsg-login-card">
+                <img class="gsg-login-logo" src="assets/graphics/gsg/logo-256.png"
+                    alt="Logo des Graf-Stauffenberg-Gymnasiums Osnabrück" width="112" height="112">
+                <h1 class="gsg-login-title">Java-IDE</h1>
+                <p class="gsg-login-school">Graf-Stauffenberg-Gymnasium Osnabrück</p>
+                <div id="login-center">
+                    <label class="gsg-sr-only" for="login-username">Benutzername</label>
+                    <input id="login-username" type="text" placeholder="Benutzername" spellcheck="false"
+                        autocomplete="username" autocapitalize="none" tabindex="1">
+                    <label class="gsg-sr-only" for="login-password">Passwort</label>
+                    <input id="login-password" type="password" placeholder="Passwort" spellcheck="false"
+                        autocomplete="current-password" tabindex="2">
+                    <div id="login-message" role="alert"></div>
+                    <div id="login-button" role="button" tabindex="3">Anmelden</div>
                 </div>
-                <a href="https://www.learnj.de/doku.php?id=ide:testlogins:start" target="_blank">
-                    <div class="jo_infodiv_box" id="jo_testlogins">
-                        <img src="assets/graphics/rocket.png" class="jo_infobox_leftimage" alt="">
-                        <div>Interessiert?<br>Kostenlose Testphase!</div>
-                    </div>
-                </a>
+                <div id="login-spinner" class="jo_login_div">
+                    <img src="assets/graphics/ball-triangle.svg" alt="">
+                </div>
             </div>
-            <div class="jo_infodiv_line">
-                <a href="https://www.learnj.de" target="_blank">
-                    <div class="jo_infodiv_box" id="jo_learnj">
-                        <img src="assets/graphics/learnj.png" class="jo_infobox_leftimage" alt="">
-                        <div>Interaktives Java-Tutorial</div>
-                    </div>
-                </a>
-                <a href="https://github.com/martin-pabst/Online-IDE-new-compiler" target="_blank">
-                    <div class="jo_infodiv_box" id="jo_embedded_ide">
-                        <img src="assets/graphics/forkme_left_green_007200.png" class="jo_infobox_forkme" alt="">
-                        <div style="font-size: 16pt;">Embedded<br> Java-IDE - auch für Ihre Homepage!</div>
-                    </div>
-                </a>
-                <a href="https://www.embed.learnj.de/createwrapper.html" target="_blank">
-                    <div class="jo_infodiv_box" id="jo_moodle_mebis">
-                        <img src="assets/graphics/moodle_mebis.png" class="jo_infobox_leftimage" alt="">
-                        <div style="font-size: 12pt;">Java programmieren innerhalb von Moodle-/Mebis-Kursen</div>
-                    </div>
-                </a>
-                <a href="https://www.sql-ide.de" target="_blank">
-                    <div class="jo_infodiv_box" id="jo_learnsql">
-                        <img src="assets/graphics/learn-sql.png" class="jo_infobox_leftimage" alt="">
-                        <div>
-                            <div style="font-size: 16pt;"><span style="color: rgb(226, 52, 52); font-weight: bold;">Neu:
-                                </span>SQL-IDE</div>
-                            <div style="font-size: 12pt;">(gleiche Zugangsdaten)</div>
-                        </div>
-                    </div>
-                </a>
-            </div>
-        </div>
-        <div style="flex-grow: 4" class="jo_login_div">
-        </div>
-        <div id="login-footer">
-            <div class="silent" style="display: none; padding-left: 20px">
-                (*) Ohne Repository und Lehrkraft-Funktionen
-            </div>
-            <!-- <vidis-login
-                loginurl="https://aai-test.vidis.schule/auth/realms/vidis/protocol/openid-connect/auth?client_id=online-ide-o&response_type=code&scope=openid&redirect_uri=https://online-ide.de/vidisRedirect"
-                size="S" cookie="false"></vidis-login> -->
-            <div class="silent" style="display: none">
-                <!-- <a href="https://aai-test.vidis.schule/auth/realms/vidis/protocol/openid-connect/auth?client_id=online-ide-o&response_type=code&scope=openid&redirect_uri=https://online-ide.de/vidisRedirect">VIDIS-Test</a> -->
-                <a href="https://aai.vidis.schule/auth/realms/vidis/protocol/openid-connect/auth?client_id=online-ide-o&response_type=code&scope=openid&redirect_uri=https://online-ide.de/vidisRedirect">VIDIS-Prod (Test)</a> 
-            </div>
+            <div id="versionDiv" class="versionDiv"></div>
+        </main>
+        <footer id="login-footer">
+            <div class="gsg-footer-school">Graf-Stauffenberg-Gymnasium Osnabrück</div>
             <div id="login-datenschutz">
-                <a href="https://www.learnj.de/doku.php?id=ide:datenschutzerklaerung"
-                    target="_blank">Datenschutzerklärung</a>
-                <a href="https://www.learnj.de/doku.php?id=ide:impressum" target="_blank">Impressum</a>
+                <a href="https://gsg-os.de/impressum/" target="_blank" rel="noopener">Impressum</a>
+                <a href="https://gsg-os.de/datenschutzerklaerung/" target="_blank" rel="noopener">Datenschutz</a>
+                <a href="https://github.com/EduTempel/online-ide" target="_blank" rel="noopener">Quellcode</a>
             </div>
-        </div>
+            <div class="gsg-credits">
+                Basiert auf der <a href="https://github.com/martin-pabst/Online-IDE-new-compiler" target="_blank"
+                    rel="noopener">Online-IDE</a> von Martin Pabst (GNU GPL v3)
+            </div>
+        </footer>
     </div>
 
     <!-- Hauptseite -->

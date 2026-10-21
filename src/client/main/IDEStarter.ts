@@ -23,6 +23,7 @@ import "/assets/css/dialog.css";
 import "/assets/css/synchronize-repo.css";
 import "/assets/css/updatecreate-repo.css";
 import "/assets/css/spritemanager.css";
+import "/assets/css/gsg-branding.css";     // Schulfarben und Login-Seite des GSG (zuletzt laden)
 
 import spritesheetjson from '/assets/graphics/spritesheet.json.txt';
 import spritesheetpng from '/assets/graphics/spritesheet.png';
