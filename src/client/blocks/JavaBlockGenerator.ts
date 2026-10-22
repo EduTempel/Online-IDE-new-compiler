@@ -3,6 +3,7 @@ import { TokenType } from "../../compiler/java/TokenType";
 import { B, COLLECTION_CALLS, COLLECTION_DECLARATIONS, elementJavaType, type BlockState, type Collections, type Param, type WorkspaceState } from "./BlockTypes";
 import { collectionOfType, collectionType, methodParams, wrapperOf } from "./ClassModel";
 import type { LineRange } from "./JavaBlockParser";
+import { colourJava, FIGURE_ACTIONS, FIGURE_CALLS, FIGURE_CREATIONS, FIGURE_PROPS } from "./FigureSpec";
 
 export { methodParams };
 
@@ -305,6 +306,11 @@ export class JavaBlockGenerator {
                 break;
             }
             default: {
+                const figure = this.figureStatement(b);
+                if (figure !== undefined) {
+                    this.emit(indent + figure);
+                    break;
+                }
                 const call = COLLECTION_CALLS.find((c) => c.type === b.type && c.stmt);
                 if (!call) return;   // unbekannter Block: nichts erzeugen
                 this.emit(`${indent}${f.NAME}.${call.method}(${call.args.map((a) => this.input(b, a, Order.NONE)).join(", ")});`);
@@ -440,7 +446,49 @@ export class JavaBlockGenerator {
         }
         const call = COLLECTION_CALLS.find((c) => c.type === b.type && !c.stmt);
         if (call) return [`${f.NAME}.${call.method}(${call.args.map((a) => this.input(b, a, Order.NONE)).join(", ")})`, Order.ATOMIC];
+        const figure = this.figureExpression(b);
+        if (figure !== undefined) return [figure, Order.ATOMIC];
         return ["", Order.ATOMIC];
+    }
+
+    // ------------------------------------------------------------------ Figuren, Tasten, Maus (Paket 8)
+
+    /** Anweisung einer Figur (ohne Einrückung) oder undefined */
+    private figureStatement(b: BlockState): string | undefined {
+        const f = b.fields ?? {};
+        const args = (inputs: string[]) => inputs.map((i) => this.input(b, i, Order.NONE)).join(", ");
+        const creation = FIGURE_CREATIONS.find((c) => c.block === b.type);
+        if (creation) {
+            const params = creation.inputs.map((i) => i === "IMG" ? `SpriteLibrary.${f.IMG || "Ship_1"}` : this.input(b, i, Order.NONE));
+            return `${creation.cls} ${f.NAME} = new ${creation.cls}(${params.join(", ")});`;
+        }
+        const call = FIGURE_CALLS.find((c) => c.block === b.type);
+        if (call) return `${f.NAME}.${call.method}(${args(call.inputs)});`;
+        switch (b.type) {
+            case B.figColor: return `${f.NAME}.setFillColor(${colourJava(f.COLOR ?? "red")});`;
+            case B.figAction: {
+                const java = FIGURE_ACTIONS.find(([, v]) => v === f.ACTION)?.[2] ?? "setVisible(true)";
+                return `${f.NAME}.${java};`;
+            }
+            case B.worldNew:
+                return `new World(${args(["W", "H"])}).setBackgroundColor(${colourJava(f.COLOR ?? "white")});`;
+        }
+        return undefined;
+    }
+
+    /** Wert eines Figuren-, Tasten- oder Maus-Blocks oder undefined */
+    private figureExpression(b: BlockState): string | undefined {
+        const f = b.fields ?? {};
+        switch (b.type) {
+            case B.figProp: return `${f.NAME}.${FIGURE_PROPS.find(([, v]) => v === f.PROP)?.[2] ?? "getCenterX"}()`;
+            case B.figTouches: return `${f.NAME}.collidesWith(${f.OTHER})`;
+            case B.figOutside: return `${f.NAME}.isOutsideView()`;
+            case B.keyDown: return `Input.isKeyDown(${JSON.stringify(f.KEY ?? "ArrowRight")})`;
+            case B.mouseDown: return f.WHAT === "clicked" ? "Mouse.wasClicked()" : "Mouse.isDown()";
+            case B.mouseOver: return `Mouse.${f.WHAT === "clicked" ? "wasClicked" : "isOver"}(${f.NAME})`;
+            case B.mouseXY: return f.AXIS === "y" ? "Mouse.getY()" : "Mouse.getX()";
+        }
+        return undefined;
     }
 }
 

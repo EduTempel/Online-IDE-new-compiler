@@ -24,3 +24,17 @@ export async function runJava(code: string, libraries: string[] = []): Promise<{
     interpreter.runMainProgramSynchronously();
     return { errors: [], output: printManager.output };
 }
+
+/** Nur übersetzen (für Programme mit Grafik, die im Test nicht laufen können): Fehlermeldungen */
+export async function compileJava(code: string, libraries: string[] = []): Promise<string[]> {
+    const file = new CompilerFile();
+    file.setText(code);
+    const compiler = new JavaCompiler();
+    const libManager = new JavaLibraryManager();
+    libManager.addLibraries(...libraries);
+    libManager.addLibrariesToCompiler(compiler);
+    compiler.setFiles([<any>file]);
+    const executable = await compiler.compileIfDirty();
+    if (!executable) return ["kein Ergebnis"];
+    return executable.getAllErrors().filter((e) => e.level == "error").map((e) => `Zeile ${e.range.startLineNumber}: ${e.message}`);
+}

@@ -37,6 +37,7 @@ import { AlignmentEnum } from "../graphics/AlignmentEnum.ts";
 import { ArcClass } from "../graphics/ArcClass.ts";
 import { BitmapClass } from "../graphics/BitmapClass.ts";
 import { CircleClass } from "../graphics/CircleClass.ts";
+import { MouseClass } from "../graphics/MouseClass.ts";
 import { CollisionPairClass } from "../graphics/CollisionPairClass.ts";
 import { ColorClass } from "../graphics/ColorClass.ts";
 import { DirectionEnum } from "../graphics/DirectionEnum.ts";
@@ -262,7 +263,7 @@ export class SystemModule extends JavaLibraryModule {
             BaseWorldClass, WorldClass, ActorClass, ShapeClass, FilledShapeClass, RectangleClass,
             CollisionPairClass, GroupClass,
             ScaleModeEnum, RepeatTypeEnum, SpriteLibraryEnum, TileImageClass, SpriteClass, // Sprite
-            CircleClass, EllipseClass, ArcClass, SectorClass,
+            CircleClass, EllipseClass, ArcClass, SectorClass, MouseClass,
             PolygonClass, TriangleClass, LineClass, BitmapClass, TextClass, RoundedRectangleClass,
             TurtleClass,
             MethodOfDestroyedGOExceptionClass,

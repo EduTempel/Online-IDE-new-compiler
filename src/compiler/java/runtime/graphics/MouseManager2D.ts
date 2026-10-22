@@ -5,6 +5,7 @@ import { MouseListenerInterface } from "./MouseListenerInterface";
 import { Thread } from "../../../common/interpreter/Thread";
 import { ThreadState } from "../../../common/interpreter/ThreadState";
 import { Interpreter } from "../../../common/interpreter/Interpreter";
+import { MouseClass } from "./MouseClass";
 
 export interface InternalMouseListener {
     onMouseEvent(kind: MouseEventKind, x: number, y: number): void;
@@ -48,6 +49,8 @@ export class MouseManager {
 
         if (this.coordinateDiv) this.coordinateDiv.style.display = 'none';
 
+        MouseClass.reset();     // GSG: Zustand für Mouse.isDown() usw.
+
         this.disablePointerLock();
 
     }
@@ -74,6 +77,9 @@ export class MouseManager {
                     let canvasRect = this.graphicsDiv.getBoundingClientRect();
                     p = that.world.normalizedCoordinatesToXY(e.offsetX / canvasRect.width, e.offsetY / canvasRect.height);
                 }
+
+                // GSG: Zustand für Mouse.isDown(), Mouse.isOver(…) usw. (Spielschleife im Blockmodus)
+                if (!this.isPointerLockEnabled) MouseClass.onMouseEvent(mouseEventKind, p.x, p.y);
 
                 that.callShapesWithImplementedMouseMethods(mouseEventKind as MouseEventKind, p.x, p.y, e.button);
 

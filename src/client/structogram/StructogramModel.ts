@@ -3,6 +3,7 @@ import { TokenType } from "../../compiler/java/TokenType";
 import { B, type BlockState } from "../blocks/BlockTypes";
 import { JavaBlockParser } from "../blocks/JavaBlockParser";
 import { methodParams, typeInfo, type ClassInfo } from "../blocks/ClassModel";
+import { colourLabel, FIGURE_ACTIONS, FIGURE_PROPS, keyLabel } from "../blocks/FigureSpec";
 
 /**
  * Struktogramme (Nassi-Shneiderman) aus Java-Code – im Stil der Ergänzenden Hinweise für das
@@ -199,6 +200,14 @@ class Expr {
             case B.objAttrGet: return [`${this.input(b, "OBJ", P.ATOM)}.${f.ATTR}`, P.ATOM];
             case B.superMethodCallExpr: return [`super.${f.METHOD}${this.args(b)}`, P.ATOM];
             case B.javaExpression: return [neutral(f.CODE ?? ""), P.NONE];
+            // Figuren, Tasten, Maus (Paket 8)
+            case B.figProp: return [`${FIGURE_PROPS.find(([, v]) => v === f.PROP)?.[0] ?? "x-Position"} von ${name}`, P.NONE];
+            case B.figTouches: return [`${name} berührt ${f.OTHER ?? "…"}`, P.EQ];
+            case B.figOutside: return [`${name} ist außerhalb des Fensters`, P.EQ];
+            case B.keyDown: return [`Taste „${keyLabel(f.KEY ?? "")}“ gedrückt`, P.EQ];
+            case B.mouseDown: return [f.WHAT === "clicked" ? "Maus wurde geklickt" : "Maustaste gedrückt", P.EQ];
+            case B.mouseOver: return [f.WHAT === "clicked" ? `Mausklick auf ${name}` : `Maus ist über ${name}`, P.EQ];
+            case B.mouseXY: return [f.AXIS === "y" ? "y-Position der Maus" : "x-Position der Maus", P.NONE];
         }
         return ["…", P.ATOM];
     }
@@ -320,6 +329,25 @@ class Converter {
             case B.thisAttrSet: return this.stmt(`this.${name} ← ${v("V")}`);
             case B.objCall: return this.stmt(`${e.receiver(b)}.${f.METHOD}${e.args(b)}`);
             case B.objAttrSet: return this.stmt(`${e.receiver(b)}.${f.ATTR} ← ${v("V")}`);
+            // Figuren (Paket 8)
+            case B.worldNew: return this.stmt(`Grafikfenster ${v("W")} × ${v("H")}, Hintergrund ${colourLabel(f.COLOR ?? "white")}`);
+            case B.figCircle: return this.stmt(`${name} ← neuer Kreis, Mittelpunkt (${v("X")} | ${v("Y")}), Radius ${v("R")}`);
+            case B.figRect: return this.stmt(`${name} ← neues Rechteck, links oben (${v("X")} | ${v("Y")}), Breite ${v("W")}, Höhe ${v("H")}`);
+            case B.figText: return this.stmt(`${name} ← neuer Text ${v("TEXT")} bei (${v("X")} | ${v("Y")}), Größe ${v("SIZE")}`);
+            case B.figSprite: return this.stmt(`${name} ← neues Sprite bei (${v("X")} | ${v("Y")}), Bild ${f.IMG ?? "…"} Nr. ${v("INDEX")}`);
+            case B.figMove: return this.stmt(`bewege ${name} um (${v("DX")} | ${v("DY")})`);
+            case B.figMoveTo: return this.stmt(`setze ${name} auf Position (${v("X")} | ${v("Y")})`);
+            case B.figRotate: return this.stmt(`drehe ${name} um ${v("A")} Grad`);
+            case B.figForward: return this.stmt(`gehe mit ${name} ${v("D")} Schritte in Blickrichtung`);
+            case B.figScale: return this.stmt(`vergrößere ${name} um Faktor ${v("F")}`);
+            case B.figColor: return this.stmt(`färbe ${name} ${colourLabel(f.COLOR ?? "red")}`);
+            case B.figSetText: return this.stmt(`setze Inhalt von ${name} auf ${v("TEXT")}`);
+            case B.figSetImage: return this.stmt(`setze Bildnummer von ${name} auf ${v("I")}`);
+            case B.figAction: {
+                const label = FIGURE_ACTIONS.find(([, value]) => value === f.ACTION)?.[0] ?? "zeige";
+                const [verb, ...rest] = label.split(" ");
+                return this.stmt([verb, name, ...rest].join(" "));
+            }
             // Java-Text
             case B.javaStatement: return this.stmt(neutral(f.CODE ?? ""));
             case B.javaRaw: return this.stmt((b.extraState?.code ?? "").split("\n").map((l) => neutral(l)).join("\n"));

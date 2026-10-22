@@ -2,6 +2,7 @@ import { Lexer } from "../../compiler/java/lexer/Lexer";
 import { TokenType } from "../../compiler/java/TokenType";
 import { B, COLLECTION_CALLS, elementJavaType, INPUT_METHODS, MATH_FUNCTIONS, VAR_TYPES, type BlockState, type CollKind, type Param, type WorkspaceState } from "./BlockTypes";
 import { attributesOf, collectionOfType, collectionType, findMethod, isClassType, methodsOf, typeInfo, unwrap, type ClassInfo, type ClassMap } from "./ClassModel";
+import { FIGURE_ACTIONS, FIGURE_CALLS, FIGURE_CREATIONS, FIGURE_PROPS, FILLED, isFigureClass, type FigureClass } from "./FigureSpec";
 
 /**
  * Java -> Blöcke. Eigener kleiner Parser für den Teil von Java, den es als Blöcke gibt
@@ -579,6 +580,11 @@ export class JavaBlockParser {
         const begin = this.pos;
         const t = this.peek()!;
 
+        if (t.tt === TokenType.keywordNew) {
+            const w = this.worldStatement();
+            if (w) return w;
+        }
+
         switch (t.tt) {
             case TokenType.keywordPrint:
             case TokenType.keywordPrintln: {
@@ -908,6 +914,10 @@ export class JavaBlockParser {
             if ((info.kind === "array" || info.kind === "array2d") && (isNew || valueTok?.tt === TokenType.leftCurlyBracket)) return this.arrayDeclaration();
             if (info.kind === "list" && isNew && this.toks[decl.next + 3]?.value === "ArrayList") return this.listDeclaration();
             if (info.kind === "dyn" && isNew && this.toks[decl.next + 3]?.value === "DynArray") return this.dynDeclaration();
+            if (isFigureClass(decl.type) && isNew) {
+                const f = this.figureDeclaration(decl.type, String(declName.value), decl.next + 2);
+                if (f) return f;
+            }
             this.pos = decl.next + 1;
             const fields = { TYPE: decl.type, NAME: String(declName.value) };
             this.vars.set(fields.NAME, decl.type);
@@ -926,6 +936,11 @@ export class JavaBlockParser {
         }
 
         const name = String(first.value);
+        const figureType = this.vars.get(name);
+        if (isFigureClass(figureType) && second.tt === TokenType.dot) {
+            const f = this.figureStatement(name, figureType);
+            if (f) return f;
+        }
         const coll = this.collection(name);
         if (coll) {
             const b = this.collectionStatement(name, coll.kind);
@@ -983,6 +998,110 @@ export class JavaBlockParser {
         // Operation eines Objekts usw.: obj.m(…);  obj.attr = …;
         if (second.tt === TokenType.dot || second.tt === TokenType.leftSquareBracket) return this.expressionStatement();
         return undefined;
+    }
+
+    // ------------------------------------------------------------------ Figuren (Paket 8)
+
+    /** Argumente zwischen den Klammern open und close als [von, bis) – undefined bei leerem Argument */
+    private argBounds(open: number, close: number): [number, number][] | undefined {
+        if (close === open + 1) return [];
+        const bounds = [open, ...this.topLevelCommas(open + 1, close), close];
+        const result: [number, number][] = [];
+        for (let i = 0; i < bounds.length - 1; i++) {
+            if (bounds[i + 1] === bounds[i] + 1) return undefined;
+            result.push([bounds[i] + 1, bounds[i + 1]]);
+        }
+        return result;
+    }
+
+    /** Farbe als Argument: "red" oder Color.randomColor() */
+    private colourArg(from: number, to: number): string | undefined {
+        const t = this.toks[from];
+        if (to === from + 1 && t?.tt === TokenType.stringLiteral) return String(t.value);
+        if (this.text(from, to).replace(/\s/g, "") === "Color.randomColor()") return "random";
+        return undefined;
+    }
+
+    /** Circle ball = new Circle(x, y, r);  …  Sprite figur = new Sprite(x, y, SpriteLibrary.Bild, nr); */
+    private figureDeclaration(cls: FigureClass, name: string, newIndex: number): BlockState | undefined {
+        const begin = this.pos;
+        const creation = FIGURE_CREATIONS.find((c) => c.cls === cls)!;
+        const open = newIndex + 2;
+        if (this.toks[newIndex + 1]?.value !== cls || this.toks[open]?.tt !== TokenType.leftBracket) return undefined;
+        const close = this.matching(open);
+        if (this.toks[close + 1]?.tt !== TokenType.semicolon) return undefined;
+        const args = this.argBounds(open, close);
+        if (!args || args.length !== creation.inputs.length) return undefined;
+        const fields: Record<string, string> = { NAME: name };
+        for (let i = 0; i < args.length; i++) {
+            if (creation.inputs[i] !== "IMG") continue;
+            const [from, to] = args[i];
+            if (to !== from + 3 || this.toks[from].value !== "SpriteLibrary" || this.toks[from + 1].tt !== TokenType.dot
+                || this.toks[from + 2].tt !== TokenType.identifier) return undefined;
+            fields.IMG = String(this.toks[from + 2].value);
+        }
+        const inputs: Record<string, { block: BlockState }> = {};
+        creation.inputs.forEach((input, i) => {
+            if (input !== "IMG") inputs[input] = { block: this.expression(args[i][0], args[i][1]) };
+        });
+        this.pos = close + 2;
+        this.vars.set(name, cls);
+        const b = this.block(creation.block, begin, this.pos, { fields });
+        b.inputs = inputs;
+        return b;
+    }
+
+    /** ball.move(5, 0);  ball.setFillColor("red");  ball.destroy();  … */
+    private figureStatement(name: string, cls: FigureClass): BlockState | undefined {
+        const begin = this.pos;
+        const m = this.toks[begin + 2], open = begin + 3;
+        if (m?.tt !== TokenType.identifier || this.toks[open]?.tt !== TokenType.leftBracket) return undefined;
+        const close = this.matching(open);
+        if (this.toks[close + 1]?.tt !== TokenType.semicolon) return undefined;
+        const args = this.argBounds(open, close);
+        if (!args) return undefined;
+        const method = String(m.value);
+        const done = (type: string, fields: Record<string, string>, inputs?: Record<string, { block: BlockState }>) => {
+            this.pos = close + 2;
+            const b = this.block(type, begin, this.pos, { fields: { ...fields, NAME: name } });
+            if (inputs) b.inputs = inputs;
+            return b;
+        };
+        const call = FIGURE_CALLS.find((c) => c.method === method && c.inputs.length === args.length && (!c.kinds || c.kinds.includes(cls)));
+        if (call) {
+            const inputs: Record<string, { block: BlockState }> = {};
+            call.inputs.forEach((input, i) => { inputs[input] = { block: this.expression(args[i][0], args[i][1]) }; });
+            return done(call.block, {}, inputs);
+        }
+        if (method === "setFillColor" && args.length === 1 && FILLED.includes(cls)) {
+            const colour = this.colourArg(args[0][0], args[0][1]);
+            return colour === undefined ? undefined : done(B.figColor, { COLOR: colour });
+        }
+        const callText = `${method}(${this.text(open + 1, close).trim()})`;
+        const action = FIGURE_ACTIONS.find(([, , java]) => java === callText);
+        if (action) return done(B.figAction, { ACTION: action[1] });
+        return undefined;
+    }
+
+    /** new World(800, 600).setBackgroundColor("black"); */
+    private worldStatement(): BlockState | undefined {
+        const begin = this.pos;
+        if (this.toks[begin + 1]?.value !== "World" || this.toks[begin + 2]?.tt !== TokenType.leftBracket) return undefined;
+        const close = this.matching(begin + 2);
+        const size = this.argBounds(begin + 2, close);
+        if (!size || size.length !== 2) return undefined;
+        if (this.toks[close + 1]?.tt !== TokenType.dot || this.toks[close + 2]?.value !== "setBackgroundColor"
+            || this.toks[close + 3]?.tt !== TokenType.leftBracket) return undefined;
+        const close2 = this.matching(close + 3);
+        if (this.toks[close2 + 1]?.tt !== TokenType.semicolon) return undefined;
+        const colourArgs = this.argBounds(close + 3, close2);
+        const colour = colourArgs?.length === 1 ? this.colourArg(colourArgs[0][0], colourArgs[0][1]) : undefined;
+        if (colour === undefined) return undefined;
+        const inputs = { W: { block: this.expression(size[0][0], size[0][1]) }, H: { block: this.expression(size[1][0], size[1][1]) } };
+        this.pos = close2 + 2;
+        const b = this.block(B.worldNew, begin, this.pos, { fields: { COLOR: colour } });
+        b.inputs = inputs;
+        return b;
     }
 
     // ------------------------------------------------------------------ Reihungen und Listen
@@ -1410,6 +1529,14 @@ class ExpressionParser {
     private postfix(base: BlockState, start: number): BlockState {
         let b = base;
         while (this.peek()?.tt === TokenType.dot) {
+            // Figur: ball.getCenterX(), ball.collidesWith(wand), ball.isOutsideView()
+            if (b.type === B.varGet && isFigureClass(this.p.staticType(b))) {
+                const fig = this.figureValue(String(b.fields?.NAME ?? ""));
+                if (fig) {
+                    b = fig;
+                    continue;
+                }
+            }
             // Objekt: obj.operation(…) bzw. obj.attribut
             if (isClassType(this.p.staticType(b))) {
                 const nameTok = this.p.tok(this.pos + 1);
@@ -1567,6 +1694,24 @@ class ExpressionParser {
     }
 
     /** Input.readInt("…"), Random.randint(a, b), Math.sqrt(x) */
+    /** Wert einer Figur hinter dem Punkt (this.pos zeigt auf den Punkt) */
+    private figureValue(name: string): BlockState | undefined {
+        const m = this.p.tok(this.pos + 1), openIndex = this.pos + 2;
+        if (m?.tt !== TokenType.identifier || openIndex >= this.to || this.p.tok(openIndex)?.tt !== TokenType.leftBracket) return undefined;
+        const close = this.p.matchingBracket(openIndex);
+        if (close >= this.to) return undefined;
+        const method = String(m.value);
+        let result: BlockState | undefined;
+        const prop = FIGURE_PROPS.find(([, , java]) => java === method);
+        if (prop && close === openIndex + 1) result = this.p.value(B.figProp, { fields: { PROP: prop[1], NAME: name } });
+        else if (method === "isOutsideView" && close === openIndex + 1) result = this.p.value(B.figOutside, { fields: { NAME: name } });
+        else if (method === "collidesWith" && close === openIndex + 2 && this.p.tok(openIndex + 1)?.tt === TokenType.identifier) {
+            result = this.p.value(B.figTouches, { fields: { NAME: name, OTHER: String(this.p.tok(openIndex + 1)!.value) } });
+        }
+        if (result) this.pos = close + 1;
+        return result;
+    }
+
     private knownCall(): BlockState | undefined {
         const a = this.p.tok(this.pos), dot = this.p.tok(this.pos + 1), m = this.p.tok(this.pos + 2), open = this.p.tok(this.pos + 3);
         if (!a || !dot || !m || !open || dot.tt !== TokenType.dot || m.tt !== TokenType.identifier || open.tt !== TokenType.leftBracket) return undefined;
@@ -1593,6 +1738,14 @@ class ExpressionParser {
             const [[f1, t1], [f2, t2]] = args();
             if (f1 === t1 || f2 === t2) return undefined;
             result = this.p.value(B.minMax, { fields: { FUNC: method }, inputs: { A: { block: this.p.subExpression(f1, t1) }, B: { block: this.p.subExpression(f2, t2) } } });
+        } else if (cls === "Input" && method === "isKeyDown" && close === openIndex + 2 && this.p.tok(openIndex + 1)?.tt === TokenType.stringLiteral) {
+            result = this.p.value(B.keyDown, { fields: { KEY: String(this.p.tok(openIndex + 1)!.value) } });
+        } else if (cls === "Mouse" && (method === "isDown" || method === "wasClicked") && close === openIndex + 1) {
+            result = this.p.value(B.mouseDown, { fields: { WHAT: method === "isDown" ? "down" : "clicked" } });
+        } else if (cls === "Mouse" && (method === "getX" || method === "getY") && close === openIndex + 1) {
+            result = this.p.value(B.mouseXY, { fields: { AXIS: method === "getX" ? "x" : "y" } });
+        } else if (cls === "Mouse" && (method === "isOver" || method === "wasClicked") && close === openIndex + 2 && this.p.tok(openIndex + 1)?.tt === TokenType.identifier) {
+            result = this.p.value(B.mouseOver, { fields: { WHAT: method === "isOver" ? "over" : "clicked", NAME: String(this.p.tok(openIndex + 1)!.value) } });
         } else if (cls === "Math" && method === "random" && close === openIndex + 1) {
             result = this.p.value(B.randomDouble);
         } else if (cls === "Math" && (MATH_FUNCTIONS as readonly string[]).includes(method) && commas.length === 0 && close > openIndex + 1) {

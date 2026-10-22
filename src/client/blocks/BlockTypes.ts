@@ -85,6 +85,29 @@ export const B = {
     objAttrGet: "j_obj_attr_get",   // Feld ATTR; Eingang OBJ  (obj.attr)
     objAttrSet: "j_obj_attr_set",   // Feld ATTR; Eingänge OBJ, V  (obj.attr = v;)
 
+    // Figuren und Sprites (Paket 8): Feld NAME = Name der Figur (Variable)
+    worldNew: "j_world_new",        // Feld COLOR; Eingänge W, H  (new World(b, h).setBackgroundColor("black");)
+    figCircle: "j_fig_circle",      // Feld NAME; Eingänge X, Y, R  (Circle ball = new Circle(x, y, r);)
+    figRect: "j_fig_rect",          // Feld NAME; Eingänge X, Y, W, H  (Rectangle wand = new Rectangle(x, y, b, h);)
+    figText: "j_fig_text",          // Feld NAME; Eingänge X, Y, SIZE, TEXT  (Text anzeige = new Text(x, y, größe, "…");)
+    figSprite: "j_fig_sprite",      // Felder NAME, IMG; Eingänge X, Y, INDEX  (Sprite figur = new Sprite(x, y, SpriteLibrary.Bild, nr);)
+    figMove: "j_fig_move",          // Feld NAME; Eingänge DX, DY  (f.move(dx, dy);)
+    figMoveTo: "j_fig_moveto",      // Feld NAME; Eingänge X, Y  (f.moveTo(x, y);)
+    figRotate: "j_fig_rotate",      // Feld NAME; Eingang A  (f.rotate(grad);)
+    figForward: "j_fig_forward",    // Feld NAME; Eingang D  (f.forward(schritte);)
+    figScale: "j_fig_scale",        // Feld NAME; Eingang F  (f.scale(faktor);)
+    figSetText: "j_fig_settext",    // Feld NAME; Eingang TEXT  (anzeige.setText(…);)
+    figSetImage: "j_fig_setimage",  // Feld NAME; Eingang I  (figur.setImageIndex(nr);)
+    figColor: "j_fig_color",        // Felder NAME, COLOR  (f.setFillColor("red");)
+    figAction: "j_fig_action",      // Felder ACTION (show/hide/front/back/destroy), NAME
+    figProp: "j_fig_prop",          // Felder PROP (x/y/angle), NAME  (f.getCenterX() …)
+    figTouches: "j_fig_touches",    // Felder NAME, OTHER  (f.collidesWith(g))
+    figOutside: "j_fig_outside",    // Feld NAME  (f.isOutsideView())
+    keyDown: "j_key_down",          // Feld KEY  (Input.isKeyDown("ArrowRight"))
+    mouseDown: "j_mouse_down",      // Feld WHAT (down/clicked)  (Mouse.isDown() / Mouse.wasClicked())
+    mouseOver: "j_mouse_over",      // Felder WHAT (over/clicked), NAME  (Mouse.isOver(f) / Mouse.wasClicked(f))
+    mouseXY: "j_mouse_xy",          // Feld AXIS (x/y)  (Mouse.getX() / Mouse.getY())
+
     // nur für Struktogramme (keine Blöcke): mehrseitige Auswahl, fußgesteuerte Schleife
     switch: "s_switch",             // Eingänge SUBJECT, CASE0 …; extraState { labels } ("" = sonst)
     doWhile: "s_do_while",          // Eingang COND; Anweisungen DO

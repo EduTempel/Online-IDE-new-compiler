@@ -5,6 +5,8 @@ import type { Main } from "../main/Main";
 import type { GUIFile } from "../workspace/File";
 import { defineBlocks, theme, toolbox, VARIABLES_CATEGORY, variablesFlyout } from "./BlockDefinitions";
 import { handleRename, OPERATIONS_CATEGORY, operationsFlyout, syncCalls } from "./BlockOperations";
+import { FIGURES_CATEGORY, figuresFlyout, INPUT_CATEGORY, inputFlyout, setSpriteSource } from "./BlockFigures";
+import { createSpriteSource } from "./SpritePreview";
 import { ADT_CATEGORY, adtFlyout, ARRAYS_CATEGORY, arraysFlyout, LISTS_CATEGORY, listsFlyout } from "./BlockCollections";
 import { CLASSES_CATEGORY, classesFlyout, OBJECTS_CATEGORY, objectsFlyout } from "./BlockClasses";
 import { classInfosFromState, type ClassInfo } from "./ClassModel";
@@ -197,6 +199,9 @@ export class BlockView {
         this.ws.registerToolboxCategoryCallback(ARRAYS_CATEGORY, (w) => arraysFlyout(w));
         this.ws.registerToolboxCategoryCallback(LISTS_CATEGORY, (w) => listsFlyout(w));
         this.ws.registerToolboxCategoryCallback(ADT_CATEGORY, (w) => adtFlyout(w));
+        this.ws.registerToolboxCategoryCallback(FIGURES_CATEGORY, (w) => figuresFlyout(w));
+        this.ws.registerToolboxCategoryCallback(INPUT_CATEGORY, (w) => inputFlyout(w));
+        setSpriteSource(createSpriteSource(this.main));   // Bilder für den Sprite-Block
         this.ws.registerToolboxCategoryCallback(CLASSES_CATEGORY, (w) => classesFlyout(w));
         this.ws.registerToolboxCategoryCallback(OBJECTS_CATEGORY, (w) => objectsFlyout(w));
     }

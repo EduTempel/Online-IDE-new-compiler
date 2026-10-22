@@ -13,7 +13,7 @@ const bloeckeDev = {
     name: "gsg-bloecke-dev",
     configureServer(server: { middlewares: { use(fn: (req: { url?: string }, res: unknown, next: () => void) => void): void } }) {
         server.middlewares.use((req, _res, next) => {
-            if (req.url && /^\/(bloecke|struktogramme)(\/|$|\?)/.test(req.url) && !/^\/(bloecke|struktogramme)\/(servlet|sendUpdates)/.test(req.url)) {
+            if (req.url && /^\/(bloecke|struktogramme)(\/|$|\?)/.test(req.url) && !/^\/(bloecke|struktogramme)\/(servlet|sendUpdates|sprites)/.test(req.url)) {
                 req.url = req.url.replace(/^\/(bloecke|struktogramme)\/?/, "/");
             }
             next();
@@ -82,6 +82,9 @@ export default {
             '/bloecke/sendUpdates': { target: 'http://' + serverIP + ':5500', rewrite: (p: string) => p.replace(/^\/bloecke/, '') },
             '/struktogramme/servlet': { target: 'http://' + serverIP + ':5500', rewrite: (p: string) => p.replace(/^\/struktogramme/, '') },
             '/struktogramme/sendUpdates': { target: 'http://' + serverIP + ':5500', rewrite: (p: string) => p.replace(/^\/struktogramme/, '') },
+            // eigene Sprite-Bilder (Bildtafeln der Projekte)
+            '/bloecke/sprites': { target: 'http://' + serverIP + ':5500', rewrite: (p: string) => p.replace(/^\/bloecke/, '') },
+            '/struktogramme/sprites': { target: 'http://' + serverIP + ':5500', rewrite: (p: string) => p.replace(/^\/struktogramme/, '') },
             // '/servlet/subscriptionwebsocket': { target: 'ws://localhost:5500', ws: true },
         }, 
         port: 3000

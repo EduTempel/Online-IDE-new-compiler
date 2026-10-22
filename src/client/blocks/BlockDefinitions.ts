@@ -3,6 +3,7 @@ import { B } from "./BlockTypes";
 import { collectVariables, variablesFor } from "./BlockTypeSystem";
 import { defineIfBlock, definePrintBlock } from "./BlockMutators";
 import { defineOperationBlocks, OPERATIONS_CATEGORY, OPERATIONS_COLOUR } from "./BlockOperations";
+import { defineFigureBlocks, FIGURES_CATEGORY, FIGURES_COLOUR, INPUT_CATEGORY, INPUT_COLOUR } from "./BlockFigures";
 import { ADT_CATEGORY, ADT_COLOUR, ARRAYS_CATEGORY, ARRAYS_COLOUR, defineCollectionBlocks, LISTS_CATEGORY, LISTS_COLOUR } from "./BlockCollections";
 import { CLASSES_CATEGORY, CLASSES_COLOUR, defineClassBlocks, OBJECTS_CATEGORY, OBJECTS_COLOUR } from "./BlockClasses";
 import { registerTypeField } from "./BlockFields";
@@ -104,6 +105,7 @@ export function defineBlocks() {
     defineOperationBlocks((json) => Blockly.common.defineBlocksWithJsonArray(json));
     defineCollectionBlocks((json) => Blockly.common.defineBlocksWithJsonArray(json));
     defineClassBlocks((json) => Blockly.common.defineBlocksWithJsonArray(json));
+    defineFigureBlocks((json) => Blockly.common.defineBlocksWithJsonArray(json));
 
     Blockly.common.defineBlocksWithJsonArray([
         {
@@ -395,7 +397,7 @@ export function defineBlocks() {
 }
 
 export const VARIABLES_CATEGORY = "GSG_VARIABLES";
-export { OPERATIONS_CATEGORY, ARRAYS_CATEGORY, LISTS_CATEGORY, ADT_CATEGORY, CLASSES_CATEGORY, OBJECTS_CATEGORY };
+export { OPERATIONS_CATEGORY, ARRAYS_CATEGORY, LISTS_CATEGORY, ADT_CATEGORY, CLASSES_CATEGORY, OBJECTS_CATEGORY, FIGURES_CATEGORY, INPUT_CATEGORY };
 
 /**
  * Inhalt der Kategorie "Variablen": neue Variablen (je Typ mit passendem Startwert) und
@@ -501,6 +503,8 @@ export function toolbox(): Blockly.utils.toolbox.ToolboxDefinition {
                     blk(B.cast, { fields: { TYPE: "char" }, inputs: { VALUE: num("65") } }),
                 ],
             },
+            { kind: "category", name: "Figuren", colour: FIGURES_COLOUR, custom: FIGURES_CATEGORY },
+            { kind: "category", name: "Tasten & Maus", colour: INPUT_COLOUR, custom: INPUT_CATEGORY },
             { kind: "category", name: "Reihungen", colour: ARRAYS_COLOUR, custom: ARRAYS_CATEGORY },
             { kind: "category", name: "Listen", colour: LISTS_COLOUR, custom: LISTS_CATEGORY },
             { kind: "category", name: "ADT", colour: ADT_COLOUR, custom: ADT_CATEGORY },

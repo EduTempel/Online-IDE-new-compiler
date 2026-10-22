@@ -176,9 +176,17 @@ export class BlockModeController {
 
         const editorDiv = document.getElementById("editor")!;
         if (mode === "java") {
+            // Die Trenner setzen beim Ziehen die Größe von #editor aus seiner aktuellen Größe – in der
+            // Blockansicht ist er ausgeblendet (Größe 0) und bekäme falsche Werte. Darum die Größe der
+            // Blockfläche übernehmen, die gerade zu sehen war.
+            const shown = this.host.style.display !== "none" ? this.host.getBoundingClientRect() : undefined;
             this.view?.hide();
             this.host.style.display = "none";
             editorDiv.style.display = "";
+            if (shown && shown.width > 0) {
+                if (/px$/.test(editorDiv.style.width)) editorDiv.style.width = Math.round(shown.width) + "px";
+                if (/px$/.test(editorDiv.style.height)) editorDiv.style.height = Math.round(shown.height) + "px";
+            }
             this.main.getMainEditor().layout();
             return;
         }
