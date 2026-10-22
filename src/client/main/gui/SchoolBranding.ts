@@ -18,11 +18,20 @@ export const SCHOOL_ADMIN_URL = "/verwaltung/";
 /** Startseite des eigenen Backends: Anwendungen, Projekte per Link teilen */
 export const SCHOOL_START_URL = "/start/";
 
+/** Anwendung "Blöcke" (dieselbe IDE unter /bloecke/): Titel, Überschrift und IServ-Rücksprung anpassen */
+function applyAppBranding() {
+    if (!/^\/bloecke(\/|$)/.test(location.pathname)) return;
+    document.title = "Blöcke · GSG Osnabrück";
+    document.querySelectorAll<HTMLElement>(".gsg-login-title").forEach((el) => (el.textContent = "Blöcke"));
+    document.querySelectorAll<HTMLAnchorElement>("a.gsg-iserv-button").forEach((a) => (a.href = "/auth/iserv/login?app=bloecke"));
+}
+
 /**
  * Login-Seite: Knopf "Mit IServ anmelden" zeigen, wenn der Server IServ eingerichtet hat
  * (Elemente mit Klasse gsg-iserv-only in index.html, Abfrage /api/login-optionen des Backends).
  */
 export function showIServLoginIfEnabled() {
+    applyAppBranding();
     fetch("/api/login-optionen")
         .then((r) => (r.ok ? r.json() : { iserv: false }))
         .then((o: { iserv?: boolean }) => {

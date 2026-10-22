@@ -3,6 +3,7 @@ import type { Main } from "../main/Main";
 import type { GUIFile } from "../workspace/File";
 import type { Workspace } from "../workspace/Workspace";
 import type { BlockView } from "./BlockView";
+import { Constants } from "../Constants";
 import "/assets/css/gsg-blocks.css";
 
 /**
@@ -69,8 +70,14 @@ export class BlockModeController {
         return !!u && (u.is_teacher || u.is_admin || u.is_schooladmin);
     }
 
+    /**
+     * Java-Ansicht gesperrt? Lehrkräfte dürfen immer. In der Anwendung "Blöcke" nur, wenn die
+     * Lerngruppe es erlaubt (Freigabe "Java-Ansicht in Blöcke"); sonst nach Projekteinstellung.
+     */
     private javaLocked(): boolean {
-        return !!blockSettingsOf(this.main.getCurrentWorkspace()).javaLocked && !this.isStaff();
+        if (this.isStaff()) return false;
+        if (Constants.isBlocksApp && !(this.main.user as { gsgFreigaben?: { bloeckeJava?: boolean } } | undefined)?.gsgFreigaben?.bloeckeJava) return true;
+        return !!blockSettingsOf(this.main.getCurrentWorkspace()).javaLocked;
     }
 
     private currentFile(): GUIFile | undefined {
@@ -89,7 +96,8 @@ export class BlockModeController {
             this.apply("java");
             return;
         }
-        let mode: Mode = this.chosenMode.get(file) ?? (blockSettingsOf(this.main.getCurrentWorkspace()).start ? "blocks" : "java");
+        const startInBlocks = Constants.isBlocksApp || !!blockSettingsOf(this.main.getCurrentWorkspace()).start;
+        let mode: Mode = this.chosenMode.get(file) ?? (startInBlocks ? "blocks" : "java");
         if (this.javaLocked()) mode = "blocks";
         this.apply(mode);
     }
@@ -111,7 +119,8 @@ export class BlockModeController {
         this.$javaButton.toggleClass("active", mode === "java").attr("aria-pressed", String(mode === "java"));
         const locked = this.javaLocked();
         this.$javaButton.prop("disabled", locked).attr("title", locked
-            ? "Die Java-Ansicht ist für dieses Projekt von der Lehrkraft gesperrt."
+            ? (Constants.isBlocksApp ? "Die Java-Ansicht ist für deine Lerngruppe (noch) nicht freigegeben."
+                : "Die Java-Ansicht ist für dieses Projekt von der Lehrkraft gesperrt.")
             : "Programm als Java-Text bearbeiten");
 
         const editorDiv = document.getElementById("editor")!;

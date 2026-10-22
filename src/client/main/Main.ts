@@ -39,6 +39,8 @@ import { TeacherExplorer } from "./gui/TeacherExplorer.js";
 import { ThemeManager } from "./gui/ThemeManager.js";
 import { ViewModeController } from "./gui/ViewModeController.js";
 import { BlockModeController } from "../blocks/BlockModeController.js";
+import { portalSingleUseToken } from "./gui/SchoolStartPage.js";
+import { Constants } from "../Constants.js";
 import { WindowStateManager } from "./gui/WindowStateManager.js";
 import { Login } from "./Login.js";
 import { MainBase } from "./MainBase.js";
@@ -194,6 +196,12 @@ export class Main implements MainBase {
         if (singleUseToken) {
             this.login.initGUI();
             this.login.loginWithVidisOrAutoLogin(singleUseToken, loggedInWithVidis);
+        } else if (findGetParameter("abgemeldet") == null) {
+            // auf der Startseite schon angemeldet? Dann ohne Passwort weiter (GSG)
+            this.login.initGUI();
+            portalSingleUseToken(Constants.isBlocksApp ? "bloecke" : "java").then((token) => {
+                if (token) this.login.loginWithVidisOrAutoLogin(token, false);
+            });
         } else {
             this.login.initGUI();
         }

@@ -7,6 +7,26 @@ import type { BaseResponse } from "../../communication/Data.js";
 import { SCHOOL_START_URL } from "./SchoolBranding.js";
 
 /**
+ * Ist auf der Startseite schon jemand angemeldet (und ist die Anwendung freigegeben)? Dann gibt
+ * das Backend ein Einmal-Token, mit dem sich die IDE ohne Passwort anmeldet.
+ */
+export async function portalSingleUseToken(app: "java" | "sql" | "bloecke"): Promise<string | null> {
+    try {
+        const response = await fetch("/api/start/ide-anmeldung", {
+            method: "POST",
+            headers: { "content-type": "application/json", "x-gsg-ide": "1" },
+            body: JSON.stringify({ app }),
+            credentials: "same-origin",
+        });
+        if (!response.ok) return null;
+        const data = await response.json() as { ok?: boolean; singleUseToken?: string };
+        return data.ok && data.singleUseToken ? data.singleUseToken : null;
+    } catch {
+        return null;
+    }
+}
+
+/**
  * Öffnet die Startseite in einem neuen Tab und meldet dort mit einem Einmal-Token an.
  * Mit workspaceId ist dort gleich das Formular "Projekt per Link teilen" für dieses Projekt offen.
  * Der Tab wird sofort geöffnet (sonst blockiert der Browser ihn nach der Anfrage als Pop-up).

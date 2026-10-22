@@ -60,6 +60,8 @@
     padding: 0 6px;
     border-bottom: 1px solid var(--slider, #444);
     font: 12px Roboto, "Segoe UI", sans-serif;
+    white-space: nowrap;
+    overflow: hidden;
 }
 
 .gsg-blocks-bar button {
