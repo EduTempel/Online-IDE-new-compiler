@@ -18,6 +18,8 @@ export class FileTypeManager {
         { name: "XML-Datei", file_type: 1, iconclass: "img_file-dark-xml", language: "xml", suffix: ".xml" },
         { name: "CSV-Datei", file_type: 1, iconclass: "img_file-dark-csv", language: "csv", suffix: ".csv" },
         { name: "Markup", file_type: 1, iconclass: "img_file-dark-md", language: "md", suffix: ".md" },
+        // GSG: Struktogramm-Dateien (JSON, eigener Editor im Blockmodus-Paket)
+        { name: "Struktogramm", file_type: 1, iconclass: "img_file-dark-struktogramm", language: "json", suffix: ".struktogramm" },
         { name: "Assembler-Quelltext", file_type: 0, iconclass: "img_file-dark-assembly", language: ProgrammingLanguageData.ByAssembly.monacoLanguageSelector, suffix: "." + ProgrammingLanguageData.ByAssembly.fileEndingWithOutDot }
     ];
 

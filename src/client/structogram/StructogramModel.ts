@@ -15,12 +15,13 @@ import { methodParams, typeInfo, type ClassInfo } from "../blocks/ClassModel";
  * erscheint als (leicht übersetzter) Java-Text.
  */
 
+/** id: Kennung (nur im Editor für Struktogramm-Dateien) */
 export type SNode =
-    | { kind: "stmt"; text: string; line?: number }
-    | { kind: "if"; cond: string; yes: SNode[]; no: SNode[] }
-    | { kind: "switch"; subject: string; cases: { label: string; body: SNode[] }[]; other?: SNode[] }
-    | { kind: "loop"; head: string; body: SNode[] }
-    | { kind: "footloop"; foot: string; body: SNode[] };
+    | { kind: "stmt"; text: string; id?: string }
+    | { kind: "if"; cond: string; yes: SNode[]; no: SNode[]; id?: string }
+    | { kind: "switch"; subject: string; cases: { label: string; body: SNode[] }[]; other?: SNode[]; id?: string }
+    | { kind: "loop"; head: string; body: SNode[]; id?: string }
+    | { kind: "footloop"; foot: string; body: SNode[]; id?: string };
 
 export type Diagram = { title: string; group?: string; body: SNode[] };
 
@@ -337,7 +338,9 @@ export function diagramsFromJava(code: string, classes: ClassInfo[] = []): Diagr
     const start = top.find((b) => b.type === B.start);
     const mainBody = new Converter().seq(start?.inputs?.BODY?.block);
     const others = top.filter((b) => b.type !== B.start).sort((a, b) => (a.y ?? 0) - (b.y ?? 0));
-    if (mainBody.length || !others.length) result.push({ title: "Hauptprogramm", body: mainBody });
+    // Hauptprogramm nur, wenn es mehr als Kommentare enthält (oder es sonst nichts gibt)
+    const onlyComments = mainBody.every((n) => n.kind === "stmt" && n.text.startsWith("//"));
+    if ((mainBody.length && !onlyComments) || !others.length) result.push({ title: "Hauptprogramm", body: mainBody });
     for (const h of others) {
         if (h.type === B.method) {
             const params = methodParams(h);

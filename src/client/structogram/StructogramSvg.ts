@@ -27,8 +27,50 @@ const text = (out: string[], x: number, y: number, s: string, anchor: "start" | 
 
 const BASE = STYLE.line * 0.7;
 
+/**
+ * Für den Editor (Struktogramm-Dateien): anklickbare Bereiche (data-sel = Kennung, data-slot =
+ * leere Folge), Hervorhebung der Auswahl, "(leer)" in leeren Zweigen, "?" an Text, der in Java
+ * ein TODO würde. Ohne diese Angaben sieht das Bild aus wie zum Drucken.
+ */
+export type RenderOptions = {
+    interactive?: boolean;
+    selected?: string;
+    unrecognized?: (kind: SNode["kind"], text: string) => boolean;
+};
+
+const SELECT_COLOUR = "#0a66d6";
+
 class Layout {
-    constructor(private measure: Measure) { }
+    /** wird nach dem Inhalt gezeichnet (Hervorhebung, Hinweise) */
+    over: string[] = [];
+
+    constructor(private measure: Measure, private opts: RenderOptions = {}) { }
+
+    /** anklickbarer Bereich */
+    private hit(out: string[], x: number, y: number, w: number, h: number, attr: string) {
+        if (!this.opts.interactive) return;
+        out.push(`<rect class="gsg-hit" ${attr} x="${n(x)}" y="${n(y)}" width="${n(w)}" height="${n(h)}" fill="rgba(0,0,0,0)"/>`);
+    }
+
+    /** ausgewählt: ganze Fläche (Anweisung) bzw. Umriss und Kopf (zusammengesetzt) hervorheben */
+    private mark(id: string | undefined, whole: [number, number, number, number], head?: [number, number, number, number]) {
+        if (!this.opts.interactive || !id || id !== this.opts.selected) return;
+        const [x, y, w, h] = whole;
+        if (head) {
+            const [hx, hy, hw, hh] = head;
+            this.over.push(`<rect x="${n(hx)}" y="${n(hy)}" width="${n(hw)}" height="${n(hh)}" fill="rgba(10,102,214,.13)" pointer-events="none"/>`);
+        } else {
+            this.over.push(`<rect x="${n(x)}" y="${n(y)}" width="${n(w)}" height="${n(h)}" fill="rgba(10,102,214,.13)" pointer-events="none"/>`);
+        }
+        this.over.push(`<rect x="${n(x + 1)}" y="${n(y + 1)}" width="${n(w - 2)}" height="${n(h - 2)}" fill="none" stroke="${SELECT_COLOUR}" stroke-width="2" pointer-events="none"/>`);
+    }
+
+    /** "?" am rechten Rand, wenn der Text in Java nicht erkannt wird */
+    private todoMark(kind: SNode["kind"], label: string, x: number, y: number) {
+        if (!this.opts.interactive || !this.opts.unrecognized || !label.trim() || !this.opts.unrecognized(kind, label)) return;
+        this.over.push(`<g class="gsg-todo" pointer-events="all"><title>Wird beim Umwandeln in Java ein TODO-Kommentar (Formulierung nicht erkannt).</title>`
+            + `<circle cx="${n(x)}" cy="${n(y)}" r="7" fill="#f0a020"/><text x="${n(x)}" y="${n(y + 4)}" text-anchor="middle" font-size="11" font-weight="bold" fill="#fff">?</text></g>`);
+    }
 
     private lines(s: string): string[] {
         return s.split("\n");
@@ -38,7 +80,8 @@ class Layout {
         return Math.max(...this.lines(s).map((l) => this.measure(l, bold)), 0);
     }
 
-    seq(nodes: SNode[]): Box {
+    /** Folge von Elementen; slot = Kennung der Folge (für Einfügen in eine leere Folge) */
+    seq(nodes: SNode[], slot?: string): Box {
         const boxes = nodes.map((nd) => this.node(nd));
         const { line, minCol } = STYLE;
         const w = Math.max(minCol, ...boxes.map((b) => b.w));
@@ -48,6 +91,11 @@ class Layout {
             draw: (out, x, y, width, height) => {
                 if (!boxes.length) {
                     rect(out, x, y, width, height);
+                    if (this.opts.interactive && slot) {
+                        out.push(`<text x="${n(x + width / 2)}" y="${n(y + BASE)}" text-anchor="middle" fill="#9aa3ad" font-size="11">(leer)</text>`);
+                        this.hit(out, x, y, width, height, `data-slot="${slot}"`);
+                        this.mark("slot:" + slot, [x, y, width, height]);
+                    }
                     return;
                 }
                 let cy = y;
@@ -66,10 +114,13 @@ class Layout {
             case "stmt": {
                 const ls = this.lines(nd.text);
                 return {
-                    w: this.textWidth(nd.text) + 2 * pad, h: ls.length * line,
+                    w: this.textWidth(nd.text) + 2 * pad + (this.opts.interactive ? 16 : 0), h: ls.length * line,
                     draw: (out, x, y, width, height) => {
                         rect(out, x, y, width, height);
                         ls.forEach((l, i) => text(out, x + pad, y + i * line + BASE, l));
+                        this.hit(out, x, y, width, height, `data-sel="${nd.id ?? ""}"`);
+                        this.mark(nd.id, [x, y, width, height]);
+                        this.todoMark("stmt", nd.text, x + width - 10, y + line / 2);
                     },
                 };
             }
@@ -78,11 +129,14 @@ class Layout {
                 const label = nd.kind === "loop" ? nd.head : nd.foot;
                 const ls = this.lines(label);
                 const th = ls.length * line;
-                const body = this.seq(nd.body);
+                const body = this.seq(nd.body, nd.id ? `${nd.id}:body` : undefined);
                 return {
-                    w: Math.max(this.textWidth(label) + 2 * pad, bar + body.w), h: th + body.h,
+                    w: Math.max(this.textWidth(label) + 2 * pad + (this.opts.interactive ? 16 : 0), bar + body.w), h: th + body.h,
                     draw: (out, x, y, width, height) => {
                         rect(out, x, y, width, height);
+                        const hy = nd.kind === "loop" ? y : y + height - th;
+                        this.hit(out, x, hy, width, th, `data-sel="${nd.id ?? ""}"`);
+                        this.hit(out, x, y, bar, height, `data-sel="${nd.id ?? ""}"`);
                         if (nd.kind === "loop") {
                             ls.forEach((l, i) => text(out, x + pad, y + i * line + BASE, l));
                             body.draw(out, x + bar, y + th, width - bar, height - th);
@@ -90,11 +144,13 @@ class Layout {
                             body.draw(out, x + bar, y, width - bar, height - th);
                             ls.forEach((l, i) => text(out, x + pad, y + height - th + i * line + BASE, l));
                         }
+                        this.mark(nd.id, [x, y, width, height], [x, hy, width, th]);
+                        this.todoMark(nd.kind, label, x + width - 10, hy + line / 2);
                     },
                 };
             }
             case "if": {
-                const yes = this.seq(nd.yes), no = this.seq(nd.no);
+                const yes = this.seq(nd.yes, nd.id ? `${nd.id}:yes` : undefined), no = this.seq(nd.no, nd.id ? `${nd.id}:no` : undefined);
                 const hh = 2 * line;
                 const wy = Math.max(yes.w, this.measure("wahr") + 2 * pad, minCol);
                 const wn = Math.max(no.w, this.measure("falsch") + 2 * pad, minCol);
@@ -111,14 +167,18 @@ class Layout {
                         text(out, cx + pad, y + BASE, nd.cond);
                         text(out, x + pad, y + hh - 6, "wahr");
                         text(out, x + width - pad, y + hh - 6, "falsch", "end");
+                        this.hit(out, x, y, width, hh, `data-sel="${nd.id ?? ""}"`);
                         yes.draw(out, x, y + hh, split - x, height - hh);
                         no.draw(out, split, y + hh, x + width - split, height - hh);
+                        this.mark(nd.id, [x, y, width, height], [x, y, width, hh]);
+                        this.todoMark("if", nd.cond, x + width - 10, y + line / 2);
                     },
                 };
             }
             case "switch": {
-                const cols = [...nd.cases.map((c) => ({ label: c.label, box: this.seq(c.body) })),
-                    ...(nd.other ? [{ label: "sonst", box: this.seq(nd.other) }] : [])];
+                const slot = (part: string) => (nd.id ? `${nd.id}:${part}` : undefined);
+                const cols = [...nd.cases.map((c, i) => ({ label: c.label, box: this.seq(c.body, slot("case" + i)) })),
+                    ...(nd.other ? [{ label: "sonst", box: this.seq(nd.other, slot("other")) }] : [])];
                 // Dreieck oben, darunter eine eigene Zeile für die Fälle (die Diagonale kreuzt sie nie)
                 const dh = 1.5 * line;
                 const hh = dh + line;
@@ -140,6 +200,9 @@ class Layout {
                         stroke(out, x, y, apex, y + dh);
                         if (nd.other) stroke(out, x + width, y, apex, y + dh);
                         text(out, (nd.other ? apex : x + width) - pad, y + BASE, nd.subject, "end");
+                        this.hit(out, x, y, width, hh, `data-sel="${nd.id ?? ""}"`);
+                        this.mark(nd.id, [x, y, width, height], [x, y, width, hh]);
+                        this.todoMark("switch", nd.subject, x + 12, y + line / 2);
                         cols.forEach((c, i) => {
                             const sx = starts[i];
                             if (i > 0) {
@@ -157,8 +220,8 @@ class Layout {
 }
 
 /** Alle Struktogramme untereinander als ein SVG (mit Überschriften für Klassen) */
-export function renderSvg(diagrams: Diagram[], measure: Measure = approxMeasure): { svg: string; width: number; height: number } {
-    const layout = new Layout(measure);
+export function renderSvg(diagrams: Diagram[], measure: Measure = approxMeasure, opts: RenderOptions = {}): { svg: string; width: number; height: number } {
+    const layout = new Layout(measure, opts);
     const out: string[] = [];
     const margin = 12;
     let y = margin, width = 0;
@@ -172,8 +235,13 @@ export function renderSvg(diagrams: Diagram[], measure: Measure = approxMeasure)
         }
         group = d.group;
         text(out, margin, y + STYLE.titleFont, d.title, "start", true, STYLE.titleFont);
+        if (opts.interactive) {
+            const tw = Math.max(120, measure(d.title, true) * (STYLE.titleFont / STYLE.font) + 8);
+            out.push(`<rect class="gsg-hit" data-sel="title" x="${margin - 4}" y="${n(y)}" width="${n(tw)}" height="${STYLE.titleFont + 8}" fill="rgba(0,0,0,0)"/>`);
+            if (opts.selected === "title") out.push(`<rect x="${margin - 4}" y="${n(y)}" width="${n(tw)}" height="${STYLE.titleFont + 8}" fill="rgba(10,102,214,.13)" stroke="${SELECT_COLOUR}" stroke-width="2" pointer-events="none"/>`);
+        }
         y += STYLE.titleFont + 8;
-        const box = layout.seq(d.body);
+        const box = layout.seq(d.body, opts.interactive ? "root:body" : undefined);
         const w = Math.max(box.w, 260);
         box.draw(out, margin + 0.5, y + 0.5, w, box.h);
         width = Math.max(width, w, measure(d.title, true) * (STYLE.titleFont / STYLE.font) * 1.04);
@@ -181,6 +249,6 @@ export function renderSvg(diagrams: Diagram[], measure: Measure = approxMeasure)
     }
     const W = Math.ceil(width + 2 * margin + 1), H = Math.ceil(y - STYLE.gap + margin + 1);
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="Arial, Helvetica, sans-serif" font-size="${STYLE.font}">`
-        + `<rect x="0" y="0" width="${W}" height="${H}" fill="#fff"/>${out.join("")}</svg>`;
+        + `<rect x="0" y="0" width="${W}" height="${H}" fill="#fff"/>${out.join("")}${layout.over.join("")}</svg>`;
     return { svg, width: W, height: H };
 }

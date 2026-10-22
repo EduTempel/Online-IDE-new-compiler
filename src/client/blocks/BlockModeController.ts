@@ -3,6 +3,7 @@ import type { Main } from "../main/Main";
 import type { GUIFile } from "../workspace/File";
 import type { Workspace } from "../workspace/Workspace";
 import type { BlockView } from "./BlockView";
+import type { StructogramEditor } from "../structogram/StructogramEditor";
 import { Constants } from "../Constants";
 import "/assets/css/gsg-blocks.css";
 
@@ -36,6 +37,11 @@ export class BlockModeController {
     private $blocksButton: JQuery<HTMLElement>;
     private $javaButton: JQuery<HTMLElement>;
     private host: HTMLElement;
+    /** Struktogramm-Dateien (*.struktogramm): eigener Editor statt Monaco */
+    private structHost: HTMLElement;
+    private structEditor?: StructogramEditor;
+    private structPromise?: Promise<StructogramEditor>;
+    private structFile?: GUIFile;
 
     constructor(private main: Main) {
         this.$toggle = jQuery(`<div class="gsg-viewtoggle" role="group" aria-label="Ansicht" style="display:none">
@@ -52,6 +58,10 @@ export class BlockModeController {
         this.host.id = "gsg-blocks";
         this.host.style.display = "none";
         jQuery("#editor").after(this.host);
+        this.structHost = document.createElement("div");
+        this.structHost.id = "gsg-structogram-editor";
+        this.structHost.style.display = "none";
+        jQuery(this.host).after(this.structHost);
 
         main.getMainEditor().onDidChangeModel(() => this.refresh());
 
@@ -86,8 +96,49 @@ export class BlockModeController {
         return this.main.getCurrentWorkspace()?.getFiles().find((f) => f.hasMonacoModel() && f.getMonacoModel() === model);
     }
 
+    /** Struktogramm-Datei im Editor? */
+    private currentStructogramFile(): GUIFile | undefined {
+        const model = this.main.getMainEditor().getModel();
+        if (!model) return undefined;
+        return this.main.getCurrentWorkspace()?.getFiles().find((f) => /\.struktogramm$/i.test(f.name) && f.hasMonacoModel() && f.getMonacoModel() === model);
+    }
+
+    /** Struktogramm-Datei zeigen bzw. den Struktogramm-Editor wieder schließen */
+    private async showStructogram(file: GUIFile | undefined) {
+        this.structFile = file;
+        if (!file) {
+            this.structEditor?.hide();
+            this.structHost.style.display = "none";
+            return;
+        }
+        this.$toggle.css("display", "none");
+        this.view?.hide();
+        this.host.style.display = "none";
+        document.getElementById("editor")!.style.display = "none";
+        this.structHost.style.display = "";
+        if (!this.structPromise) {
+            this.structHost.innerHTML = `<div class="gsg-blocks-loading">Struktogramm wird geladen …</div>`;
+            this.structPromise = import("../structogram/StructogramEditor").then(({ StructogramEditor }) => {
+                this.structEditor = new StructogramEditor(this.main, this.structHost);
+                return this.structEditor;
+            });
+        }
+        const editor = await this.structPromise;
+        if (this.structFile !== file) return;
+        const workspace = this.main.getCurrentWorkspace();
+        editor.show(file, !!workspace?.readonly && !this.main.user?.is_teacher);
+    }
+
     /** Neue Datei im Editor (oder Einstellungen geändert): passende Ansicht wählen */
     refresh() {
+        const structFile = this.currentStructogramFile();
+        if (structFile) {
+            if (this.file && this.mode === "blocks") this.view?.hide();
+            this.file = undefined;
+            this.showStructogram(structFile);
+            return;
+        }
+        if (this.structFile) this.showStructogram(undefined);
         const file = this.currentFile();
         if (this.file && this.file !== file && this.mode === "blocks") this.view?.hide();
         this.file = file;

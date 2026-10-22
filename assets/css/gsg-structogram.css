@@ -54,3 +54,51 @@
     color: var(--fontColorNormal, #888);
     font: 14px Roboto, "Segoe UI", sans-serif;
 }
+
+/* ---------------------------------------------------------------- Editor (Struktogramm-Dateien) */
+
+.gsg-sedit { outline: none; }
+
+.gsg-sedit-insert, .gsg-sedit-edit {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    border-bottom: 1px solid var(--slider, #555);
+    font: 12px Roboto, "Segoe UI", sans-serif;
+    color: var(--fontColorNormal, #ccc);
+}
+
+.gsg-sedit-insert button, .gsg-sedit-edit button {
+    font: 600 11px/18px Roboto, "Segoe UI", sans-serif;
+    padding: 0 7px;
+    border: 1px solid var(--slider, #555);
+    border-radius: 5px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+}
+.gsg-sedit-insert button:hover:not(:disabled), .gsg-sedit-edit button:hover:not(:disabled) { background: rgba(127, 127, 127, .2); }
+.gsg-sedit-insert button:disabled, .gsg-sedit-edit button:disabled { opacity: .4; cursor: default; }
+.gsg-sedit-label { font-weight: 600; opacity: .8; margin-right: 2px; }
+.gsg-sedit-sep { width: 1px; align-self: stretch; background: var(--slider, #555); margin: 0 4px; }
+
+.gsg-sedit-edit input {
+    font: 13px Arial, Helvetica, sans-serif;
+    padding: 2px 6px;
+    border: 1px solid var(--slider, #666);
+    border-radius: 4px;
+    background: rgba(255, 255, 255, .92);
+    color: #111;
+}
+.gsg-sedit-edit > input { flex: 1 1 18rem; min-width: 8rem; }
+.gsg-sedit-edit input:disabled { opacity: .5; }
+.gsg-sedit-edit input:focus { outline: 2px solid #45B82F; outline-offset: 0; }
+.gsg-sedit-extras { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.gsg-sedit-hint { color: #f0a020; font-weight: 600; }
+
+.gsg-sedit-canvas svg { cursor: default; }
+.gsg-sedit-canvas .gsg-hit { cursor: pointer; }
+.gsg-sedit-canvas .gsg-hit:hover { fill: rgba(10, 102, 214, .06); }
+.gsg-sedit.readonly .gsg-sedit-insert, .gsg-sedit.readonly .gsg-sedit-edit { display: none; }

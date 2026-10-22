@@ -5,6 +5,8 @@ import { JavaBlockParser } from "../blocks/JavaBlockParser";
 import { classInfosFromState, type ClassInfo } from "../blocks/ClassModel";
 import { diagramsFromJava } from "./StructogramModel";
 import { renderSvg, STYLE, type Measure } from "./StructogramSvg";
+import { docFromDiagram, emptyDoc, serializeDoc } from "./StructogramDoc";
+import { createFile, freeName } from "./ProjectFiles";
 import "/assets/css/gsg-structogram.css";
 
 /**
@@ -20,6 +22,8 @@ export class StructogramView {
     private listener?: monaco.IDisposable;
     private timer?: ReturnType<typeof setTimeout>;
     private svg = "";
+    private takeButton: HTMLButtonElement;
+    private diagrams: ReturnType<typeof diagramsFromJava> = [];
     private size = { width: 0, height: 0 };
     private measureCtx = document.createElement("canvas").getContext("2d")!;
 
@@ -39,7 +43,8 @@ export class StructogramView {
             b.addEventListener("click", action);
             return b;
         };
-        bar.append(title,
+        this.takeButton = button("＋ Datei", "Als Struktogramm-Datei anlegen (zum Bearbeiten, Austeilen, Umwandeln in Java)", () => this.takeOver());
+        bar.append(title, this.takeButton,
             button("⤓ SVG", "Als Vektorbild speichern (z. B. für Arbeitsblätter)", () => this.saveSvg()),
             button("⤓ PNG", "Als Bild speichern", () => this.savePng()),
             button("⎙ Drucken", "Struktogramme drucken", () => this.print()));
@@ -65,6 +70,7 @@ export class StructogramView {
     showMessage(message: string) {
         this.hide();
         this.svg = "";
+        this.diagrams = [];
         this.content.innerHTML = "";
         const div = document.createElement("div");
         div.className = "gsg-struct-empty";
@@ -90,6 +96,7 @@ export class StructogramView {
         const code = this.model.getValue(monaco.editor.EndOfLinePreference.LF);
         try {
             const diagrams = diagramsFromJava(code, this.otherFilesClasses());
+            this.diagrams = code.trim() ? diagrams : [];
             const { svg, width, height } = renderSvg(diagrams, this.measure);
             this.svg = svg;
             this.size = { width, height };
@@ -113,6 +120,24 @@ export class StructogramView {
             }
         }
         return result;
+    }
+
+    /**
+     * Struktogramm-Dateien anlegen: aus jedem Struktogramm der Java-Datei eine (Name nach der
+     * Operation bzw. der Datei); ohne Java-Datei ein leeres Struktogramm.
+     */
+    private async takeOver() {
+        const folder = this.file?.parent_folder_id ?? null;
+        if (!this.diagrams.length) {
+            await createFile(this.main, freeName(this.main, "Struktogramm.struktogramm", folder), serializeDoc(emptyDoc()), folder);
+            return;
+        }
+        if (this.diagrams.length > 1 && !confirm(`Für jedes der ${this.diagrams.length} Struktogramme eine Struktogramm-Datei anlegen?`)) return;
+        const base = (this.file?.name ?? "Programm").replace(/\.java$/i, "");
+        for (const d of this.diagrams) {
+            const name = d.title === "Hauptprogramm" ? base : (/^(?:Konstruktor\s+)?([\p{L}_$][\p{L}\p{N}_$]*)/u.exec(d.title)?.[1] ?? base);
+            await createFile(this.main, freeName(this.main, name + ".struktogramm", folder), serializeDoc(docFromDiagram(d)), folder);
+        }
     }
 
     private baseName(): string {
