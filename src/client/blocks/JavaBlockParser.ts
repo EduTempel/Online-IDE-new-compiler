@@ -56,6 +56,8 @@ export class JavaBlockParser {
     private topMethods = new Map<string, string>();
     /** Klasse, deren Inhalt gerade gelesen wird */
     private currentClass: string | undefined;
+    /** für Struktogramme: auch switch und do-while erkennen (dafür gibt es keine Blöcke) */
+    private extended = false;
 
     constructor(private src: string) {
         const lineStarts = [0];
@@ -74,8 +76,9 @@ export class JavaBlockParser {
     }
 
     /** classes: Klassen aus anderen Dateien des Projekts (für Typen von Objekten) */
-    static parse(src: string, options: { classes?: ClassInfo[] } = {}): ParseResult {
+    static parse(src: string, options: { classes?: ClassInfo[]; structogram?: boolean } = {}): ParseResult {
         const parser = new JavaBlockParser(src);
+        parser.extended = !!options.structogram;
         for (const c of options.classes ?? []) parser.classes.set(c.name, c);
         return parser.parseProgram();
     }
@@ -643,6 +646,20 @@ export class JavaBlockParser {
             }
             case TokenType.keywordFor:
                 return this.forLoop();
+            case TokenType.keywordDo: {
+                if (!this.extended) return undefined;
+                this.pos++;
+                const body = this.body();
+                this.expect(TokenType.keywordWhile);
+                const cond = this.condition();
+                this.expect(TokenType.semicolon);
+                const b = this.block(B.doWhile, begin, this.pos);
+                b.inputs = { COND: { block: cond } };
+                if (body) b.inputs.DO = { block: body };
+                return b;
+            }
+            case TokenType.keywordSwitch:
+                return this.extended ? this.switchStatement() : undefined;
             case TokenType.keywordReturn: {
                 this.pos++;
                 if (this.is(TokenType.semicolon)) {
@@ -714,6 +731,69 @@ export class JavaBlockParser {
         const b = this.block(asStatement, begin, this.pos, { fields: e.fields });
         if (e.inputs) b.inputs = e.inputs;
         if (e.extraState) b.extraState = e.extraState;
+        return b;
+    }
+
+    /**
+     * switch (x) { case 1: … break; case 2: case 3: … break; default: … } – ohne Durchfallen
+     * (jeder Fall endet mit break oder return; sonst Java-Text). Nur für Struktogramme.
+     */
+    private switchStatement(): BlockState {
+        const begin = this.pos;
+        this.pos++;
+        const subject = this.condition();
+        this.expect(TokenType.leftCurlyBracket);
+        const cases: { label: string; body?: BlockState }[] = [];
+        let other: { label: string; body?: BlockState } | undefined;
+        while (!this.is(TokenType.rightCurlyBracket)) {
+            const labels: string[] = [];
+            let isDefault = false;
+            while (this.is(TokenType.keywordCase) || this.is(TokenType.keywordDefault)) {
+                if (this.is(TokenType.keywordDefault)) {
+                    this.pos++;
+                    this.expect(TokenType.colon);
+                    isDefault = true;
+                } else {
+                    this.pos++;
+                    const s = this.pos;
+                    const c = this.findAtDepth0(TokenType.colon, s);
+                    if (c === s) throw new Fail();
+                    labels.push(this.text(s, c));
+                    this.pos = c + 1;
+                }
+            }
+            if (!labels.length && !isDefault) throw new Fail();
+            const list: BlockState[] = [];
+            let ended = false;
+            while (this.pos < this.toks.length && !this.is(TokenType.keywordCase) && !this.is(TokenType.keywordDefault) && !this.is(TokenType.rightCurlyBracket)) {
+                if (this.is(TokenType.keywordBreak)) {
+                    this.pos++;
+                    this.expect(TokenType.semicolon);
+                    ended = true;
+                    break;
+                }
+                const st = this.statement(false);
+                if (st) list.push(st);
+            }
+            const last = list[list.length - 1];
+            const returns = !!last && (last.type === B.return || last.type === B.returnVoid);
+            if (ended && !(this.is(TokenType.keywordCase) || this.is(TokenType.keywordDefault) || this.is(TokenType.rightCurlyBracket))) throw new Fail();
+            if (!ended && !returns && !this.is(TokenType.rightCurlyBracket)) throw new Fail();   // Durchfallen
+            for (let i = list.length - 2; i >= 0; i--) list[i].next = { block: list[i + 1] };
+            const entry = { label: labels.join(", "), body: list[0] };
+            if (isDefault) {
+                if (labels.length) cases.push(entry);
+                other = { label: "", body: list[0] };
+            } else {
+                cases.push(entry);
+            }
+        }
+        this.expect(TokenType.rightCurlyBracket);
+        const all = other ? [...cases, other] : cases;
+        const b = this.block(B.switch, begin, this.pos);
+        b.inputs = { SUBJECT: { block: subject } };
+        all.forEach((c, i) => { if (c.body) b.inputs!["CASE" + i] = { block: c.body }; });
+        b.extraState = { labels: all.map((c) => c.label) };
         return b;
     }
 

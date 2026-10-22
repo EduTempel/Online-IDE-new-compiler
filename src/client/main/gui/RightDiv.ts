@@ -12,6 +12,7 @@ import '/assets/css/wholewindow.css';
 import { transferElements } from '../../../tools/HtmlTools.js';
 import { MainEmbedded } from '../../embedded/MainEmbedded.js';
 import { MemoryTab } from '../../../compiler/assembly/debugger/MemoryTab.js';
+import { addStructogramTab } from '../../structogram/StructogramTab.js';
 
 
 export class RightDiv {
@@ -165,6 +166,13 @@ export class RightDiv {
             setTimeout(() => {
                 this.classDiagram = new ClassDiagram(jQuery(this.classDiagramTab.bodyDiv), this.main);
             }, 100);
+
+            // GSG: Struktogramm der Datei im Editor (darf den Start der IDE nie verhindern)
+            try {
+                addStructogramTab(this.main, this.tabManager);
+            } catch (e) {
+                console.error(e);
+            }
         }
 
         this.outputTab.show();

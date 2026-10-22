@@ -1,0 +1,56 @@
+/* Reiter "Struktogramm" neben "Ausgabe" und "Klassendiagramm" (GSG, Paket 7) */
+
+.gsg-structogram {
+    flex-direction: column;
+    min-height: 0;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.gsg-struct-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    white-space: nowrap;
+    border-bottom: 1px solid var(--slider, #555);
+    font: 12px Roboto, "Segoe UI", sans-serif;
+    color: var(--fontColorNormal, #ccc);
+}
+
+.gsg-struct-title { font-weight: 600; margin-right: auto; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.gsg-struct-sub { font-weight: 400; opacity: .7; margin-left: 4px; }
+
+.gsg-struct-bar button {
+    font: 600 11px/18px Roboto, "Segoe UI", sans-serif;
+    padding: 0 9px;
+    border: 1px solid var(--slider, #555);
+    border-radius: 5px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+}
+.gsg-struct-bar button:hover { background: rgba(127, 127, 127, .2); }
+.gsg-struct-bar button:focus-visible { outline: 2px solid #45B82F; outline-offset: 1px; }
+
+.gsg-struct-content {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    padding: 16px;
+    background: rgba(127, 127, 127, .22);   /* passt zum hellen und dunklen Thema */
+}
+
+/* das Struktogramm bleibt "Papier": weiß, auch im dunklen Thema */
+.gsg-struct-content svg {
+    display: block;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .25);
+}
+
+.gsg-struct-empty {
+    margin: 40px auto;
+    text-align: center;
+    color: var(--fontColorNormal, #888);
+    font: 14px Roboto, "Segoe UI", sans-serif;
+}

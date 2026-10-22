@@ -84,6 +84,10 @@ export const B = {
     objAttrGet: "j_obj_attr_get",   // Feld ATTR; Eingang OBJ  (obj.attr)
     objAttrSet: "j_obj_attr_set",   // Feld ATTR; Eingänge OBJ, V  (obj.attr = v;)
 
+    // nur für Struktogramme (keine Blöcke): mehrseitige Auswahl, fußgesteuerte Schleife
+    switch: "s_switch",             // Eingänge SUBJECT, CASE0 …; extraState { labels } ("" = sonst)
+    doWhile: "s_do_while",          // Eingang COND; Anweisungen DO
+
     // Werte
     number: "j_number",             // Feld NUM (Text, z. B. "3.5")
     text: "j_text",                 // Feld TEXT (ohne Anführungszeichen, unmaskiert)
@@ -179,7 +183,7 @@ export type BlockState = {
     fields?: { [name: string]: string };
     inputs?: { [name: string]: { block: BlockState } };
     next?: { block: BlockState };
-    extraState?: { code?: string; elseIfs?: number; hasElse?: boolean; items?: number; params?: Param[]; args?: number; override?: boolean; isPublic?: boolean };
+    extraState?: { code?: string; elseIfs?: number; hasElse?: boolean; items?: number; params?: Param[]; args?: number; override?: boolean; isPublic?: boolean; labels?: string[] };
     deletable?: boolean;
 };
 
