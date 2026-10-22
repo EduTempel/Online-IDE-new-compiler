@@ -45,7 +45,7 @@ describe("Java -> Blöcke -> Java", () => {
         ].join("\n");
         expect(roundTrip(code)).toBe(code);
         expect(body(code).map((b) => b.type)).toEqual([
-            B.comment, B.varDeclare, B.varDeclare, B.while, B.for, B.varDeclare, B.varDeclare, B.varIncDec, B.varIncDec,
+            B.comment, B.varDeclare, B.varDeclare, B.while, B.for, B.varDeclare, B.varDeclare, B.varInc, B.varDec,
         ]);
         // keine Java-Text-Blöcke nötig
         expect(JSON.stringify(toBlocks(code).state)).not.toContain(B.javaExpression);
@@ -76,7 +76,7 @@ describe("Java -> Blöcke -> Java", () => {
         expect(types).toEqual([B.javaStatement, B.javaStatement, B.varDeclare, B.varDeclare, B.varSet, B.javaRaw, B.javaRaw, B.javaRaw]);
         const z = body(code)[2];
         expect(z.inputs!.VALUE.block.type).toBe(B.arith);
-        expect(z.inputs!.VALUE.block.inputs!.A.block).toMatchObject({ type: B.javaExpression, fields: { CODE: "Math.random()" } });
+        expect(z.inputs!.VALUE.block.inputs!.A.block).toMatchObject({ type: B.randomDouble });
     });
 
     test("Klammern nur wo nötig; Formatierung wird vereinheitlicht", () => {

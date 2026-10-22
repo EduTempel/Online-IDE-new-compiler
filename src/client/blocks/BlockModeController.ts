@@ -38,8 +38,8 @@ export class BlockModeController {
 
     constructor(private main: Main) {
         this.$toggle = jQuery(`<div class="gsg-viewtoggle" role="group" aria-label="Ansicht" style="display:none">
-            <button type="button" data-mode="blocks" title="Programm mit Blöcken bauen">Blöcke</button>
-            <button type="button" data-mode="java" title="Programm als Java-Text bearbeiten">Java</button>
+            <button type="button" data-mode="blocks" title="Programm mit Blöcken bauen (Strg+B)">Blöcke</button>
+            <button type="button" data-mode="java" title="Programm als Java-Text bearbeiten (Strg+B)">Java</button>
         </div>`);
         this.$blocksButton = this.$toggle.find('[data-mode="blocks"]');
         this.$javaButton = this.$toggle.find('[data-mode="java"]');
@@ -53,6 +53,14 @@ export class BlockModeController {
         jQuery("#editor").after(this.host);
 
         main.getMainEditor().onDidChangeModel(() => this.refresh());
+
+        // Strg+B: zwischen Blöcken und Java umschalten
+        document.addEventListener("keydown", (e) => {
+            if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey || e.key.toLowerCase() !== "b" || !this.file) return;
+            e.preventDefault();
+            e.stopPropagation();
+            this.choose(this.mode === "blocks" ? "java" : "blocks");
+        }, true);
     }
 
     /** Lehrkraft (oder Admin)? Die dürfen immer auf Java umschalten. */

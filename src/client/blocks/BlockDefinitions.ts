@@ -1,9 +1,10 @@
 import * as Blockly from "blockly/core";
 import { B } from "./BlockTypes";
 import { collectVariables } from "./BlockTypeSystem";
+import { defineIfBlock, definePrintBlock } from "./BlockMutators";
 
 /**
- * Blöcke der Stufe 1 (Grundlagen): deutsche Beschriftung, das Java-Wort klein dahinter
+ * Blöcke der Stufe 1 (Grundlagen, Abitur-Operationen): deutsche Beschriftung, das Java-Wort klein dahinter
  * (Klasse gsg-java-hint). Farben nach Kategorie; der Programmstart in GSG-Dunkelblau.
  */
 
@@ -14,6 +15,7 @@ export const COLOURS = {
     control: "#b07a00",
     conditions: "#2e8fa8",
     values: "#3a9a27",
+    text: "#8e5bb5",
     java: "#6b6b6b",
     comment: "#8a8a8a",
 };
@@ -86,6 +88,9 @@ export function defineBlocks() {
         });
     });
 
+    defineIfBlock(COLOURS.control);
+    definePrintBlock(COLOURS.output);
+
     Blockly.common.defineBlocksWithJsonArray([
         {
             type: B.start, message0: "Programmstart %1", args0: [hint("main")],
@@ -113,14 +118,23 @@ export function defineBlocks() {
             type: B.varChange, message0: "erhöhe %1 um %2 %3",
             args0: [{ type: "field_gsg_variable", name: "NAME", text: "zahl" }, { type: "input_value", name: "VALUE" }, hint("+=")],
             inputsInline: true, ...statement, colour: COLOURS.variables,
-            tooltip: "Zählt etwas zur Variablen dazu, z. B. zahl += 2;",
+            tooltip: "Zählt etwas zur Variablen dazu, z. B. zahl += 2; Bei Texten wird angehängt.",
         },
         {
-            type: B.varIncDec, message0: "%1 %2",
-            args0: [{ type: "field_gsg_variable", name: "NAME", text: "zahl" },
-                { type: "field_dropdown", name: "OP", options: [["um 1 erhöhen (++)", "++"], ["um 1 verringern (--)", "--"]] }],
-            ...statement, colour: COLOURS.variables,
-            tooltip: "zahl++ erhöht um 1, zahl-- verringert um 1.",
+            type: B.varSub, message0: "verringere %1 um %2 %3",
+            args0: [{ type: "field_gsg_variable", name: "NAME", text: "zahl" }, { type: "input_value", name: "VALUE" }, hint("-=")],
+            inputsInline: true, ...statement, colour: COLOURS.variables,
+            tooltip: "Zieht etwas von der Variablen ab, z. B. zahl -= 2;",
+        },
+        {
+            type: B.varInc, message0: "erhöhe %1 um 1 %2",
+            args0: [{ type: "field_gsg_variable", name: "NAME", text: "zahl" }, hint("++")],
+            ...statement, colour: COLOURS.variables, tooltip: "zahl++ erhöht die Variable um 1.",
+        },
+        {
+            type: B.varDec, message0: "verringere %1 um 1 %2",
+            args0: [{ type: "field_gsg_variable", name: "NAME", text: "zahl" }, hint("--")],
+            ...statement, colour: COLOURS.variables, tooltip: "zahl-- verringert die Variable um 1.",
         },
         {
             type: B.varGet, message0: "%1", args0: [{ type: "field_gsg_variable", name: "NAME", text: "zahl" }],
@@ -129,13 +143,6 @@ export function defineBlocks() {
         },
 
         // ------------------------------------------------------------ Ausgabe und Eingabe
-        {
-            type: B.print, message0: "gib aus %1 %2",
-            args0: [{ type: "input_value", name: "VALUE" },
-                { type: "field_dropdown", name: "MODE", options: [["mit Zeilenumbruch (println)", "println"], ["ohne Zeilenumbruch (print)", "print"]] }],
-            inputsInline: true, ...statement, colour: COLOURS.output,
-            tooltip: "Schreibt etwas in die Ausgabe. println beginnt danach eine neue Zeile.",
-        },
         {
             type: B.input, message0: "Eingabe %1 Frage %2",
             args0: [{
@@ -149,32 +156,39 @@ export function defineBlocks() {
 
         // ------------------------------------------------------------ Steuerung
         {
-            type: B.if, message0: "falls %1 %2", args0: [{ type: "input_value", name: "COND" }, hint("if")],
-            message1: "dann %1", args1: [{ type: "input_statement", name: "DO" }],
-            ...statement, colour: COLOURS.control,
-            tooltip: "Führt die Blöcke nur aus, wenn die Bedingung wahr ist.",
-        },
-        {
-            type: B.ifElse, message0: "falls %1 %2", args0: [{ type: "input_value", name: "COND" }, hint("if")],
-            message1: "dann %1", args1: [{ type: "input_statement", name: "DO" }],
-            message2: "sonst %1 %2", args2: [hint("else"), { type: "input_statement", name: "ELSE" }],
-            ...statement, colour: COLOURS.control,
-            tooltip: "Ist die Bedingung wahr, wird der dann-Teil ausgeführt, sonst der sonst-Teil.",
-        },
-        {
             type: B.while, message0: "wiederhole solange %1 %2", args0: [{ type: "input_value", name: "COND" }, hint("while")],
             message1: "%1", args1: [{ type: "input_statement", name: "DO" }],
             ...statement, colour: COLOURS.control,
             tooltip: "Wiederholt die Blöcke, solange die Bedingung wahr ist.",
         },
         {
-            type: B.for, message0: "zähle %1 von %2 %3 %4 %5",
-            args0: [{ type: "field_input", name: "VAR", text: "i" }, { type: "input_value", name: "FROM" },
-                { type: "field_dropdown", name: "CMP", options: [["bis unter", "<"], ["bis einschließlich", "<="]] },
-                { type: "input_value", name: "TO" }, hint("for")],
+            type: B.forever, message0: "wiederhole fortlaufend %1", args0: [hint("while (true)")],
+            message1: "%1", args1: [{ type: "input_statement", name: "DO" }],
+            ...statement, colour: COLOURS.control,
+            tooltip: "Wiederholt die Blöcke immer wieder, bis das Programm angehalten wird.",
+        },
+        {
+            type: B.repeat, message0: "wiederhole %1 mal %2", args0: [{ type: "input_value", name: "TIMES" }, hint("for")],
+            message1: "%1", args1: [{ type: "input_statement", name: "DO" }],
+            inputsInline: true, ...statement, colour: COLOURS.control,
+            tooltip: "Wiederholt die Blöcke so oft wie angegeben. In Java: for (int durchlauf = 1; durchlauf <= 10; durchlauf++)",
+        },
+        {
+            type: B.for, message0: "zähle %1 %2 von %3 %4 %5 mit Schrittweite %6 %7",
+            args0: [{ type: "field_input", name: "VAR", text: "i" },
+                { type: "field_dropdown", name: "DIR", options: [["aufsteigend", "up"], ["absteigend", "down"]] },
+                { type: "input_value", name: "FROM" },
+                { type: "field_dropdown", name: "CMP", options: [["bis", "incl"], ["bis vor", "excl"]] },
+                { type: "input_value", name: "TO" }, { type: "input_value", name: "STEP" }, hint("for")],
             message1: "%1", args1: [{ type: "input_statement", name: "DO" }],
             inputsInline: true, ...statement, colour: COLOURS.control, extensions: ["gsg_identifier"],
-            tooltip: "Zählvariable läuft vom Start- bis zum Endwert, z. B. for (int i = 0; i < 10; i++)",
+            tooltip: "Die Zählvariable läuft vom Start- bis zum Endwert (\"bis\": einschließlich, \"bis vor\": ohne den Endwert), "
+                + "z. B. for (int i = 1; i <= 10; i++).",
+        },
+        {
+            type: B.wait, message0: "warte %1 Millisekunden %2", args0: [{ type: "input_value", name: "MS" }, hint("Thread.sleep")],
+            inputsInline: true, ...statement, colour: COLOURS.control,
+            tooltip: "Hält das Programm kurz an. 1000 Millisekunden sind eine Sekunde.",
         },
 
         // ------------------------------------------------------------ Bedingungen
@@ -185,7 +199,7 @@ export function defineBlocks() {
                     ["<", "<"], ["<=", "<="], [">", ">"], [">=", ">="]],
             }, { type: "input_value", name: "B" }],
             inputsInline: true, output: null, colour: COLOURS.conditions,
-            tooltip: "Vergleicht zwei Werte; das Ergebnis ist wahr oder falsch.",
+            tooltip: "Vergleicht zwei Werte; das Ergebnis ist wahr oder falsch. Texte mit „ist gleich“ vergleichen.",
         },
         {
             type: B.logic, message0: "%1 %2 %3",
@@ -206,28 +220,20 @@ export function defineBlocks() {
             output: null, colour: COLOURS.conditions,
         },
 
-        // ------------------------------------------------------------ Werte und Rechnen
+        // ------------------------------------------------------------ Rechnen und Werte
         {
             type: B.number, message0: "%1", args0: [{ type: "field_input", name: "NUM", text: "0" }],
             output: null, colour: COLOURS.values, extensions: ["gsg_number"],
             tooltip: "Eine Zahl, Kommazahlen mit Punkt: 3.5",
         },
         {
-            type: B.text, message0: "„%1“", args0: [{ type: "field_input", name: "TEXT", text: "" }],
-            output: null, colour: COLOURS.values, tooltip: "Ein Text (String).",
-        },
-        {
-            type: B.char, message0: "‚%1‘", args0: [{ type: "field_input", name: "CHAR", text: "a" }],
-            output: null, colour: COLOURS.values, extensions: ["gsg_char"],
-            tooltip: "Ein einzelnes Zeichen (char), z. B. 'a'.",
-        },
-        {
             type: B.arith, message0: "%1 %2 %3",
             args0: [{ type: "input_value", name: "A" }, {
-                type: "field_dropdown", name: "OP", options: [["+", "+"], ["-", "-"], ["*", "*"], ["/", "/"], ["% (Rest)", "%"]],
+                type: "field_dropdown", name: "OP", options: [["+", "+"], ["-", "-"], ["*", "*"], ["/", "/"], ["mod (Rest)  %", "%"]],
             }, { type: "input_value", name: "B" }],
             inputsInline: true, output: null, colour: COLOURS.values,
-            tooltip: "Rechnen. + hängt bei Texten aneinander. Bei ganzen Zahlen rechnet / ohne Rest.",
+            tooltip: "Rechnen. Achtung: / mit zwei ganzen Zahlen teilt ganzzahlig ohne Rest (7 / 2 ergibt 3). "
+                + "mod liefert den Rest der ganzzahligen Division (7 mod 2 ergibt 1).",
         },
         {
             type: B.random, message0: "Zufallszahl von %1 bis %2 %3",
@@ -236,12 +242,92 @@ export function defineBlocks() {
             tooltip: "Eine zufällige ganze Zahl, beide Grenzen eingeschlossen.",
         },
         {
+            type: B.randomDouble, message0: "Zufallskommazahl zwischen 0 und 1 %1", args0: [hint("Math.random()")],
+            output: null, colour: COLOURS.values,
+            tooltip: "Eine zufällige Kommazahl von 0 (einschließlich) bis 1 (ausschließlich).",
+        },
+        {
             type: B.math, message0: "%1 %2",
             args0: [{
-                type: "field_dropdown", name: "FUNC", options: [["Wurzel aus (Math.sqrt)", "sqrt"],
-                    ["Betrag von (Math.abs)", "abs"], ["gerundet (Math.round)", "round"]],
+                type: "field_dropdown", name: "FUNC", options: [["runde (Math.round)", "round"],
+                    ["Wurzel aus (Math.sqrt)", "sqrt"], ["Betrag von (Math.abs)", "abs"]],
             }, { type: "input_value", name: "VALUE" }],
             inputsInline: true, output: null, colour: COLOURS.values,
+            tooltip: "runde: auf eine ganze Zahl runden (2.5 ergibt 3).",
+        },
+        {
+            type: B.minMax, message0: "%1 von %2 und %3",
+            args0: [{ type: "field_dropdown", name: "FUNC", options: [["kleinste (Math.min)", "min"], ["größte (Math.max)", "max"]] },
+                { type: "input_value", name: "A" }, { type: "input_value", name: "B" }],
+            inputsInline: true, output: null, colour: COLOURS.values,
+            tooltip: "Die kleinere bzw. größere der beiden Zahlen.",
+        },
+        {
+            type: B.cast, message0: "%1 %2",
+            args0: [{
+                type: "field_dropdown", name: "TYPE", options: [["als Ganzzahl / ASCII-Code von (int)", "int"],
+                    ["als Kommazahl (double)", "double"], ["als Zeichen / Zeichen mit ASCII-Code (char)", "char"]],
+            }, { type: "input_value", name: "VALUE" }],
+            inputsInline: true, output: null, colour: COLOURS.values,
+            tooltip: "Wandelt einen Wert um: Kommazahl -> Ganzzahl schneidet die Nachkommastellen ab; "
+                + "ein Zeichen als Ganzzahl ist sein ASCII-Code ('A' -> 65), eine Ganzzahl als Zeichen das Zeichen dazu (65 -> 'A').",
+        },
+
+        // ------------------------------------------------------------ Text (Abitur: Umgang mit Zeichenketten)
+        {
+            type: B.text, message0: "„%1“", args0: [{ type: "field_input", name: "TEXT", text: "" }],
+            output: null, colour: COLOURS.text, tooltip: "Ein Text (String).",
+        },
+        {
+            type: B.char, message0: "‚%1‘", args0: [{ type: "field_input", name: "CHAR", text: "a" }],
+            output: null, colour: COLOURS.text, extensions: ["gsg_char"],
+            tooltip: "Ein einzelnes Zeichen (char), z. B. 'a'.",
+        },
+        {
+            type: B.concat, message0: "verbinde %1 und %2 %3",
+            args0: [{ type: "input_value", name: "A" }, { type: "input_value", name: "B" }, hint("+")],
+            inputsInline: true, output: null, colour: COLOURS.text,
+            tooltip: "Hängt zwei Texte aneinander (auch Zahlen werden dabei zu Text).",
+        },
+        {
+            type: B.strLength, message0: "Länge von %1 %2", args0: [{ type: "input_value", name: "TEXT" }, hint(".length()")],
+            inputsInline: true, output: null, colour: COLOURS.text, tooltip: "Anzahl der Zeichen eines Textes.",
+        },
+        {
+            type: B.strCharAt, message0: "Zeichen an Position %1 aus %2 %3",
+            args0: [{ type: "input_value", name: "INDEX" }, { type: "input_value", name: "TEXT" }, hint(".charAt")],
+            inputsInline: true, output: null, colour: COLOURS.text,
+            tooltip: "Das Zeichen an einer Position. Die Zählung beginnt bei 0: Position 0 ist das erste Zeichen.",
+        },
+        {
+            type: B.strSubstring, message0: "Teiltext von %1 ab Position %2 bis vor Position %3 %4",
+            args0: [{ type: "input_value", name: "TEXT" }, { type: "input_value", name: "FROM" }, { type: "input_value", name: "TO" }, hint(".substring")],
+            inputsInline: true, output: null, colour: COLOURS.text,
+            tooltip: "Ein Ausschnitt des Textes. Zählung ab 0; die Endposition gehört nicht mehr dazu: „Hallo“ ab 1 bis vor 3 ergibt „al“.",
+        },
+        {
+            type: B.strEquals, message0: "%1 ist gleich %2 %3",
+            args0: [{ type: "input_value", name: "A" }, { type: "input_value", name: "B" }, hint(".equals")],
+            inputsInline: true, output: null, colour: COLOURS.text,
+            tooltip: "Wahr, wenn beide Texte genau gleich sind (Groß-/Kleinschreibung zählt).",
+        },
+        {
+            type: B.strContains, message0: "%1 enthält %2 %3",
+            args0: [{ type: "input_value", name: "A" }, { type: "input_value", name: "B" }, hint(".contains")],
+            inputsInline: true, output: null, colour: COLOURS.text,
+            tooltip: "Wahr, wenn der zweite Text im ersten vorkommt.",
+        },
+        {
+            type: B.strCompare, message0: "vergleiche %1 alphabetisch mit %2 %3",
+            args0: [{ type: "input_value", name: "A" }, { type: "input_value", name: "B" }, hint(".compareTo")],
+            inputsInline: true, output: null, colour: COLOURS.text,
+            tooltip: "Lexikographischer Vergleich: negativ, wenn der erste Text vorher kommt, 0 bei Gleichheit, positiv, wenn er danach kommt.",
+        },
+        {
+            type: B.strCase, message0: "%1 in %2",
+            args0: [{ type: "input_value", name: "TEXT" },
+                { type: "field_dropdown", name: "CASE", options: [["Großbuchstaben (.toUpperCase)", "upper"], ["Kleinbuchstaben (.toLowerCase)", "lower"]] }],
+            inputsInline: true, output: null, colour: COLOURS.text,
         },
 
         // ------------------------------------------------------------ Java und Kommentare
@@ -309,7 +395,9 @@ export function variablesFlyout(ws: Blockly.WorkspaceSvg): Blockly.utils.toolbox
         const numeric = vars.find(([, t]) => t === "int" || t === "double");
         if (numeric) {
             items.push({ kind: "block", type: B.varChange, fields: { NAME: numeric[0] }, inputs: { VALUE: num("1") } });
-            items.push({ kind: "block", type: B.varIncDec, fields: { NAME: numeric[0] } });
+            items.push({ kind: "block", type: B.varSub, fields: { NAME: numeric[0] }, inputs: { VALUE: num("1") } });
+            items.push({ kind: "block", type: B.varInc, fields: { NAME: numeric[0] } });
+            items.push({ kind: "block", type: B.varDec, fields: { NAME: numeric[0] } });
         }
     }
     return items as Blockly.utils.toolbox.FlyoutItemInfoArray;
@@ -324,25 +412,31 @@ export function toolbox(): Blockly.utils.toolbox.ToolboxDefinition {
     return {
         kind: "categoryToolbox",
         contents: [
-            // Reihenfolge: Steuerung, Ausgabe & Eingabe, Variablen, Bedingungen, Rechnen & Werte, Java
+            // Reihenfolge: Steuerung, Ausgabe & Eingabe, Variablen, Bedingungen, Rechnen & Werte, Text, Java
             {
                 kind: "category", name: "Steuerung", colour: COLOURS.control, contents: [
+                    { kind: "label", text: "Blöcke unter „Programmstart“ hängen – nur sie werden ausgeführt." },
                     blk(B.if),
-                    blk(B.ifElse),
+                    blk(B.if, { extraState: { elseIfs: 0, hasElse: true } }),
+                    blk(B.forever),
+                    blk(B.repeat, { inputs: { TIMES: num("10") } }),
                     blk(B.while, { inputs: { COND: { block: { type: B.compare, fields: { OP: "<" }, inputs: { A: v("zahl"), B: num("10") } } } } }),
-                    blk(B.for, { inputs: { FROM: num("0"), TO: num("10") } }),
+                    blk(B.for, { inputs: { FROM: num("1"), TO: num("10"), STEP: num("1") } }),
+                    blk(B.wait, { inputs: { MS: num("1000") } }),
                 ],
             },
             {
                 kind: "category", name: "Ausgabe & Eingabe", colour: COLOURS.output, contents: [
+                    { kind: "label", text: "▸ fügt bei „gib aus“ weitere Werte hinzu." },
                     blk(B.print, { inputs: { VALUE: txt("Hallo Welt!") } }),
-                    blk(B.print, { inputs: { VALUE: v("zahl") } }),
+                    blk(B.print, { extraState: { items: 2 }, inputs: { VALUE: txt("Ergebnis:"), VALUE1: v("zahl") } }),
                     blk(B.input, { inputs: { PROMPT: txt("Gib eine Zahl ein:") } }),
                 ],
             },
             { kind: "category", name: "Variablen", colour: COLOURS.variables, custom: VARIABLES_CATEGORY },
             {
                 kind: "category", name: "Bedingungen", colour: COLOURS.conditions, contents: [
+                    { kind: "label", text: "Bedingungen passen in die sechseckigen Löcher." },
                     blk(B.compare, { inputs: { A: v("zahl"), B: num("0") } }),
                     blk(B.logic),
                     blk(B.not),
@@ -351,16 +445,40 @@ export function toolbox(): Blockly.utils.toolbox.ToolboxDefinition {
             },
             {
                 kind: "category", name: "Rechnen & Werte", colour: COLOURS.values, contents: [
+                    { kind: "label", text: "Zwei Ganzzahlen: 7 / 2 ergibt 3, 7 mod 2 ergibt 1." },
                     blk(B.number),
+                    blk(B.arith, { inputs: { A: num("1"), B: num("1") } }),
+                    blk(B.arith, { fields: { OP: "/" }, inputs: { A: num("7"), B: num("2") } }),
+                    blk(B.arith, { fields: { OP: "%" }, inputs: { A: num("7"), B: num("2") } }),
+                    blk(B.random, { inputs: { FROM: num("1"), TO: num("6") } }),
+                    blk(B.randomDouble),
+                    blk(B.math, { inputs: { VALUE: num("2.5") } }),
+                    blk(B.minMax, { inputs: { A: num("3"), B: num("7") } }),
+                    blk(B.cast, { inputs: { VALUE: num("2.7") } }),
+                    blk(B.cast, { fields: { TYPE: "double" }, inputs: { VALUE: num("7") } }),
+                ],
+            },
+            {
+                kind: "category", name: "Text", colour: COLOURS.text, contents: [
+                    { kind: "label", text: "Positionen werden ab 0 gezählt." },
                     blk(B.text),
                     blk(B.char),
-                    blk(B.arith, { inputs: { A: num("1"), B: num("1") } }),
-                    blk(B.random, { inputs: { FROM: num("1"), TO: num("6") } }),
-                    blk(B.math),
+                    blk(B.concat, { inputs: { A: txt("Hallo "), B: txt("Welt") } }),
+                    blk(B.strLength, { inputs: { TEXT: txt("Hallo") } }),
+                    blk(B.strCharAt, { inputs: { INDEX: num("0"), TEXT: txt("Hallo") } }),
+                    blk(B.strSubstring, { inputs: { TEXT: txt("Hallo"), FROM: num("1"), TO: num("3") } }),
+                    blk(B.strEquals, { inputs: { A: txt("Ja"), B: txt("ja") } }),
+                    blk(B.strContains, { inputs: { A: txt("Hallo"), B: txt("ll") } }),
+                    blk(B.strCompare, { inputs: { A: txt("Anna"), B: txt("Bernd") } }),
+                    blk(B.strCase, { inputs: { TEXT: txt("Hallo") } }),
+                    { kind: "label", text: "ASCII-Code" },
+                    blk(B.cast, { inputs: { VALUE: { block: { type: B.char, fields: { CHAR: "A" } } } } }),
+                    blk(B.cast, { fields: { TYPE: "char" }, inputs: { VALUE: num("65") } }),
                 ],
             },
             {
                 kind: "category", name: "Java", colour: COLOURS.java, contents: [
+                    { kind: "label", text: "Für alles, was es (noch) nicht als Block gibt." },
                     blk(B.comment),
                     blk(B.javaStatement),
                     blk(B.javaExpression),

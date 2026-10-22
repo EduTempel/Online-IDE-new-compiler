@@ -45,8 +45,37 @@
 
 .gsg-blockly {
     position: absolute;
-    inset: 0;
+    inset: 24px 0 0 0;
 }
+
+.gsg-blocks-bar {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 6px;
+    border-bottom: 1px solid var(--slider, #444);
+    font: 12px Roboto, "Segoe UI", sans-serif;
+}
+
+.gsg-blocks-bar button {
+    font: inherit;
+    color: var(--fontColorNormal, #ddd);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    padding: 1px 8px;
+    cursor: pointer;
+}
+
+.gsg-blocks-bar button:hover { border-color: var(--slider, #555); background: rgba(127, 127, 127, .15); }
+.gsg-blocks-bar button:focus-visible { outline: 2px solid #45B82F; }
+.gsg-blocks-bar button[hidden] { display: none; }
+.gsg-blocks-keys { margin-left: auto; color: var(--fontColorLight, #999); font-size: 11px; }
 
 .gsg-blocks-notice {
     position: absolute;
@@ -171,4 +200,21 @@
     stroke: #45B82F !important;
     stroke-width: 4px !important;
     filter: drop-shadow(0 0 4px rgba(69, 184, 47, .9));
+}
+
+/* Knöpfe in Blöcken (+ sonst falls, ◂ ▸, ✕) */
+.gsg-button,
+.gsg-button .blocklyText,
+.blocklyText.gsg-button {
+    cursor: pointer !important;
+    font-weight: 700 !important;
+}
+.gsg-button .blocklyText,
+.blocklyText.gsg-button {
+    fill: #fff6d5 !important;
+    text-decoration: underline;
+}
+.gsg-button:hover .blocklyText,
+.blocklyText.gsg-button:hover {
+    fill: #ffffff !important;
 }

@@ -39,6 +39,11 @@ export class BlockView {
     private selectedId: string | null = null;
 
     private blocklyDiv: HTMLDivElement;
+    private toolboxButton: HTMLButtonElement;
+    private resetButton: HTMLButtonElement;
+    private toolboxVisible = true;
+    /** Code beim Wechsel in die Blockansicht (für "Zurücksetzen") */
+    private openedText = "";
     private notice: HTMLDivElement;
     private previewCode: HTMLDivElement;
 
@@ -57,7 +62,24 @@ export class BlockView {
         this.notice.hidden = true;
         this.notice.textContent = "Graue Blöcke hängen nicht am Programmstart und werden nicht ausgeführt. "
             + "Beim Wechsel in die Java-Ansicht gehen sie verloren.";
-        area.append(this.blocklyDiv, this.notice);
+        // Leiste über den Blöcken: Werkzeugleiste ein-/ausblenden, auf den Stand beim Öffnen zurücksetzen
+        const bar = document.createElement("div");
+        bar.className = "gsg-blocks-bar";
+        this.toolboxButton = document.createElement("button");
+        this.toolboxButton.type = "button";
+        this.toolboxButton.textContent = "◧ Werkzeugleiste ausblenden";
+        this.toolboxButton.title = "Mehr Platz für die Blöcke";
+        this.toolboxButton.addEventListener("click", () => this.toggleToolbox());
+        this.resetButton = document.createElement("button");
+        this.resetButton.type = "button";
+        this.resetButton.textContent = "↺ Zurücksetzen";
+        this.resetButton.title = "Alle Änderungen seit dem Wechsel in die Blockansicht verwerfen";
+        this.resetButton.addEventListener("click", () => this.resetToOpened());
+        const keys = document.createElement("span");
+        keys.className = "gsg-blocks-keys";
+        keys.textContent = "Strg+B: Blöcke ↔ Java";
+        bar.append(this.toolboxButton, this.resetButton, keys);
+        area.append(bar, this.blocklyDiv, this.notice);
 
         const preview = document.createElement("div");
         preview.className = "gsg-blocks-preview";
@@ -104,7 +126,34 @@ export class BlockView {
             this.modelListener = this.model?.onDidChangeContent(() => this.onModelChanged());
         }
         this.load(false);
+        this.openedText = this.lastText;
+        this.resetButton.hidden = readOnly;
+        this.toolboxButton.hidden = readOnly;
         this.resize();
+    }
+
+    /** Werkzeugleiste (Kategorien) aus- und wieder einblenden */
+    private toggleToolbox() {
+        const toolbox = this.ws?.getToolbox() as (Blockly.IToolbox & { setVisible?(v: boolean): void }) | null | undefined;
+        if (!toolbox?.setVisible) return;
+        this.toolboxVisible = !this.toolboxVisible;
+        toolbox.setVisible(this.toolboxVisible);
+        this.ws?.getFlyout()?.hide();
+        this.toolboxButton.textContent = this.toolboxVisible ? "◧ Werkzeugleiste ausblenden" : "◨ Werkzeugleiste einblenden";
+        this.resize();
+    }
+
+    /** Auf den Stand beim Wechsel in die Blockansicht zurücksetzen (im Editor rückgängig machbar) */
+    private resetToOpened() {
+        if (!this.model || this.model.isDisposed()) return;
+        this.flushWrite();
+        const current = this.model.getValue(monaco.editor.EndOfLinePreference.LF);
+        if (current === this.openedText) return;
+        if (!confirm("Alle Änderungen seit dem Wechsel in die Blockansicht verwerfen?")) return;
+        this.model.pushStackElement();
+        this.model.pushEditOperations([], [{ range: this.model.getFullModelRange(), text: this.openedText }], () => null);
+        this.model.pushStackElement();
+        // onModelChanged baut die Blöcke neu auf
     }
 
     hide() {
@@ -261,7 +310,7 @@ export class BlockView {
         Blockly.Events.setGroup(e.group || true);
         try {
             for (const b of this.ws.getAllBlocks(false)) {
-                if ([B.varGet, B.varSet, B.varChange, B.varIncDec].includes(b.type as never) && b.getFieldValue("NAME") === oldName) {
+                if ([B.varGet, B.varSet, B.varChange, B.varSub, B.varInc, B.varDec].includes(b.type as never) && b.getFieldValue("NAME") === oldName) {
                     b.setFieldValue(newName, "NAME");
                 }
             }

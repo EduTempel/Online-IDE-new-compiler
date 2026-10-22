@@ -213,24 +213,52 @@ export class JavaBlockParser {
                 const b = this.block(B.print, begin, this.pos, { fields: { MODE: t.tt === TokenType.keywordPrintln ? "println" : "print" } });
                 if (close > open + 1) {
                     if (this.topLevelCommas(open + 1, close).length > 0) throw new Fail();   // println(text, farbe)
-                    b.inputs = { VALUE: { block: this.expression(open + 1, close) } };
+                    const values = splitPrintValues(this.expression(open + 1, close));
+                    b.inputs = {};
+                    values.forEach((v, i) => { b.inputs![i === 0 ? "VALUE" : "VALUE" + i] = { block: v }; });
+                    if (values.length > 1) b.extraState = { items: values.length };
                 }
                 return b;
             }
             case TokenType.keywordIf: {
                 this.pos++;
-                const cond = this.condition();
-                const thenBody = this.body();
-                const hasElse = this.is(TokenType.keywordElse);
-                const elseBody = hasElse ? (this.pos++, this.elseBody()) : undefined;
-                const b = this.block(hasElse ? B.ifElse : B.if, begin, this.pos);
-                b.inputs = { COND: { block: cond } };
-                if (thenBody) b.inputs.DO = { block: thenBody };
+                const conds = [this.condition()];
+                const bodies = [this.body()];
+                let hasElse = false;
+                let elseBody: BlockState | undefined;
+                while (this.is(TokenType.keywordElse)) {
+                    this.pos++;
+                    if (this.is(TokenType.keywordIf)) {          // else if: weiterer Zweig im selben Block
+                        this.pos++;
+                        conds.push(this.condition());
+                        bodies.push(this.body());
+                    } else {
+                        hasElse = true;
+                        elseBody = this.body();
+                        break;
+                    }
+                }
+                const b = this.block(B.if, begin, this.pos);
+                b.inputs = {};
+                conds.forEach((c, i) => {
+                    b.inputs![i === 0 ? "COND" : "COND" + i] = { block: c };
+                    if (bodies[i]) b.inputs![i === 0 ? "DO" : "DO" + i] = { block: bodies[i]! };
+                });
                 if (elseBody) b.inputs.ELSE = { block: elseBody };
+                if (conds.length > 1 || hasElse) b.extraState = { elseIfs: conds.length - 1, hasElse };
                 return b;
             }
             case TokenType.keywordWhile: {
                 this.pos++;
+                const forever = this.is(TokenType.leftBracket) && this.peek(1)?.tt === TokenType.booleanLiteral
+                    && this.peek(1)?.value === true && this.peek(2)?.tt === TokenType.rightBracket;
+                if (forever) {
+                    this.pos += 3;
+                    const body = this.body();
+                    const b = this.block(B.forever, begin, this.pos);
+                    if (body) b.inputs = { DO: { block: body } };
+                    return b;
+                }
                 const cond = this.condition();
                 const body = this.body();
                 const b = this.block(B.while, begin, this.pos);
@@ -268,13 +296,12 @@ export class JavaBlockParser {
         return this.statement(false);
     }
 
-    /** else-Zweig: "else if" wird ein if-Block im sonst-Teil */
-    private elseBody(): BlockState | undefined {
-        if (this.is(TokenType.keywordIf)) return this.statement(false);
-        return this.body();
-    }
-
-    /** for (int i = A; i < B; i++) bzw. i <= B */
+    /**
+     * for-Schleifen:
+     *   for (int durchlauf = 1; durchlauf <= n; durchlauf++)   -> wiederhole n-mal
+     *   for (int i = a; i <= b; i++)  / i < b / i += s          -> zähle aufsteigend
+     *   for (int i = a; i >= b; i--)  / i > b / i -= s          -> zähle absteigend
+     */
     private forLoop(): BlockState {
         const begin = this.pos;
         this.pos++;
@@ -282,29 +309,56 @@ export class JavaBlockParser {
         const type = this.expect(TokenType.identifier);
         if (type.value !== "int") throw new Fail();
         const v = this.expect(TokenType.identifier);
+        const name = String(v.value);
         this.expect(TokenType.assignment);
         const fromStart = this.pos;
         const fromEnd = this.findAtDepth0(TokenType.semicolon, fromStart);
         this.pos = fromEnd + 1;
-        const v2 = this.expect(TokenType.identifier);
+        if (this.expect(TokenType.identifier).value !== name) throw new Fail();
         const cmp = this.peek();
-        if (v2.value !== v.value || !cmp || (cmp.tt !== TokenType.lower && cmp.tt !== TokenType.lowerOrEqual)) throw new Fail();
+        if (!cmp || ![TokenType.lower, TokenType.lowerOrEqual, TokenType.greater, TokenType.greaterOrEqual].includes(cmp.tt)) throw new Fail();
         this.pos++;
         const toStart = this.pos;
         const toEnd = this.findAtDepth0(TokenType.semicolon, toStart);
         this.pos = toEnd + 1;
-        const v3 = this.expect(TokenType.identifier);
-        if (v3.value !== v.value) throw new Fail();
-        this.expect(TokenType.plusPlus);
+        if (this.expect(TokenType.identifier).value !== name) throw new Fail();
+        const update = this.peek();
+        if (!update) throw new Fail();
+        this.pos++;
+        let stepStart = -1, stepEnd = -1;
+        if (update.tt === TokenType.plusAssignment || update.tt === TokenType.minusAssignment) {
+            stepStart = this.pos;
+            stepEnd = this.findAtDepth0(TokenType.rightBracket, stepStart);
+            this.pos = stepEnd;
+        } else if (update.tt !== TokenType.plusPlus && update.tt !== TokenType.minusMinus) {
+            throw new Fail();
+        }
         this.expect(TokenType.rightBracket);
+        if (fromEnd === fromStart || toEnd === toStart || stepStart === stepEnd && stepStart >= 0) throw new Fail();
+
+        const up = update.tt === TokenType.plusPlus || update.tt === TokenType.plusAssignment;
+        const upCmp = cmp.tt === TokenType.lower || cmp.tt === TokenType.lowerOrEqual;
+        if (up !== upCmp) throw new Fail();   // z. B. i <= 10; i--  -> als Java-Text übernehmen
+        const inclusive = cmp.tt === TokenType.lowerOrEqual || cmp.tt === TokenType.greaterOrEqual;
+
+        // wiederhole n-mal
+        const fromText = this.text(fromStart, fromEnd).trim();
+        if (/^durchlauf\d*$/.test(name) && fromText === "1" && cmp.tt === TokenType.lowerOrEqual && update.tt === TokenType.plusPlus) {
+            const body = this.body();
+            const b = this.block(B.repeat, begin, this.pos);
+            b.inputs = { TIMES: { block: this.expression(toStart, toEnd) } };
+            if (body) b.inputs.DO = { block: body };
+            return b;
+        }
+
         const body = this.body();
-        if (fromEnd === fromStart || toEnd === toStart) throw new Fail();
         const b = this.block(B.for, begin, this.pos, {
-            fields: { VAR: String(v.value), CMP: cmp.tt === TokenType.lower ? "<" : "<=" },
+            fields: { VAR: name, DIR: up ? "up" : "down", CMP: inclusive ? "incl" : "excl" },
         });
         b.inputs = {
             FROM: { block: this.expression(fromStart, fromEnd) },
             TO: { block: this.expression(toStart, toEnd) },
+            STEP: { block: stepStart >= 0 ? this.expression(stepStart, stepEnd) : this.valueBlock(B.number, { fields: { NUM: "1" } }) },
         };
         if (body) b.inputs.DO = { block: body };
         return b;
@@ -339,16 +393,28 @@ export class JavaBlockParser {
         if (second.tt === TokenType.plusPlus || second.tt === TokenType.minusMinus) {
             this.pos += 2;
             this.expect(TokenType.semicolon);
-            return this.block(B.varIncDec, begin, this.pos, { fields: { NAME: name, OP: second.tt === TokenType.plusPlus ? "++" : "--" } });
+            return this.block(second.tt === TokenType.plusPlus ? B.varInc : B.varDec, begin, this.pos, { fields: { NAME: name } });
         }
-        if (second.tt === TokenType.assignment || second.tt === TokenType.plusAssignment) {
+        if (second.tt === TokenType.assignment || second.tt === TokenType.plusAssignment || second.tt === TokenType.minusAssignment) {
             this.pos += 2;
             const valueStart = this.pos;
             const end = this.findAtDepth0(TokenType.semicolon, valueStart);
             if (end === valueStart) throw new Fail();
             this.pos = end + 1;
-            const b = this.block(second.tt === TokenType.assignment ? B.varSet : B.varChange, begin, this.pos, { fields: { NAME: name } });
+            const type = second.tt === TokenType.assignment ? B.varSet : second.tt === TokenType.plusAssignment ? B.varChange : B.varSub;
+            const b = this.block(type, begin, this.pos, { fields: { NAME: name } });
             b.inputs = { VALUE: { block: this.expression(valueStart, end) } };
+            return b;
+        }
+        // Thread.sleep(…);
+        if (name === "Thread" && second.tt === TokenType.dot && this.peek(2)?.value === "sleep" && this.peek(3)?.tt === TokenType.leftBracket) {
+            const open = this.pos + 3;
+            const close = this.matching(open);
+            if (close === open + 1 || this.topLevelCommas(open + 1, close).length > 0) throw new Fail();
+            this.pos = close + 1;
+            this.expect(TokenType.semicolon);
+            const b = this.block(B.wait, begin, this.pos);
+            b.inputs = { MS: { block: this.expression(open + 1, close) } };
             return b;
         }
         return undefined;
@@ -444,7 +510,12 @@ class ExpressionParser {
             if (!op || op.level <= minLevel) break;
             this.pos++;
             const right = this.parse(op.level);
-            left = this.p.value(op.type, { fields: { OP: op.op }, inputs: { A: { block: left }, B: { block: right } } });
+            if (op.op === "+" && (isTextLike(left) || isTextLike(right))) {
+                // Verbinden von Texten ("Ada" + zahl)
+                left = this.p.value(B.concat, { inputs: { A: { block: left }, B: { block: right } } });
+            } else {
+                left = this.p.value(op.type, { fields: { OP: op.op }, inputs: { A: { block: left }, B: { block: right } } });
+            }
         }
         return left;
     }
@@ -482,7 +553,7 @@ class ExpressionParser {
         if (t.tt === TokenType.stringLiteral) {
             if (this.p.sourceText(start, start + 1).startsWith('"""')) throw new Fail();
             this.pos++;
-            return this.p.value(B.text, { fields: { TEXT: String(t.value) } });
+            return this.postfix(this.p.value(B.text, { fields: { TEXT: String(t.value) } }), start);
         }
         if (t.tt === TokenType.charLiteral && typeof t.value === "string" && [...t.value].length === 1) {
             this.pos++;
@@ -493,19 +564,28 @@ class ExpressionParser {
             return this.p.value(B.bool, { fields: { VALUE: t.value ? "true" : "false" } });
         }
         if (t.tt === TokenType.leftBracket) {
+            // Typumwandlung: (int) x, (double) x, (char) x
+            const castType = this.p.tok(start + 1), castClose = this.p.tok(start + 2);
+            if (castType?.tt === TokenType.identifier && ["int", "double", "char"].includes(String(castType.value))
+                && castClose?.tt === TokenType.rightBracket && start + 3 < this.to) {
+                this.pos = start + 3;
+                return this.p.value(B.cast, { fields: { TYPE: String(castType.value) }, inputs: { VALUE: { block: this.unary() } } });
+            }
             const close = this.p.matchingBracket(start);
             if (close >= this.to) throw new Fail();
             const inner = new ExpressionParser(this.p, start + 1, close);
             const b = inner.parse(0);
-            if (inner.pos !== close) throw new Fail();   // z. B. Typumwandlung (int)
+            if (inner.pos !== close) throw new Fail();
             this.pos = close + 1;
-            return b;
+            return this.postfix(b, start);
         }
         if (t.tt === TokenType.identifier) {
             const special = this.knownCall();
             if (special) return special;
             this.pos++;
+            const next = this.peek();
             if (!this.isChainContinuation()) return this.p.value(B.varGet, { fields: { NAME: String(t.value) } });
+            if (next?.tt === TokenType.dot) return this.postfix(this.p.value(B.varGet, { fields: { NAME: String(t.value) } }), start);
             this.chain();
             return this.p.value(B.javaExpression, { fields: { CODE: this.p.sourceText(start, this.pos) } });
         }
@@ -520,6 +600,67 @@ class ExpressionParser {
             return this.p.value(B.javaExpression, { fields: { CODE: this.p.sourceText(start, this.pos) } });
         }
         throw new Fail();
+    }
+
+    /**
+     * Textoperationen hinter einem Wert: s.length(), s.charAt(i), s.substring(a, b), a.equals(b),
+     * a.contains(b), a.compareTo(b), s.toUpperCase(), s.toLowerCase(). Alles andere (Attribute,
+     * andere Methoden) wird mit dem ganzen Ausdruck zum Java-Ausdruck-Block.
+     */
+    private postfix(base: BlockState, start: number): BlockState {
+        let b = base;
+        while (this.peek()?.tt === TokenType.dot) {
+            const nameTok = this.p.tok(this.pos + 1), open = this.p.tok(this.pos + 2);
+            const known = nameTok?.tt === TokenType.identifier && open?.tt === TokenType.leftBracket && this.pos + 2 < this.to;
+            const openIndex = this.pos + 2;
+            const close = known ? this.p.matchingBracket(openIndex) : -1;
+            const method = String(nameTok?.value ?? "");
+            const commas = known && close < this.to ? this.p.commas(openIndex + 1, close) : [];
+            const argCount = !known || close >= this.to ? -1 : close === openIndex + 1 ? 0 : commas.length + 1;
+            const arg = (i: number) => {
+                const bounds = [openIndex, ...commas, close];
+                return this.p.subExpression(bounds[i] + 1, bounds[i + 1]);
+            };
+            const two = (type: string) => this.p.value(type, { inputs: { A: { block: b }, B: { block: arg(0) } } });
+            let next: BlockState | undefined;
+            if (method === "length" && argCount === 0) next = this.p.value(B.strLength, { inputs: { TEXT: { block: b } } });
+            else if (method === "charAt" && argCount === 1) next = this.p.value(B.strCharAt, { inputs: { TEXT: { block: b }, INDEX: { block: arg(0) } } });
+            else if (method === "substring" && argCount === 2) next = this.p.value(B.strSubstring, { inputs: { TEXT: { block: b }, FROM: { block: arg(0) }, TO: { block: arg(1) } } });
+            else if (method === "equals" && argCount === 1) next = two(B.strEquals);
+            else if (method === "contains" && argCount === 1) next = two(B.strContains);
+            else if (method === "compareTo" && argCount === 1) next = two(B.strCompare);
+            else if ((method === "toUpperCase" || method === "toLowerCase") && argCount === 0) {
+                next = this.p.value(B.strCase, { fields: { CASE: method === "toUpperCase" ? "upper" : "lower" }, inputs: { TEXT: { block: b } } });
+            }
+            if (!next) {
+                this.pos = start;
+                this.skipPrimaryTokens();
+                this.chain();
+                return this.p.value(B.javaExpression, { fields: { CODE: this.p.sourceText(start, this.pos) } });
+            }
+            b = next;
+            this.pos = close + 1;
+        }
+        if (this.peek()?.tt === TokenType.leftSquareBracket) {
+            this.pos = start;
+            this.skipPrimaryTokens();
+            this.chain();
+            return this.p.value(B.javaExpression, { fields: { CODE: this.p.sourceText(start, this.pos) } });
+        }
+        return b;
+    }
+
+    /** überspringt den Anfang eines Ausdrucks (Name, Literal oder Klammer) */
+    private skipPrimaryTokens() {
+        const t = this.peek();
+        if (!t) throw new Fail();
+        if (t.tt === TokenType.leftBracket) {
+            const close = this.p.matchingBracket(this.pos);
+            if (close >= this.to) throw new Fail();
+            this.pos = close + 1;
+        } else {
+            this.pos++;
+        }
     }
 
     private isChainContinuation(): boolean {
@@ -566,10 +707,44 @@ class ExpressionParser {
             const [[f1, t1], [f2, t2]] = args();
             if (f1 === t1 || f2 === t2) return undefined;
             result = this.p.value(B.random, { inputs: { FROM: { block: this.p.subExpression(f1, t1) }, TO: { block: this.p.subExpression(f2, t2) } } });
+        } else if (cls === "Math" && (method === "min" || method === "max") && commas.length === 1) {
+            const [[f1, t1], [f2, t2]] = args();
+            if (f1 === t1 || f2 === t2) return undefined;
+            result = this.p.value(B.minMax, { fields: { FUNC: method }, inputs: { A: { block: this.p.subExpression(f1, t1) }, B: { block: this.p.subExpression(f2, t2) } } });
+        } else if (cls === "Math" && method === "random" && close === openIndex + 1) {
+            result = this.p.value(B.randomDouble);
         } else if (cls === "Math" && (MATH_FUNCTIONS as readonly string[]).includes(method) && commas.length === 0 && close > openIndex + 1) {
             result = this.p.value(B.math, { fields: { FUNC: method }, inputs: { VALUE: { block: this.p.subExpression(openIndex + 1, close) } } });
         }
         if (result) this.pos = close + 1;
         return result;
     }
+}
+
+/** Text-Wert, bei dem "+" ein Verbinden ist */
+function isTextLike(b: BlockState): boolean {
+    return b.type === B.text || b.type === B.concat || b.type === B.strSubstring || b.type === B.strCase;
+}
+
+/**
+ * println(a + " " + b + " " + c) -> mehrere Werte (a, b, c) im Block "gib aus".
+ * Nur eine links verkettete Folge, bei der zwischen allen Werten genau " " steht.
+ */
+function splitPrintValues(value: BlockState): BlockState[] {
+    const terms: BlockState[] = [];
+    const collect = (b: BlockState) => {
+        if (b.type === B.concat) {
+            collect(b.inputs!.A.block);
+            terms.push(b.inputs!.B.block);
+        } else {
+            terms.push(b);
+        }
+    };
+    collect(value);
+    const isSpace = (b: BlockState) => b.type === B.text && b.fields?.TEXT === " ";
+    if (terms.length < 3 || terms.length % 2 === 0) return [value];
+    for (let i = 0; i < terms.length; i++) {
+        if (i % 2 === 1 ? !isSpace(terms[i]) : isSpace(terms[i])) return [value];
+    }
+    return terms.filter((_, i) => i % 2 === 0);
 }

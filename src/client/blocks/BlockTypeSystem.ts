@@ -182,6 +182,17 @@ export function outputType(b: Blockly.Block, vars: Map<string, JType>, memo = ne
             break;
         }
         case B.random: t = ["int"]; break;
+        case B.randomDouble: t = ["double"]; break;
+        case B.minMax: {
+            const a = child("A"), c = child("B");
+            t = a?.includes("double") || c?.includes("double") ? ["double"] : a && c ? ["int"] : [...NUMERIC];
+            break;
+        }
+        case B.cast: t = [String(b.getFieldValue("TYPE")) as JType]; break;
+        case B.concat: case B.strSubstring: case B.strCase: t = ["String"]; break;
+        case B.strLength: case B.strCompare: t = ["int"]; break;
+        case B.strCharAt: t = ["char"]; break;
+        case B.strEquals: case B.strContains: t = ["boolean"]; break;
         case B.math: {
             const f = String(b.getFieldValue("FUNC"));
             if (f === "sqrt") t = ["double"];
@@ -220,13 +231,29 @@ export function inputType(b: Blockly.Block, input: string, vars: Map<string, JTy
             const v = varType("NAME");
             return v ? acceptsForType(v) : null;
         }
+        case B.varSub: {
+            const v = varType("NAME");
+            return v === "int" || v === "double" ? [...NUMERIC] : v === "char" ? ["int", "char"] : null;
+        }
         case B.varChange: {
             const v = varType("NAME");
             return v === "int" || v === "double" ? [...NUMERIC] : v === "char" ? ["int", "char"] : null;   // Text += beliebig
         }
         case B.print: return null;
-        case B.if: case B.ifElse: case B.while: return ["boolean"];
-        case B.for: return input === "FROM" ? ["int"] : [...NUMERIC_OR_CHAR];
+        case B.if: case B.while: return ["boolean"];
+        case B.repeat: return ["int"];
+        case B.for: return input === "TO" ? [...NUMERIC_OR_CHAR] : ["int"];
+        case B.wait: return ["int"];
+        case B.minMax: return [...NUMERIC];
+        case B.cast: {
+            const target = String(b.getFieldValue("TYPE"));
+            return target === "char" ? ["int", "char"] : [...NUMERIC_OR_CHAR];
+        }
+        case B.concat: return null;
+        case B.strLength: case B.strCase: return ["String"];
+        case B.strCharAt: return input === "INDEX" ? ["int"] : ["String"];
+        case B.strSubstring: return input === "TEXT" ? ["String"] : ["int"];
+        case B.strEquals: case B.strContains: case B.strCompare: return ["String"];
         case B.logic: case B.not: return ["boolean"];
         case B.compare: {
             const op = String(b.getFieldValue("OP"));
@@ -302,6 +329,16 @@ export function applyTypes(ws: Blockly.Workspace, vars: Map<string, JType> = col
         if (before !== shape) {
             (input as Blockly.Input & { gsgShape?: number }).gsgShape = shape;
             toRender.add(block);
+        }
+    }
+    // Texte mit == vergleichen ist in Java ein häufiger Fehler
+    for (const b of blocks) {
+        if (b.type !== B.compare || !["==", "!="].includes(String(b.getFieldValue("OP")))) continue;
+        const a = b.getInputTargetBlock("A"), c = b.getInputTargetBlock("B");
+        const isText = (x: Blockly.Block | null) => !!x && sameTypes(outputs.get(x), ["String"]);
+        if (isText(a) && isText(c)) {
+            if (!mismatches.has(b)) mismatches.set(b, []);
+            mismatches.get(b)!.push("Texte bitte mit dem Block „ist gleich“ vergleichen (.equals) – == prüft nur, ob es dasselbe Objekt ist.");
         }
     }
     for (const b of blocks) {

@@ -51,6 +51,7 @@ function rawOrder(code: string): Order {
 export class JavaBlockGenerator {
 
     private lines: string[] = [];
+    private repeatDepth = 0;
     private ranges: LineRange[] = [];
 
     static generate(state: WorkspaceState): GeneratorResult {
@@ -86,15 +87,47 @@ export class JavaBlockGenerator {
             case B.varChange:
                 this.emit(`${indent}${f.NAME} += ${this.input(b, "VALUE", Order.NONE)};`);
                 break;
-            case B.varIncDec:
-                this.emit(`${indent}${f.NAME}${f.OP === "--" ? "--" : "++"};`);
+            case B.varSub:
+                this.emit(`${indent}${f.NAME} -= ${this.input(b, "VALUE", Order.NONE)};`);
                 break;
-            case B.print:
-                this.emit(`${indent}${f.MODE === "print" ? "print" : "println"}(${this.input(b, "VALUE", Order.NONE)});`);
+            case B.varInc:
+                this.emit(`${indent}${f.NAME}++;`);
                 break;
+            case B.varDec:
+                this.emit(`${indent}${f.NAME}--;`);
+                break;
+            case B.print: {
+                // mehrere Werte: durch Leerzeichen getrennt (a + " " + b)
+                const items = Math.max(1, b.extraState?.items ?? 1);
+                const parts: string[] = [];
+                for (let i = 0; i < items; i++) {
+                    const v = b.inputs?.[i === 0 ? "VALUE" : "VALUE" + i]?.block;
+                    if (items === 1) parts.push(v ? this.value(v, Order.NONE) : "");
+                    else parts.push(v ? this.value(v, Order.ADD, i > 0) : '""');
+                }
+                this.emit(`${indent}${f.MODE === "print" ? "print" : "println"}(${parts.join(' + " " + ')});`);
+                break;
+            }
             case B.if:
-            case B.ifElse:
-                this.ifStatement(b, indent, "if");
+                this.ifStatement(b, indent);
+                break;
+            case B.forever:
+                this.emit(`${indent}while (true) {`);
+                this.statements(b.inputs?.DO?.block, indent + INDENT);
+                this.emit(`${indent}}`);
+                break;
+            case B.repeat: {
+                // geschachtelte Wiederholungen brauchen verschiedene Zählvariablen
+                this.repeatDepth++;
+                const v = this.repeatDepth === 1 ? "durchlauf" : "durchlauf" + this.repeatDepth;
+                this.emit(`${indent}for (int ${v} = 1; ${v} <= ${this.input(b, "TIMES", Order.NONE)}; ${v}++) {`);
+                this.statements(b.inputs?.DO?.block, indent + INDENT);
+                this.emit(`${indent}}`);
+                this.repeatDepth--;
+                break;
+            }
+            case B.wait:
+                this.emit(`${indent}Thread.sleep(${this.input(b, "MS", Order.NONE)});`);
                 break;
             case B.while:
                 this.emit(`${indent}while (${this.input(b, "COND", Order.NONE)}) {`);
@@ -103,8 +136,13 @@ export class JavaBlockGenerator {
                 break;
             case B.for: {
                 const v = f.VAR;
-                const cmp = f.CMP === "<=" ? "<=" : "<";
-                this.emit(`${indent}for (int ${v} = ${this.input(b, "FROM", Order.NONE)}; ${v} ${cmp} ${this.input(b, "TO", Order.NONE)}; ${v}++) {`);
+                const up = f.DIR !== "down";
+                const incl = f.CMP !== "excl";
+                const cmp = up ? (incl ? "<=" : "<") : (incl ? ">=" : ">");
+                const stepBlock = b.inputs?.STEP?.block;
+                const step = stepBlock ? this.value(stepBlock, Order.NONE) : "1";
+                const update = step === "1" ? (up ? `${v}++` : `${v}--`) : `${v} ${up ? "+=" : "-="} ${step}`;
+                this.emit(`${indent}for (int ${v} = ${this.input(b, "FROM", Order.NONE)}; ${v} ${cmp} ${this.input(b, "TO", Order.NONE)}; ${update}) {`);
                 this.statements(b.inputs?.DO?.block, indent + INDENT);
                 this.emit(`${indent}}`);
                 break;
@@ -127,20 +165,18 @@ export class JavaBlockGenerator {
         if (b.id) this.ranges.push({ id: b.id, startLine, endLine: this.lines.length });
     }
 
-    /** if/else; ein sonst-Teil, der nur aus einem weiteren if besteht, wird "else if" */
-    private ifStatement(b: BlockState, indent: string, keyword: "if" | "} else if") {
-        this.emit(`${indent}${keyword} (${this.input(b, "COND", Order.NONE)}) {`);
-        this.statements(b.inputs?.DO?.block, indent + INDENT);
-        if (b.type === B.ifElse) {
-            const elseBlock = b.inputs?.ELSE?.block;
-            if (elseBlock && (elseBlock.type === B.if || elseBlock.type === B.ifElse) && !elseBlock.next) {
-                const startLine = this.lines.length + 1;
-                this.ifStatement(elseBlock, indent, "} else if");
-                if (elseBlock.id) this.ranges.push({ id: elseBlock.id, startLine, endLine: this.lines.length });
-                return;   // die schließende Klammer schreibt das innere if
-            }
+    /** falls … sonst falls … sonst */
+    private ifStatement(b: BlockState, indent: string) {
+        const elseIfs = b.extraState?.elseIfs ?? 0;
+        for (let i = 0; i <= elseIfs; i++) {
+            const cond = i === 0 ? "COND" : "COND" + i;
+            const body = i === 0 ? "DO" : "DO" + i;
+            this.emit(`${indent}${i === 0 ? "if" : "} else if"} (${this.input(b, cond, Order.NONE)}) {`);
+            this.statements(b.inputs?.[body]?.block, indent + INDENT);
+        }
+        if (b.extraState?.hasElse) {
             this.emit(`${indent}} else {`);
-            this.statements(elseBlock, indent + INDENT);
+            this.statements(b.inputs?.ELSE?.block, indent + INDENT);
         }
         this.emit(`${indent}}`);
     }
@@ -150,6 +186,12 @@ export class JavaBlockGenerator {
     private input(b: BlockState, name: string, outer: Order): string {
         const target = b.inputs?.[name]?.block;
         return target ? this.value(target, outer) : "";
+    }
+
+    /** Wert vor einem Methodenaufruf (s.length()): nur Einfaches ohne Klammern */
+    private receiver(b: BlockState, name: string): string {
+        const target = b.inputs?.[name]?.block;
+        return target ? this.value(target, Order.ATOMIC, true) : '""';
     }
 
     /** Code eines Werte-Blocks, bei Bedarf in Klammern */
@@ -185,8 +227,32 @@ export class JavaBlockGenerator {
                 const a = b.inputs?.A?.block, c = b.inputs?.B?.block;
                 return [`${a ? this.value(a, order) : ""} ${op} ${c ? this.value(c, order, true) : ""}`, order];
             }
+            case B.concat: {
+                const a = b.inputs?.A?.block, c = b.inputs?.B?.block;
+                return [`${a ? this.value(a, Order.ADD) : '""'} + ${c ? this.value(c, Order.ADD, true) : '""'}`, Order.ADD];
+            }
             case B.not:
                 return ["!" + this.input(b, "VALUE", Order.UNARY), Order.UNARY];
+            case B.cast:
+                return [`(${f.TYPE === "double" ? "double" : f.TYPE === "char" ? "char" : "int"}) ${this.input(b, "VALUE", Order.UNARY)}`, Order.UNARY];
+            case B.minMax:
+                return [`Math.${f.FUNC === "max" ? "max" : "min"}(${this.input(b, "A", Order.NONE)}, ${this.input(b, "B", Order.NONE)})`, Order.ATOMIC];
+            case B.randomDouble:
+                return ["Math.random()", Order.ATOMIC];
+            case B.strLength:
+                return [`${this.receiver(b, "TEXT")}.length()`, Order.ATOMIC];
+            case B.strCharAt:
+                return [`${this.receiver(b, "TEXT")}.charAt(${this.input(b, "INDEX", Order.NONE)})`, Order.ATOMIC];
+            case B.strSubstring:
+                return [`${this.receiver(b, "TEXT")}.substring(${this.input(b, "FROM", Order.NONE)}, ${this.input(b, "TO", Order.NONE)})`, Order.ATOMIC];
+            case B.strEquals:
+                return [`${this.receiver(b, "A")}.equals(${this.input(b, "B", Order.NONE)})`, Order.ATOMIC];
+            case B.strContains:
+                return [`${this.receiver(b, "A")}.contains(${this.input(b, "B", Order.NONE)})`, Order.ATOMIC];
+            case B.strCompare:
+                return [`${this.receiver(b, "A")}.compareTo(${this.input(b, "B", Order.NONE)})`, Order.ATOMIC];
+            case B.strCase:
+                return [`${this.receiver(b, "TEXT")}.${f.CASE === "lower" ? "toLowerCase" : "toUpperCase"}()`, Order.ATOMIC];
             case B.input:
                 return [`Input.${f.METHOD ?? "readInt"}(${this.input(b, "PROMPT", Order.NONE)})`, Order.ATOMIC];
             case B.random:
