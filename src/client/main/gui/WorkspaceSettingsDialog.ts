@@ -6,6 +6,7 @@ import { Main } from "../Main.js";
 import { Dialog } from "./Dialog.js";
 import { WorkspaceSettingsDialogMessages } from "./language/GUILanguage.js";
 import jQuery from 'jquery';
+import { addBlockSettings } from "../../blocks/BlockModeController.js";
 
 
 export class WorkspaceSettingsDialog {
@@ -56,6 +57,11 @@ export class WorkspaceSettingsDialog {
 
         this.setupLanguageSpecificDiv();
 
+        // Blockmodus (GSG): Start in der Blockansicht, Java-Ansicht sperren
+        let $blockSettingsDiv = jQuery("<div></div>");
+        dialog.addDiv($blockSettingsDiv);
+        let applyBlockSettings = addBlockSettings($blockSettingsDiv[0], this.workspace, this.main);
+
 
         this.dialog.buttons([
             {
@@ -72,6 +78,7 @@ export class WorkspaceSettingsDialog {
                     let languageChanged = selectedLanguage != this.main.getCurrentProgrammingLanguage();
 
                     let workspaceSettingsChanged = selectedLanguage.retrieveWorkspaceSettings(this.main, this.$langueSpecificDiv[0], this.workspace);
+                    workspaceSettingsChanged = applyBlockSettings() || workspaceSettingsChanged;
 
                     if (languageChanged) {
                         this.workspace.settings.language = selectedLanguage.name;

@@ -1,0 +1,174 @@
+/* Blockmodus (GSG): Umschalter, Blockansicht, Java-Vorschau */
+
+.gsg-viewtoggle {
+    display: flex;
+    margin-right: 18px !important;
+    border: 1px solid var(--slider, #555);
+    border-radius: 6px;
+    overflow: hidden;
+    height: 20px;
+    align-self: center;
+}
+
+.gsg-viewtoggle button {
+    font: 600 11px/18px Roboto, "Segoe UI", sans-serif;
+    padding: 0 10px;
+    border: 0;
+    background: transparent;
+    color: var(--fontColorNormal, #ccc);
+    cursor: pointer;
+}
+
+.gsg-viewtoggle button + button { border-left: 1px solid var(--slider, #555); }
+.gsg-viewtoggle button:hover:not(:disabled) { background: rgba(127, 127, 127, .2); }
+.gsg-viewtoggle button.active { background: #00376D; color: #fff; }
+.gsg-viewtoggle button:disabled { opacity: .45; cursor: not-allowed; }
+.gsg-viewtoggle button:focus-visible { outline: 2px solid #45B82F; outline-offset: -2px; }
+
+#gsg-blocks {
+    flex-grow: 1;
+    min-height: 0;
+    display: flex;
+    position: relative;
+}
+
+#gsg-blocks .gsg-blocks-loading {
+    margin: auto;
+    color: var(--fontColorLight, #aaa);
+}
+
+.gsg-blocks-area {
+    position: relative;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.gsg-blockly {
+    position: absolute;
+    inset: 0;
+}
+
+.gsg-blocks-notice {
+    position: absolute;
+    left: 50%;
+    bottom: 10px;
+    transform: translateX(-50%);
+    max-width: 80%;
+    background: rgba(176, 122, 0, .92);
+    color: #fff;
+    font: 12px/1.35 Roboto, "Segoe UI", sans-serif;
+    padding: 6px 12px;
+    border-radius: 6px;
+    pointer-events: none;
+    z-index: 5;
+}
+
+/* Java-Vorschau */
+.gsg-blocks-preview {
+    flex: 0 0 32%;
+    max-width: 520px;
+    min-width: 200px;
+    display: flex;
+    flex-direction: column;
+    border-left: 1px solid var(--slider, #444);
+    background: var(--backgroundDark, #1e1e1e);
+}
+
+.gsg-blocks-preview.collapsed {
+    flex: 0 0 26px;
+    min-width: 26px;
+}
+
+.gsg-blocks-preview.collapsed .gsg-preview-code,
+.gsg-blocks-preview.collapsed .gsg-preview-title,
+.gsg-blocks-preview.collapsed .gsg-preview-sub { display: none; }
+
+.gsg-preview-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 3px 6px;
+    border-bottom: 1px solid var(--slider, #444);
+    font: 12px Roboto, "Segoe UI", sans-serif;
+    color: var(--fontColorLight, #aaa);
+    white-space: nowrap;
+}
+
+.gsg-preview-title { font-weight: 700; color: var(--fontColorNormal, #ddd); }
+.gsg-preview-sub { overflow: hidden; text-overflow: ellipsis; }
+
+.gsg-preview-toggle {
+    border: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    font-size: 14px;
+    width: 16px;
+    padding: 0;
+}
+
+.gsg-preview-code {
+    flex: 1;
+    overflow: auto;
+    padding: 4px 0;
+    font-family: "Roboto Mono", Consolas, monospace;
+    white-space: pre;
+}
+
+.gsg-pl { display: flex; padding-right: 8px; }
+.gsg-pl.selected { background: rgba(69, 184, 47, .18); box-shadow: inset 3px 0 #45B82F; }
+.gsg-ln {
+    flex: 0 0 2.6em;
+    text-align: right;
+    padding-right: 10px;
+    color: var(--fontColorLight, #777);
+    opacity: .6;
+    user-select: none;
+}
+
+/* Werkzeugkasten: eigene Schriftgröße (die IDE setzt sonst große Schriften) */
+#gsg-blocks .blocklyToolbox { padding-top: 4px; }
+#gsg-blocks .blocklyToolboxCategory { padding: 2px 6px 2px 0; }
+#gsg-blocks .blocklyToolboxCategoryLabel,
+#gsg-blocks .blocklyTreeLabel {
+    font: 600 12px/20px Roboto, "Segoe UI", sans-serif;
+    padding: 0 4px;
+}
+#gsg-blocks .blocklyToolboxCategoryIcon { width: 0; }
+
+/* Beschriftung in den Blöcken */
+.blocklyText.gsg-java-hint,
+.gsg-java-hint .blocklyText,
+.blocklyFlyout .gsg-java-hint {
+    font-family: "Roboto Mono", Consolas, monospace !important;
+    font-size: 10px !important;
+    fill-opacity: .72;
+}
+
+.blocklyText.gsg-code-line,
+.gsg-code-line .blocklyText {
+    font-family: "Roboto Mono", Consolas, monospace !important;
+    font-size: 11px !important;
+    white-space: pre;
+}
+
+/* Einstellungen des Workspaces */
+.gsg-block-settings {
+    margin-top: 12px;
+    padding-top: 8px;
+    border-top: 1px solid var(--slider, #555);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.gsg-block-settings-title { font-weight: 700; margin-bottom: 2px; }
+.gsg-block-settings label { display: flex; gap: 6px; align-items: center; cursor: pointer; }
+.gsg-block-settings input:disabled + * { opacity: .6; }
+
+/* aktuelle Programmzeile (Einzelschritt) und Fehler deutlich zeigen */
+#gsg-blocks .blocklyHighlighted > .blocklyPath {
+    stroke: #45B82F !important;
+    stroke-width: 4px !important;
+    filter: drop-shadow(0 0 4px rgba(69, 184, 47, .9));
+}

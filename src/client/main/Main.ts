@@ -38,6 +38,7 @@ import { Sliders } from "./gui/Sliders.js";
 import { TeacherExplorer } from "./gui/TeacherExplorer.js";
 import { ThemeManager } from "./gui/ThemeManager.js";
 import { ViewModeController } from "./gui/ViewModeController.js";
+import { BlockModeController } from "../blocks/BlockModeController.js";
 import { WindowStateManager } from "./gui/WindowStateManager.js";
 import { Login } from "./Login.js";
 import { MainBase } from "./MainBase.js";
@@ -101,6 +102,7 @@ export class Main implements MainBase {
     debounceDiagramDrawing: any;
 
     viewModeController: ViewModeController;
+    blockModeController: BlockModeController;   // Blockmodus (GSG)
 
     languagemanager: LanguageManager;
 
@@ -221,6 +223,7 @@ export class Main implements MainBase {
 
         this.editor = new Editor(this, true, false);
         this.editor.initGUI(jQuery('#editor'));
+        this.blockModeController = new BlockModeController(this);   // Umschalter Blöcke | Java (GSG)
 
         let that = this;
         jQuery(window).on('resize', (event) => {
