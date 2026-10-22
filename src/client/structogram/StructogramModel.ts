@@ -290,6 +290,7 @@ class Converter {
                 return { kind: "switch", subject: `${v("SUBJECT")} ist gleich`, cases, other };
             }
             case B.wait: return this.stmt(`warte ${v("MS")} Millisekunden`);
+            case B.trace: return this.stmt(f.TEXT ? `trage in die Tracetabelle ein („${f.TEXT}“)` : "trage in die Tracetabelle ein");
             case B.comment: return this.stmt(`// ${f.TEXT ?? ""}`.trimEnd());
             case B.return: return this.stmt(`gib ${v("VALUE")} zurück`);
             case B.returnVoid: return this.stmt("beende die Operation");

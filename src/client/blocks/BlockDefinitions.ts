@@ -168,6 +168,13 @@ export function defineBlocks() {
             inputsInline: true, output: null, colour: COLOURS.output,
             tooltip: "Fragt beim Programmlauf nach einer Eingabe.",
         },
+        {
+            type: B.trace, message0: "trage in die Tracetabelle ein (Bemerkung: %1) %2",
+            args0: [{ type: "field_input", name: "TEXT", text: "" }, hint("trace")],
+            ...statement, colour: COLOURS.output,
+            tooltip: "Schreibt an dieser Stelle die aktuellen Werte der Variablen als neue Zeile in die Tracetabelle "
+                + "(Reiter „Tracetabelle“ rechts). Die Bemerkung ist freiwillig.",
+        },
 
         // ------------------------------------------------------------ Steuerung
         {
@@ -447,6 +454,8 @@ export function toolbox(): Blockly.utils.toolbox.ToolboxDefinition {
                     blk(B.print, { inputs: { VALUE: txt("Hallo Welt!") } }),
                     blk(B.print, { extraState: { items: 2 }, inputs: { VALUE: txt("Ergebnis:"), VALUE1: v("zahl") } }),
                     blk(B.input, { inputs: { PROMPT: txt("Gib eine Zahl ein:") } }),
+                    { kind: "label", text: "Werte verfolgen (Reiter „Tracetabelle“):" },
+                    blk(B.trace),
                 ],
             },
             { kind: "category", name: "Variablen", colour: COLOURS.variables, custom: VARIABLES_CATEGORY },

@@ -947,6 +947,19 @@ export class JavaBlockParser {
             b.inputs = { VALUE: { block: this.expression(valueStart, end) } };
             return b;
         }
+        // Tracetabelle: trace(); bzw. trace("Bemerkung"); – sofern es keine eigene Operation trace gibt
+        if (name === "trace" && second.tt === TokenType.leftBracket && !this.topMethods.has("trace")
+            && !this.classes.get(this.currentClass ?? "")?.methods.some((m) => m.name === "trace")) {
+            const open = this.pos + 1;
+            const close = this.matching(open);
+            const arg = this.toks[open + 1];
+            const literal = close === open + 2 && arg?.tt === TokenType.stringLiteral && !this.sourceText(open + 1, open + 2).startsWith('"""');
+            if (close === open + 1 || literal) {
+                this.pos = close + 1;
+                this.expect(TokenType.semicolon);
+                return this.block(B.trace, begin, this.pos, { fields: { TEXT: literal ? String(arg.value) : "" } });
+            }
+        }
         // Aufruf einer Operation: name(…);
         if (second.tt === TokenType.leftBracket) {
             const close = this.matching(this.pos + 1);

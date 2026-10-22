@@ -1,0 +1,77 @@
+/* Reiter "Tracetabelle" (GSG, Paket 10) */
+
+.gsg-trace {
+    flex-direction: column;
+    min-height: 0;
+    font: 13px/1.4 Roboto, "Segoe UI", sans-serif;
+    color: var(--fontColorNormal, #ddd);
+}
+
+.gsg-trace-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 12px;
+    align-items: center;
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--slider, #555);
+}
+.gsg-trace-columns { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; flex: 1 1 260px; }
+.gsg-trace-chips { display: contents; }
+.gsg-trace-label { font-weight: 700; font-size: 12px; margin-right: 2px; }
+.gsg-trace-auto { font-size: 12px; opacity: .7; font-style: italic; }
+.gsg-trace-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 0 2px 0 7px;
+    border-radius: 10px;
+    background: rgba(69, 184, 47, .18);
+    border: 1px solid rgba(69, 184, 47, .55);
+}
+.gsg-trace-chip code { font: 12px Consolas, "Cascadia Mono", monospace; }
+.gsg-trace-chip-x { border: 0; background: none; color: inherit; cursor: pointer; font-size: 11px; opacity: .7; padding: 0 4px; }
+.gsg-trace-chip-x:hover { opacity: 1; }
+.gsg-trace-input {
+    font: 12px Consolas, "Cascadia Mono", monospace;
+    width: 13em;
+    padding: 2px 6px;
+    border: 1px solid var(--slider, #666);
+    border-radius: 5px;
+    background: rgba(255, 255, 255, .94);
+    color: #111;
+}
+
+.gsg-trace-actions { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.gsg-trace-check { font-size: 12px; cursor: pointer; margin-right: 4px; white-space: nowrap; }
+.gsg-trace-button {
+    font: 600 12px/20px Roboto, "Segoe UI", sans-serif;
+    padding: 0 8px;
+    border: 1px solid var(--slider, #555);
+    border-radius: 5px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+}
+.gsg-trace-button:hover { background: rgba(127, 127, 127, .2); }
+
+.gsg-trace-tablebox { flex: 1; min-height: 0; overflow: auto; padding: 6px 10px 12px; }
+.gsg-trace-table { border-collapse: collapse; }
+.gsg-trace-table th, .gsg-trace-table td {
+    border: 1px solid rgba(127, 127, 127, .45);
+    padding: 2px 8px;
+    text-align: left;
+    vertical-align: top;
+    white-space: nowrap;
+}
+.gsg-trace-table th { position: sticky; top: -6px; background: var(--backgroundLight, #2b2b2b); font-weight: 700; }
+.gsg-trace-code { font-family: Consolas, "Cascadia Mono", monospace; }
+.gsg-trace-nr, .gsg-trace-line { opacity: .65; text-align: right !important; }
+.gsg-trace-comment { font-style: italic; }
+.gsg-trace-changed { font-weight: 700; color: #f0a020; }
+.gsg-trace-missing { opacity: .45; }
+.gsg-trace-help { max-width: 46em; opacity: .85; }
+.gsg-trace-help code { font-family: Consolas, "Cascadia Mono", monospace; background: rgba(127, 127, 127, .2); padding: 0 .25em; border-radius: 3px; }
+.gsg-trace-note { font-size: 12px; opacity: .7; }
+
+/* Mit Aufgabe und Tracetabelle werden die Reiter rechts bei schmalen Fenstern zu viele: umbrechen statt abschneiden */
+.jo_tabheadings { flex-wrap: wrap; }

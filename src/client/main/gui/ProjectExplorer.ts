@@ -1,3 +1,4 @@
+import { Constants } from "../../Constants.js";
 import jQuery from 'jquery';
 import { downloadFile } from "../../../tools/HtmlTools.js";
 import { dateToString } from "../../../tools/StringTools.js";
@@ -109,6 +110,11 @@ export class ProjectExplorer {
                 return null;
             }
 
+            // GSG: in der Anwendung "Struktogramme" werden neue Dateien Struktogramme
+            if (Constants.isStructogramApp && !node.isFolder && !/\.[A-Za-z]+$/.test(name)) {
+                name += ".struktogramm";
+                node.caption = name;
+            }
             let file = new GUIFile(this.main, name);
             file.isFolder = node.isFolder;
             let parentNode = node.getParent();

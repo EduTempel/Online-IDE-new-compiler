@@ -1241,6 +1241,72 @@ export abstract class TermCodeGenerator extends BinopCastCodeGenerator {
     // b) make sure all catches for one type parameter deliver the same type
     // c) compute actual type for return parameter
 
+    /**
+     * GSG (Paket 10): trace() übergibt der Laufzeit Namen und Werte aller hier sichtbaren Variablen
+     * (lokale Variablen und Parameter, Variablen des Hauptprogramms, this und statische Attribute).
+     * Die Tracetabelle macht davon sofort eine Momentaufnahme.
+     */
+    compileGsgTrace(node: ASTMethodCallNode, parameterValueSnippets: (CodeSnippet | undefined)[]): CodeSnippet | undefined {
+        let comment = parameterValueSnippets[0];
+        if (parameterValueSnippets.length == 1) {
+            if (!comment?.type || comment.type == this.voidType) return undefined;
+            comment = comment.type.isPrimitive ? this.compileCast(comment, this.stringType, "implicit", true)
+                : this.wrapWithToStringCall(comment, "string");
+        }
+
+        const names: string[] = [];
+        const values: string[] = [];
+        const floats = new Set<string>();
+        const put = (name: string, value: string, type: any) => {
+            const i = names.indexOf(name);
+            if (i >= 0) values[i] = value;      // innen verdeckt außen
+            else { names.push(name); values.push(value); }
+            const typeName: string = [type?.identifier, type?.elementType?.identifier, ].filter(Boolean).join(" ");
+            if (/\b(double|float|Double|Float)\b/.test(typeName)) floats.add(name); else floats.delete(name);
+        };
+        const line = node.range.startLineNumber;
+        const classContext = this.currentSymbolTable.classContext;
+        const methodContext = this.currentSymbolTable.methodContext;
+        const klass = classContext instanceof StaticNonPrimitiveType ? classContext.nonPrimitiveType : classContext;
+
+        // Variablen des Hauptprogramms (als statische Attribute der Hauptklasse modelliert)
+        if (klass instanceof JavaClass && klass.isMainClass && !this.isRepl) {
+            for (const field of klass.getFields()) {
+                if (field._isStatic && !field.hiddenWhenDebugging && field.identifierRange.startLineNumber <= line) {
+                    put(field.identifier, `${StepParams.stack}[0]?.${field.getInternalName()}`, field.type);
+                }
+            }
+        } else if (klass instanceof JavaClass) {
+            for (const field of klass.getFields()) {
+                if (field._isStatic && !field.hiddenWhenDebugging) {
+                    put(field.identifier, `${Helpers.classes}["${klass.identifier}"]?.${field.getInternalName()}`, field.type);
+                }
+            }
+        }
+
+        // lokale Variablen und Parameter bis zur Grenze des Stackframes (außen zuerst)
+        const tables: JavaSymbolTable[] = [];
+        let table: JavaSymbolTable | undefined = this.currentSymbolTable;
+        while (table) {
+            tables.unshift(table);
+            if (table.stackframe) break;
+            table = table.parent;
+        }
+        for (const t of tables) {
+            t.identifierToSymbolMap.forEach((symbol, identifier) => {
+                if (symbol.hiddenWhenDebugging || symbol.stackframePosition === undefined) return;
+                put(identifier, Helpers.elementRelativeToStackbase(symbol.stackframePosition), (<any>symbol).type);
+            });
+        }
+
+        const thisValue = classContext && methodContext && !methodContext.isStatic && !(classContext instanceof StaticNonPrimitiveType)
+            ? Helpers.elementRelativeToStackbase(0) : "undefined";
+
+        const call = `${StepParams.thread}.GsgTrace(${line}, ${comment ? "§1" : "undefined"}, ${JSON.stringify(names)}, [${values.join(", ")}], ${thisValue}, ${JSON.stringify([...floats])})`;
+        if (comment) return new OneParameterTemplate(call).applyToSnippet(this.voidType, node.range, comment);
+        return new StringCodeSnippet(call, node.range, this.voidType);
+    }
+
     compileMethodCall(node: ASTMethodCallNode): CodeSnippet | undefined {
 
         let pv = this.getParameterValueSnippets(node);
@@ -1343,6 +1409,12 @@ export abstract class TermCodeGenerator extends BinopCastCodeGenerator {
             this.module.pushMethodCallPosition(node.identifierRange,
                 node.commaPositions, methods.possible, node.rightBracketPosition,
                 method);
+        }
+
+        // GSG (Paket 10): trace(); bzw. trace("Bemerkung") schreibt die aktuellen Werte in die Tracetabelle –
+        // nur, wenn es keine eigene Methode trace gibt
+        if (!method && !node.nodeToGetObject && node.identifier == "trace" && parameterValueSnippets.length <= 1) {
+            return this.compileGsgTrace(node, parameterValueSnippets);
         }
 
         if (!method) {

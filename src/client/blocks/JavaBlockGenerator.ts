@@ -227,6 +227,12 @@ export class JavaBlockGenerator {
             case B.wait:
                 this.emit(`${indent}Thread.sleep(${this.input(b, "MS", Order.NONE)});`);
                 break;
+            case B.trace: {
+                const text = (f.TEXT ?? "").trim();
+                const literal = text.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+                this.emit(`${indent}trace(${text ? `"${literal}"` : ""});`);
+                break;
+            }
             case B.while:
                 this.emit(`${indent}while (${this.input(b, "COND", Order.NONE)}) {`);
                 this.statements(b.inputs?.DO?.block, indent + INDENT);

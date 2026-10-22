@@ -18,8 +18,14 @@ export const SCHOOL_ADMIN_URL = "/verwaltung/";
 /** Startseite des eigenen Backends: Anwendungen, Projekte per Link teilen */
 export const SCHOOL_START_URL = "/start/";
 
-/** Anwendung "Blöcke" (dieselbe IDE unter /bloecke/): Titel, Überschrift und IServ-Rücksprung anpassen */
+/** Anwendungen "Blöcke" und "Struktogramme" (dieselbe IDE): Titel, Überschrift und IServ-Rücksprung anpassen */
 function applyAppBranding() {
+    if (/^\/struktogramme(\/|$)/.test(location.pathname)) {
+        document.title = "Struktogramme · GSG Osnabrück";
+        document.querySelectorAll<HTMLElement>(".gsg-login-title").forEach((el) => (el.textContent = "Struktogramme"));
+        document.querySelectorAll<HTMLAnchorElement>("a.gsg-iserv-button").forEach((a) => (a.href = "/auth/iserv/login?app=struktogramme"));
+        return;
+    }
     if (!/^\/bloecke(\/|$)/.test(location.pathname)) return;
     document.title = "Blöcke · GSG Osnabrück";
     document.querySelectorAll<HTMLElement>(".gsg-login-title").forEach((el) => (el.textContent = "Blöcke"));

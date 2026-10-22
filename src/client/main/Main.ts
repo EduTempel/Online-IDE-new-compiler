@@ -199,7 +199,7 @@ export class Main implements MainBase {
         } else if (findGetParameter("abgemeldet") == null) {
             // auf der Startseite schon angemeldet? Dann ohne Passwort weiter (GSG)
             this.login.initGUI();
-            portalSingleUseToken(Constants.isBlocksApp ? "bloecke" : "java").then((token) => {
+            portalSingleUseToken(Constants.isBlocksApp ? "bloecke" : Constants.isStructogramApp ? "struktogramme" : "java").then((token) => {
                 if (token) this.login.loginWithVidisOrAutoLogin(token, false);
             });
         } else {

@@ -13,6 +13,8 @@ import { transferElements } from '../../../tools/HtmlTools.js';
 import { MainEmbedded } from '../../embedded/MainEmbedded.js';
 import { MemoryTab } from '../../../compiler/assembly/debugger/MemoryTab.js';
 import { addStructogramTab } from '../../structogram/StructogramTab.js';
+import { addTaskTab } from '../../task/TaskTab.js';
+import { addTraceTab } from '../../trace/TraceTab.js';
 
 
 export class RightDiv {
@@ -170,6 +172,8 @@ export class RightDiv {
             // GSG: Struktogramm der Datei im Editor (darf den Start der IDE nie verhindern)
             try {
                 addStructogramTab(this.main, this.tabManager);
+                addTaskTab(this.main, this.tabManager);   // GSG: Aufgabenstellung mit Hilfen
+                addTraceTab(this.main, this.tabManager);  // GSG: Tracetabelle
             } catch (e) {
                 console.error(e);
             }

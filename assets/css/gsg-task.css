@@ -1,0 +1,74 @@
+/* Reiter "Aufgabe" (GSG, Paket 12) */
+
+.gsg-task {
+    flex-direction: column;
+    min-height: 0;
+    overflow: auto;
+    font: 14px/1.45 Roboto, "Segoe UI", sans-serif;
+    color: var(--fontColorNormal, #ddd);
+}
+
+.gsg-task-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--slider, #555);
+}
+.gsg-task-heading { font-weight: 700; font-size: 15px; margin-right: auto; }
+
+.gsg-task-content { padding: 10px 14px 18px; }
+.gsg-task-empty { opacity: .75; }
+
+.gsg-task-text h3, .gsg-task-text h4, .gsg-task-text h5 { margin: .8em 0 .35em; line-height: 1.25; }
+.gsg-task-text h3 { font-size: 1.2em; }
+.gsg-task-text h4 { font-size: 1.08em; }
+.gsg-task-text h5 { font-size: 1em; }
+.gsg-task-text p, .gsg-task-text ul, .gsg-task-text ol, .gsg-task-text blockquote { margin: .45em 0; }
+.gsg-task-text ul, .gsg-task-text ol { padding-left: 1.4em; }
+.gsg-task-text code { font-family: Consolas, "Cascadia Mono", monospace; font-size: .92em; background: rgba(127, 127, 127, .2); padding: 0 .25em; border-radius: 3px; }
+.gsg-task-text pre { background: rgba(127, 127, 127, .15); padding: 8px 10px; border-radius: 6px; overflow: auto; }
+.gsg-task-text pre code { background: none; padding: 0; }
+.gsg-task-text blockquote { border-left: 3px solid #45B82F; padding-left: 10px; opacity: .9; }
+.gsg-task-text img { max-width: 100%; border-radius: 4px; }
+.gsg-task-text a { color: #6cb8ff; }
+
+.gsg-task-hints { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
+.gsg-task-hint { border: 1px solid rgba(240, 160, 32, .55); background: rgba(240, 160, 32, .1); border-radius: 8px; padding: 6px 10px; }
+.gsg-task-hint-title { font-weight: 700; color: #f0a020; font-size: 13px; }
+
+.gsg-task-button {
+    font: 600 12px/20px Roboto, "Segoe UI", sans-serif;
+    padding: 0 9px;
+    border: 1px solid var(--slider, #555);
+    border-radius: 5px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+}
+.gsg-task-button:hover { background: rgba(127, 127, 127, .2); }
+.gsg-task-more { align-self: flex-start; }
+.gsg-task-primary { background: #00376D; border-color: #00376D; color: #fff; }
+.gsg-task-primary:hover { background: #0a4c8f; }
+.gsg-task-danger { margin-left: auto; color: #e57373; }
+
+.gsg-task-form { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px 16px; }
+.gsg-task-label { font-weight: 700; font-size: 12px; margin-top: 6px; }
+.gsg-task-form input:not([type=checkbox]), .gsg-task-form textarea {
+    font: 13px/1.4 Roboto, "Segoe UI", sans-serif;
+    padding: 5px 7px;
+    border: 1px solid var(--slider, #666);
+    border-radius: 5px;
+    background: rgba(255, 255, 255, .94);
+    color: #111;
+    resize: vertical;
+}
+.gsg-task-form textarea { font-family: Consolas, "Cascadia Mono", monospace; }
+.gsg-task-check { font-size: 12px; cursor: pointer; align-self: flex-start; }
+.gsg-task-preview { border: 1px dashed var(--slider, #666); border-radius: 5px; padding: 6px 10px; min-height: 6em; }
+.gsg-task-hintlist { display: flex; flex-direction: column; gap: 6px; }
+.gsg-task-hintrow { display: flex; gap: 6px; align-items: flex-start; }
+.gsg-task-hintrow textarea { flex: 1; }
+.gsg-task-actions { display: flex; gap: 6px; margin-top: 8px; }
+.gsg-task-note { font-size: 12px; opacity: .7; margin: 6px 0 0; }
+.gsg-task-form > .gsg-task-button { align-self: flex-start; }

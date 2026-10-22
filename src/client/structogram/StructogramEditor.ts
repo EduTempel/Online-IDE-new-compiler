@@ -8,6 +8,7 @@ import {
 import { docToJava, isRecognized, parseSignature } from "./PseudoJava";
 import { renderSvg, STYLE, type Measure } from "./StructogramSvg";
 import { createFile, findFile, replaceText } from "./ProjectFiles";
+import { Constants } from "../Constants";
 import "/assets/css/gsg-structogram.css";
 
 /**
@@ -141,8 +142,16 @@ export class StructogramEditor {
 
     // ------------------------------------------------------------------ Datei
 
+    /** In der Anwendung "Struktogramme" nur mit Java-Freigabe der Lerngruppe (Lehrkräfte immer) */
+    private javaAllowed(): boolean {
+        const u = this.main.user as { is_teacher?: boolean; is_admin?: boolean; is_schooladmin?: boolean; gsgFreigaben?: { java?: boolean; bloeckeJava?: boolean } } | undefined;
+        if (!Constants.isStructogramApp || !u || u.is_teacher || u.is_admin || u.is_schooladmin) return true;
+        return !!u.gsgFreigaben?.java;
+    }
+
     show(file: GUIFile, readOnly: boolean) {
         this.readOnly = readOnly;
+        this.buttons.get("java")!.hidden = !this.javaAllowed();
         if (this.file !== file) {
             this.listener?.dispose();
             this.file = file;

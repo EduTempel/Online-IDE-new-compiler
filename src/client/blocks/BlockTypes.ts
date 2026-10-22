@@ -32,6 +32,7 @@ export const B = {
     repeat: "j_repeat",             // Eingang TIMES; Anweisungen DO  (for (int durchlauf = 1; durchlauf <= n; durchlauf++))
     for: "j_for",                   // Felder VAR, DIR (up/down), CMP (incl/excl); Eingänge FROM, TO, STEP; Anweisungen DO
     wait: "j_wait",                 // Eingang MS  (Thread.sleep)
+    trace: "j_trace",               // Feld TEXT (Bemerkung, darf leer sein)  (trace(); bzw. trace("…");) – Tracetabelle, Paket 10
     comment: "j_comment",           // Feld TEXT
     javaStatement: "j_java_stmt",   // Feld CODE (eine Zeile, bearbeitbar)
     javaRaw: "j_java_raw",          // extraState { code } (mehrzeilig, nur in der Java-Ansicht bearbeitbar)

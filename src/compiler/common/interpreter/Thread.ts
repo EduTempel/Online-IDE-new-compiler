@@ -570,6 +570,18 @@ export class Thread {
         this.scheduler.interpreter.printManager.print(text, true, color);
     }
 
+    /** GSG (Paket 10): Empfänger der trace()-Aufrufe (die Tracetabelle) */
+    static gsgTraceListener?: (thread: Thread, line: number, comment: string | undefined, names: string[], values: any[], thisObject: any, floats: string[]) => void;
+
+    /** trace(); bzw. trace("Bemerkung"): aktuelle Werte an die Tracetabelle geben */
+    GsgTrace(line: number, comment: string | undefined, names: string[], values: any[], thisObject: any, floats: string[]) {
+        try {
+            Thread.gsgTraceListener?.(this, line, comment, names, values, thisObject, floats);
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
     clearScreen() {
         this.scheduler.interpreter.printManager.clear();
     }

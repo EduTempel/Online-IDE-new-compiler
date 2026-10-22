@@ -698,6 +698,11 @@ class Translator {
             if (l.type?.endsWith("[]")) return `${l.code}[${i.code}] = ${v.code};`;
             return l.type === "DynArray" ? `${l.code}.setItem(${i.code}, ${v.code});` : `${l.code}.set(${i.code}, ${v.code});`;
         }
+        // Tracetabelle (Paket 10): trage in die Tracetabelle ein [(„Bemerkung“)]
+        if ((m = /^trage\s+(?:die\s+Werte\s+)?in\s+die\s+Tracetabelle\s+ein(?:\s*\(\s*[„"“](.*)[“"”]\s*\))?$/i.exec(s))) {
+            const text = (m[1] ?? "").trim().replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+            return text ? `trace("${text}");` : "trace();";
+        }
         if ((m = /^warte\s+(.+?)\s+Millisekunden$/i.exec(s))) {
             const v = x(m[1]);
             return v ? `Thread.sleep(${v.code});` : undefined;

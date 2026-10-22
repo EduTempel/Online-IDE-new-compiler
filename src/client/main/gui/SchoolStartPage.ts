@@ -10,7 +10,7 @@ import { SCHOOL_START_URL } from "./SchoolBranding.js";
  * Ist auf der Startseite schon jemand angemeldet (und ist die Anwendung freigegeben)? Dann gibt
  * das Backend ein Einmal-Token, mit dem sich die IDE ohne Passwort anmeldet.
  */
-export async function portalSingleUseToken(app: "java" | "sql" | "bloecke"): Promise<string | null> {
+export async function portalSingleUseToken(app: "java" | "sql" | "bloecke" | "struktogramme"): Promise<string | null> {
     try {
         const response = await fetch("/api/start/ide-anmeldung", {
             method: "POST",
