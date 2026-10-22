@@ -15,6 +15,7 @@ class GsgConstants extends Blockly.zelos.ConstantProvider {
 
     BEVELED!: Shape;
     WAVY!: Shape;
+    OBJECTY!: Shape;
 
     constructor() {
         super();
@@ -29,12 +30,43 @@ class GsgConstants extends Blockly.zelos.ConstantProvider {
         pad[SHAPE.SQUARE][SHAPE.WAVE] = 2 * g;
         pad[SHAPE.BEVEL] = { 0: 2 * g, [SHAPE.HEXAGON]: 2 * g, [SHAPE.ROUND]: 2 * g, [SHAPE.SQUARE]: 2 * g, [SHAPE.BEVEL]: 2 * g, [SHAPE.WAVE]: 2 * g };
         pad[SHAPE.WAVE] = { 0: 3 * g, [SHAPE.HEXAGON]: 3 * g, [SHAPE.ROUND]: 1 * g, [SHAPE.SQUARE]: 2 * g, [SHAPE.BEVEL]: 2 * g, [SHAPE.WAVE]: 1 * g };
+        pad[SHAPE.HEXAGON][SHAPE.OBJECT] = 5 * g;
+        pad[SHAPE.ROUND][SHAPE.OBJECT] = 2 * g;
+        pad[SHAPE.SQUARE][SHAPE.OBJECT] = 2 * g;
+        pad[SHAPE.BEVEL][SHAPE.OBJECT] = 2 * g;
+        pad[SHAPE.WAVE][SHAPE.OBJECT] = 2 * g;
+        pad[SHAPE.OBJECT] = { 0: 2 * g, [SHAPE.HEXAGON]: 2 * g, [SHAPE.ROUND]: 2 * g, [SHAPE.SQUARE]: 2 * g, [SHAPE.BEVEL]: 2 * g, [SHAPE.WAVE]: 2 * g, [SHAPE.OBJECT]: 2 * g };
     }
 
     override init() {
         super.init();
         this.BEVELED = this.makeBeveled();
         this.WAVY = this.makeWavy();
+        this.OBJECTY = this.makeObject();
+    }
+
+    /** Objekte, Reihungen, Listen: gerade Seiten mit kleiner Spitze in der Mitte */
+    makeObject(): Shape {
+        const max = this.MAX_DYNAMIC_CONNECTION_SHAPE_WIDTH;
+        const tip = (h: number) => Math.min(h / 5, max);
+        const side = (h: number, up: boolean, right: boolean) => {
+            const w = tip(h);
+            const x = right ? 1 : -1;
+            const y = up ? -1 : 1;
+            const straight = (h - 2 * w) / 2;
+            return lineOnAxis("v", y * straight) + lineTo(x * w, y * w) + lineTo(-x * w, y * w) + lineOnAxis("v", y * straight);
+        };
+        return {
+            type: SHAPE.OBJECT, isDynamic: true,
+            width: (h: number) => tip(h),
+            height: (h: number) => h,
+            connectionOffsetY: (h: number) => h / 2,
+            connectionOffsetX: (w: number) => -w,
+            pathDown: (h: number) => side(h, false, false),
+            pathUp: (h: number) => side(h, true, false),
+            pathRightDown: (h: number) => side(h, false, true),
+            pathRightUp: (h: number) => side(h, false, true),
+        } as unknown as Shape;
     }
 
     /** Zeichen (char): Rechteck mit abgeschrägten Ecken */
@@ -90,6 +122,7 @@ class GsgConstants extends Blockly.zelos.ConstantProvider {
             case SHAPE.SQUARE: return this.SQUARED;
             case SHAPE.BEVEL: return this.BEVELED;
             case SHAPE.WAVE: return this.WAVY;
+            case SHAPE.OBJECT: return this.OBJECTY;
             default: return this.ROUNDED;
         }
     }

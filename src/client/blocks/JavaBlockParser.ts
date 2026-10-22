@@ -1,6 +1,7 @@
 import { Lexer } from "../../compiler/java/lexer/Lexer";
 import { TokenType } from "../../compiler/java/TokenType";
-import { B, COLLECTION_CALLS, elementJavaType, INPUT_METHODS, MATH_FUNCTIONS, VAR_TYPES, WRAPPERS, type BlockState, type CollKind, type Collections, type Param, type WorkspaceState } from "./BlockTypes";
+import { B, COLLECTION_CALLS, elementJavaType, INPUT_METHODS, MATH_FUNCTIONS, VAR_TYPES, type BlockState, type CollKind, type Param, type WorkspaceState } from "./BlockTypes";
+import { attributesOf, collectionOfType, collectionType, findMethod, isClassType, methodsOf, typeInfo, unwrap, type ClassInfo, type ClassMap } from "./ClassModel";
 
 /**
  * Java -> Blöcke. Eigener kleiner Parser für den Teil von Java, den es als Blöcke gibt
@@ -47,8 +48,14 @@ export class JavaBlockParser {
     private pos = 0;
     private idCounter = 0;
     private ranges: LineRange[] = [];
-    /** bisher angelegte Reihungen und Listen (je Hauptprogramm bzw. Operation) */
-    private colls: Collections = new Map();
+    /** bekannte Variablen mit Datentyp (je Hauptprogramm, Operation, Konstruktor; in Klassen samt Attributen) */
+    private vars = new Map<string, string>();
+    /** Klassen dieser Datei (vorab ermittelt) und anderer Dateien des Projekts */
+    private classes: ClassMap = new Map();
+    /** Ergebnistypen der Operationen dieser Datei (ohne Klasse) */
+    private topMethods = new Map<string, string>();
+    /** Klasse, deren Inhalt gerade gelesen wird */
+    private currentClass: string | undefined;
 
     constructor(private src: string) {
         const lineStarts = [0];
@@ -66,8 +73,11 @@ export class JavaBlockParser {
         }
     }
 
-    static parse(src: string): ParseResult {
-        return new JavaBlockParser(src).parseProgram();
+    /** classes: Klassen aus anderen Dateien des Projekts (für Typen von Objekten) */
+    static parse(src: string, options: { classes?: ClassInfo[] } = {}): ParseResult {
+        const parser = new JavaBlockParser(src);
+        for (const c of options.classes ?? []) parser.classes.set(c.name, c);
+        return parser.parseProgram();
     }
 
     /**
@@ -77,14 +87,15 @@ export class JavaBlockParser {
      * untereinander an). Der Generator schreibt erst das Hauptprogramm, dann die Operationen.
      */
     parseProgram(): ParseResult {
+        this.scanSignatures();
         const main: BlockState[] = [];
-        const methods: BlockState[] = [];
+        const hats: BlockState[] = [];   // Operationen und Klassen in der Reihenfolge des Codes
         while (this.pos < this.toks.length) {
-            const method = this.tryMethod();
-            if (method) {
-                method.x = 400;
-                method.y = 20 + methods.length * 200;
-                methods.push(method);
+            const hat = this.tryClass() ?? this.tryMethod();
+            if (hat) {
+                hat.x = 400;
+                hat.y = 20 + hats.length * 200;
+                hats.push(hat);
                 continue;
             }
             const b = this.statement(true);
@@ -93,8 +104,313 @@ export class JavaBlockParser {
         for (let i = main.length - 2; i >= 0; i--) main[i].next = { block: main[i + 1] };
         const start: BlockState = { type: B.start, id: "start", x: 20, y: 20, deletable: false };
         if (main[0]) start.inputs = { BODY: { block: main[0] } };
-        return { state: { blocks: { languageVersion: 0, blocks: [start, ...methods] } }, ranges: this.ranges };
+        return { state: { blocks: { languageVersion: 0, blocks: [start, ...hats] } }, ranges: this.ranges };
     }
+
+    // ------------------------------------------------------------------ Datentypen und Klassen
+
+    /**
+     * Datentyp ab Token i: int, String, Hund, int[], Hund[][], ArrayList<Integer>, DynArray …
+     * Liefert den Typ als Text und die Position dahinter (oder undefined).
+     */
+    typeAt(i: number): { type: string; next: number } | undefined {
+        const t = this.toks[i];
+        if (t?.tt !== TokenType.identifier) return undefined;
+        let type = String(t.value), k = i + 1;
+        if (type === "ArrayList") {
+            const w = this.toks[k + 1];
+            if (this.toks[k]?.tt !== TokenType.lower || w?.tt !== TokenType.identifier || this.toks[k + 2]?.tt !== TokenType.greater) return undefined;
+            type = `ArrayList<${String(w.value)}>`;
+            k += 3;
+        }
+        let dims = 0;
+        for (let n; (n = this.emptyBrackets(k)) > 0; dims++) k += n;
+        if (dims > 2 || (dims > 0 && type.startsWith("ArrayList"))) return undefined;
+        return { type: type + "[]".repeat(dims), next: k };
+    }
+
+    /** Parameter "( Typ name, … )" zwischen den Klammern open und close */
+    private parseParams(open: number, close: number): Param[] {
+        const params: Param[] = [];
+        let i = open + 1;
+        while (i < close) {
+            const ty = this.typeAt(i);
+            const n = ty ? this.toks[ty.next] : undefined;
+            if (!ty || n?.tt !== TokenType.identifier) throw new Fail();
+            params.push({ name: String(n.value), type: ty.type });
+            i = ty.next + 1;
+            if (i < close) {
+                if (this.toks[i].tt !== TokenType.comma) throw new Fail();
+                i++;
+            }
+        }
+        return params;
+    }
+
+    private static readonly MODIFIERS = new Set([TokenType.keywordPublic, TokenType.keywordPrivate, TokenType.keywordProtected,
+        TokenType.keywordStatic, TokenType.keywordFinal, TokenType.keywordAbstract]);
+
+    /**
+     * Vorab: Klassen (Attribute, Konstruktoren, Operationen) und Operationen ohne Klasse dieser
+     * Datei, damit Typen von Objekten schon bekannt sind, bevor die Klasse im Code kommt.
+     */
+    private scanSignatures() {
+        const toks = this.toks;
+        const skipBody = (i: number) => (toks[i]?.tt === TokenType.leftCurlyBracket ? this.matching(i) + 1 : i);
+        let i = 0;
+        while (i < toks.length) {
+            try {
+                let k = i;
+                if (toks[k]?.tt === TokenType.keywordPublic) k++;
+                if (toks[k]?.tt === TokenType.keywordClass && toks[k + 1]?.tt === TokenType.identifier) {
+                    const info: ClassInfo = { name: String(toks[k + 1].value), superName: "", attributes: [], constructors: [], methods: [] };
+                    k += 2;
+                    if (toks[k]?.tt === TokenType.keywordExtends && toks[k + 1]?.tt === TokenType.identifier) {
+                        info.superName = String(toks[k + 1].value);
+                        k += 2;
+                    }
+                    while (toks[k] && toks[k].tt !== TokenType.leftCurlyBracket) k++;
+                    if (!toks[k]) break;
+                    const end = this.matching(k);
+                    this.scanMembers(info, k + 1, end, skipBody);
+                    if (!this.classes.has(info.name)) this.classes.set(info.name, info);
+                    i = end + 1;
+                    continue;
+                }
+                // Operation ohne Klasse: Typ name ( … ) {
+                const ret = toks[i]?.tt === TokenType.keywordVoid ? { type: "void", next: i + 1 } : this.typeAt(i);
+                if (ret && toks[ret.next]?.tt === TokenType.identifier && toks[ret.next + 1]?.tt === TokenType.leftBracket) {
+                    const close = this.matching(ret.next + 1);
+                    if (toks[close + 1]?.tt === TokenType.leftCurlyBracket) {
+                        this.topMethods.set(String(toks[ret.next].value), ret.type);
+                        i = skipBody(close + 1);
+                        continue;
+                    }
+                }
+            } catch (e) {
+                if (!(e instanceof Fail)) throw e;
+            }
+            i++;
+        }
+    }
+
+    private scanMembers(info: ClassInfo, from: number, to: number, skipBody: (i: number) => number) {
+        const toks = this.toks;
+        let i = from;
+        while (i < to) {
+            try {
+                let vis = "package";
+                if (toks[i].tt === TokenType.at) i += 2;   // @Override
+                while (JavaBlockParser.MODIFIERS.has(toks[i]?.tt)) {
+                    if ([TokenType.keywordPublic, TokenType.keywordPrivate, TokenType.keywordProtected].includes(toks[i].tt)) vis = String(toks[i].value);
+                    i++;
+                }
+                if (toks[i]?.tt === TokenType.identifier && toks[i].value === info.name && toks[i + 1]?.tt === TokenType.leftBracket) {
+                    const close = this.matching(i + 1);
+                    info.constructors.push({ params: this.parseParams(i + 1, close), vis });
+                    i = skipBody(close + 1);
+                    continue;
+                }
+                const ret = toks[i]?.tt === TokenType.keywordVoid ? { type: "void", next: i + 1 } : this.typeAt(i);
+                if (ret && toks[ret.next]?.tt === TokenType.identifier) {
+                    const name = String(toks[ret.next].value);
+                    if (toks[ret.next + 1]?.tt === TokenType.leftBracket) {
+                        const close = this.matching(ret.next + 1);
+                        info.methods.push({ name, ret: ret.type, params: this.parseParams(ret.next + 1, close), vis });
+                        i = skipBody(close + 1);
+                        continue;
+                    }
+                    info.attributes.push({ name, type: ret.type, vis });
+                    i = this.findAtDepth0(TokenType.semicolon, ret.next) + 1;
+                    continue;
+                }
+            } catch (e) {
+                if (!(e instanceof Fail)) throw e;
+            }
+            i++;
+        }
+    }
+
+    /** Klasse: [public] class Name [extends Ober] { Attribute, Konstruktoren, Operationen } */
+    private tryClass(): BlockState | undefined {
+        const begin = this.pos;
+        const k = this.is(TokenType.keywordPublic) ? 1 : 0;
+        if (!this.is(TokenType.keywordClass, k) || !this.is(TokenType.identifier, k + 1)) return undefined;
+        const name = String(this.peek(k + 1)!.value);
+        let i = k + 2, superName = "";
+        if (this.is(TokenType.keywordExtends, i)) {
+            if (!this.is(TokenType.identifier, i + 1)) return undefined;
+            superName = String(this.peek(i + 1)!.value);
+            i += 2;
+        }
+        if (!this.is(TokenType.leftCurlyBracket, i)) return undefined;   // implements, Typparameter …: Java-Text
+        const rangeCount = this.ranges.length;
+        const outerVars = this.vars, outerClass = this.currentClass;
+        try {
+            this.pos = begin + i + 1;
+            this.currentClass = name;
+            this.vars = new Map(attributesOf(this.classes, name).map((a) => [a.name, a.type]));
+            const members: BlockState[] = [];
+            while (this.pos < this.toks.length && !this.is(TokenType.rightCurlyBracket)) {
+                const m = this.member(name);
+                if (m) members.push(m);
+            }
+            this.expect(TokenType.rightCurlyBracket);
+            for (let m = members.length - 2; m >= 0; m--) members[m].next = { block: members[m + 1] };
+            const b = this.block(B.class, begin, this.pos, { fields: { NAME: name, SUPER: superName } });
+            if (k) b.extraState = { isPublic: true };
+            if (members[0]) b.inputs = { MEMBERS: { block: members[0] } };
+            return b;
+        } catch (e) {
+            if (!(e instanceof Fail)) throw e;
+            this.pos = begin;
+            this.ranges.length = rangeCount;
+            return undefined;
+        } finally {
+            this.vars = outerVars;
+            this.currentClass = outerClass;
+        }
+    }
+
+    /** ein Teil einer Klasse; was nicht passt, bleibt Java-Text in der Klasse */
+    private member(cls: string): BlockState | undefined {
+        const begin = this.pos;
+        const t = this.peek()!;
+        if (t.tt === TokenType.comment) {
+            this.pos++;
+            return this.commentBlock(begin);
+        }
+        if (t.tt === TokenType.semicolon) {
+            this.pos++;
+            return undefined;
+        }
+        const rangeCount = this.ranges.length;
+        const varsBefore = this.vars;
+        try {
+            const m = this.memberStructured(cls);
+            if (m) return m;
+        } catch (e) {
+            if (!(e instanceof Fail)) throw e;
+        }
+        this.pos = begin;
+        this.ranges.length = rangeCount;
+        this.vars = varsBefore;
+        return this.rawStatement();
+    }
+
+    private memberStructured(cls: string): BlockState | undefined {
+        const begin = this.pos;
+        let override = false;
+        if (this.is(TokenType.at) && this.peek(1)?.value === "Override") {
+            override = true;
+            this.pos += 2;
+        }
+        let vis = "";
+        if (this.is(TokenType.keywordPublic) || this.is(TokenType.keywordPrivate) || this.is(TokenType.keywordProtected)) {
+            vis = String(this.peek()!.value);
+            this.pos++;
+        }
+        if (JavaBlockParser.MODIFIERS.has(this.peek()?.tt as TokenType)) throw new Fail();   // static, final, abstract: Java-Text
+        const paramFields = (params: Param[]) => {
+            const f: { [name: string]: string } = {};
+            params.forEach((p, k) => { f["PNAME" + k] = p.name; f["PTYPE" + k] = p.type; });
+            return f;
+        };
+        // Konstruktor
+        if (this.is(TokenType.identifier) && this.peek()!.value === cls && this.is(TokenType.leftBracket, 1)) {
+            if (override) throw new Fail();
+            const open = this.pos + 1, close = this.matching(open);
+            const params = this.parseParams(open, close);
+            this.pos = close + 1;
+            const body = this.methodBody(params);
+            const b = this.block(B.ctor, begin, this.pos, { fields: { VIS: vis || "package", ...paramFields(params) } });
+            if (params.length) b.extraState = { params };
+            if (body) b.inputs = { BODY: { block: body } };
+            return b;
+        }
+        let ret: string;
+        if (this.is(TokenType.keywordVoid)) {
+            ret = "void";
+            this.pos++;
+        } else {
+            const ty = this.typeAt(this.pos);
+            if (!ty) throw new Fail();
+            ret = ty.type;
+            this.pos = ty.next;
+        }
+        const name = String(this.expect(TokenType.identifier).value);
+        // Operation
+        if (this.is(TokenType.leftBracket)) {
+            const open = this.pos, close = this.matching(open);
+            const params = this.parseParams(open, close);
+            this.pos = close + 1;
+            const body = this.methodBody(params);
+            const b = this.block(B.classMethod, begin, this.pos, { fields: { VIS: vis || "package", NAME: name, RETURN: ret, ...paramFields(params) } });
+            if (params.length || override) b.extraState = { ...(params.length ? { params } : {}), ...(override ? { override } : {}) };
+            if (body) b.inputs = { BODY: { block: body } };
+            return b;
+        }
+        // Attribut
+        if (override || ret === "void") throw new Fail();
+        const fields = { VIS: vis || "package", NAME: name, TYPE: ret };
+        this.vars.set(name, ret);
+        if (this.is(TokenType.semicolon)) {
+            this.pos++;
+            return this.block(B.attribute, begin, this.pos, { fields });
+        }
+        this.expect(TokenType.assignment);
+        const valueStart = this.pos;
+        const end = this.findAtDepth0(TokenType.semicolon, valueStart);
+        if (end === valueStart) throw new Fail();
+        this.pos = end + 1;
+        const b = this.block(B.attribute, begin, this.pos, { fields });
+        b.inputs = { VALUE: { block: this.expression(valueStart, end) } };
+        return b;
+    }
+
+    /** Rumpf einer Operation bzw. eines Konstruktors mit den Parametern als Variablen */
+    private methodBody(params: Param[]): BlockState | undefined {
+        const outer = this.vars;
+        this.vars = new Map(outer);
+        for (const p of params) this.vars.set(p.name, p.type);
+        try {
+            this.expect(TokenType.leftCurlyBracket);
+            const body = this.statementList(true);
+            this.expect(TokenType.rightCurlyBracket);
+            return body;
+        } finally {
+            this.vars = outer;
+        }
+    }
+
+    // für ExpressionParser: Datentyp eines Ausdrucks (soweit bekannt; Objekte, Reihungen, Listen)
+    staticType(b: BlockState): string | undefined {
+        const f = b.fields ?? {};
+        const ofObject = (input: string) => {
+            const o = b.inputs?.[input]?.block;
+            return o ? this.staticType(o) : undefined;
+        };
+        switch (b.type) {
+            case B.varGet: return this.vars.get(f.NAME ?? "");
+            case B.objNew: return f.CLASS;
+            case B.thisValue: return this.currentClass;
+            case B.thisAttrGet: return attributesOf(this.classes, this.currentClass).find((a) => a.name === f.NAME)?.type;
+            case B.objAttrGet: return attributesOf(this.classes, ofObject("OBJ")).find((a) => a.name === f.ATTR)?.type;
+            case B.objCallExpr: return findMethod(this.classes, ofObject("OBJ"), f.METHOD ?? "", b.extraState?.args ?? 0)?.ret;
+            case B.superMethodCallExpr: {
+                const sup = this.currentClass ? this.classes.get(this.currentClass)?.superName : undefined;
+                return findMethod(this.classes, sup, f.METHOD ?? "", b.extraState?.args ?? 0)?.ret;
+            }
+            case B.callExpr:
+                return methodsOf(this.classes, this.currentClass).find((m) => m.name === f.NAME)?.ret ?? this.topMethods.get(f.NAME ?? "");
+            case B.arrayGet: case B.listGet: return this.collection(f.NAME ?? "")?.elem ?? undefined;
+            case B.array2dGet: return this.collection(f.NAME ?? "")?.elem ?? undefined;
+            case B.dynGet: return f.TYPE && f.TYPE !== "Object" ? f.TYPE : undefined;
+            case B.text: case B.concat: case B.strSubstring: case B.strCase: return "String";
+        }
+        return undefined;
+    }
+
 
     /**
      * Operation: Typ (oder void) Name ( Typ Name, … ) { … } – Typen nur die der Blöcke.
@@ -102,32 +418,23 @@ export class JavaBlockParser {
      */
     private tryMethod(): BlockState | undefined {
         const begin = this.pos;
-        const t = this.peek(), n = this.peek(1), open = this.peek(2);
-        const isType = !!t && (t.tt === TokenType.keywordVoid || (t.tt === TokenType.identifier && (VAR_TYPES as readonly string[]).includes(String(t.value))));
-        if (!isType || n?.tt !== TokenType.identifier || open?.tt !== TokenType.leftBracket) return undefined;
+        const ret = this.is(TokenType.keywordVoid) ? { type: "void", next: begin + 1 } : this.typeAt(begin);
+        const n = ret ? this.toks[ret.next] : undefined;
+        if (!ret || n?.tt !== TokenType.identifier || this.toks[ret.next + 1]?.tt !== TokenType.leftBracket) return undefined;
+        // Typ name(...) ohne "{" danach ist ein Aufruf bzw. eine Deklaration, keine Operation
         const rangeCount = this.ranges.length;
-        const outer = this.colls;
-        this.colls = new Map();
+        const outer = this.vars;
+        this.vars = new Map();
         try {
-            const close = this.matching(begin + 2);
-            const params: Param[] = [];
-            let i = begin + 3;
-            while (i < close) {
-                const pt = this.toks[i], pn = this.toks[i + 1];
-                if (pt.tt !== TokenType.identifier || !(VAR_TYPES as readonly string[]).includes(String(pt.value)) || pn?.tt !== TokenType.identifier) throw new Fail();
-                params.push({ name: String(pn.value), type: String(pt.value) });
-                i += 2;
-                if (i < close) {
-                    if (this.toks[i].tt !== TokenType.comma) throw new Fail();
-                    i++;
-                }
-            }
+            const close = this.matching(ret.next + 1);
+            const params = this.parseParams(ret.next + 1, close);
+            for (const p of params) this.vars.set(p.name, p.type);
             this.pos = close + 1;
             if (!this.is(TokenType.leftCurlyBracket)) throw new Fail();
             this.pos++;
             const body = this.statementList(true);
             this.expect(TokenType.rightCurlyBracket);
-            const fields: { [name: string]: string } = { NAME: String(n.value), RETURN: t.tt === TokenType.keywordVoid ? "void" : String(t.value) };
+            const fields: { [name: string]: string } = { NAME: String(n.value), RETURN: ret.type };
             params.forEach((p, k) => { fields["PNAME" + k] = p.name; fields["PTYPE" + k] = p.type; });
             const b = this.block(B.method, begin, this.pos, { fields });
             if (params.length) b.extraState = { params };
@@ -139,7 +446,7 @@ export class JavaBlockParser {
             this.ranges.length = rangeCount;
             return undefined;
         } finally {
-            this.colls = outer;
+            this.vars = outer;
         }
     }
 
@@ -351,8 +658,63 @@ export class JavaBlockParser {
             }
             case TokenType.identifier:
                 return this.identifierStatement();
+            case TokenType.keywordSuper:
+                if (this.is(TokenType.leftBracket, 1)) {   // super(…);  Konstruktor der Oberklasse
+                    const open = this.pos + 1, close = this.matching(open);
+                    this.pos = close + 1;
+                    this.expect(TokenType.semicolon);
+                    const b = this.block(B.superCall, begin, this.pos);
+                    this.addArguments(b, open, close);
+                    return b;
+                }
+                return this.expressionStatement();
+            case TokenType.keywordThis:
+                return this.expressionStatement();
         }
         return undefined;
+    }
+
+    /**
+     * Anweisungen mit Objekten: obj.m(…);  liste.get(0).m(…);  this.name = …;  obj.attr = …;
+     * super.m(…);  – sonst Fail (dann Java-Text).
+     */
+    private expressionStatement(): BlockState {
+        const begin = this.pos;
+        const end = this.findAtDepth0(TokenType.semicolon, begin);
+        let assign = -1;
+        for (let i = begin, depth = 0; i < end; i++) {
+            const tt = this.toks[i].tt;
+            if (tt === TokenType.leftBracket || tt === TokenType.leftSquareBracket || tt === TokenType.leftCurlyBracket) depth++;
+            else if (tt === TokenType.rightBracket || tt === TokenType.rightSquareBracket || tt === TokenType.rightCurlyBracket) depth--;
+            else if (depth === 0 && tt === TokenType.assignment) {
+                assign = i;
+                break;
+            }
+        }
+        if (assign >= 0) {
+            if (assign === begin || assign + 1 === end) throw new Fail();
+            const target = this.expression(begin, assign);
+            this.pos = end + 1;
+            if (target.type === B.objAttrGet) {
+                const b = this.block(B.objAttrSet, begin, this.pos, { fields: { ATTR: target.fields!.ATTR } });
+                b.inputs = { OBJ: target.inputs!.OBJ, V: { block: this.expression(assign + 1, end) } };
+                return b;
+            }
+            if (target.type === B.thisAttrGet) {
+                const b = this.block(B.thisAttrSet, begin, this.pos, { fields: { NAME: target.fields!.NAME } });
+                b.inputs = { V: { block: this.expression(assign + 1, end) } };
+                return b;
+            }
+            throw new Fail();
+        }
+        const e = this.expression(begin, end);
+        this.pos = end + 1;
+        const asStatement = e.type === B.objCallExpr ? B.objCall : e.type === B.superMethodCallExpr ? B.superMethodCall : undefined;
+        if (!asStatement) throw new Fail();
+        const b = this.block(asStatement, begin, this.pos, { fields: e.fields });
+        if (e.inputs) b.inputs = e.inputs;
+        if (e.extraState) b.extraState = e.extraState;
+        return b;
     }
 
     /** "( Bedingung )" */
@@ -393,6 +755,7 @@ export class JavaBlockParser {
         if (type.value !== "int") throw new Fail();
         const v = this.expect(TokenType.identifier);
         const name = String(v.value);
+        this.vars.set(name, "int");
         this.expect(TokenType.assignment);
         const fromStart = this.pos;
         const fromEnd = this.findAtDepth0(TokenType.semicolon, fromStart);
@@ -454,15 +817,20 @@ export class JavaBlockParser {
         const second = this.peek(1);
         if (!second) return undefined;
 
-        // Reihungen und Listen anlegen
-        if ((VAR_TYPES as readonly string[]).includes(String(first.value)) && (second.tt === TokenType.leftSquareBracket || second.tt === TokenType.leftRightSquareBracket)) return this.arrayDeclaration();
-        if (first.value === "ArrayList" && second.tt === TokenType.lower) return this.listDeclaration();
-        if (first.value === "DynArray" && second.tt === TokenType.identifier) return this.dynDeclaration();
-
-        // Deklaration
-        if ((VAR_TYPES as readonly string[]).includes(String(first.value)) && second.tt === TokenType.identifier) {
-            this.pos += 2;
-            const fields = { TYPE: String(first.value), NAME: String(second.value) };
+        // Deklaration: Typ name [= Wert];  (auch Reihungen, Listen, Objekte)
+        const decl = this.typeAt(begin);
+        const declName = decl ? this.toks[decl.next] : undefined;
+        const afterName = decl ? this.toks[decl.next + 1] : undefined;
+        if (decl && declName?.tt === TokenType.identifier && (afterName?.tt === TokenType.assignment || afterName?.tt === TokenType.semicolon)) {
+            const info = typeInfo(decl.type);
+            const valueTok = this.toks[decl.next + 2];
+            const isNew = afterName.tt === TokenType.assignment && valueTok?.tt === TokenType.keywordNew;
+            if ((info.kind === "array" || info.kind === "array2d") && (isNew || valueTok?.tt === TokenType.leftCurlyBracket)) return this.arrayDeclaration();
+            if (info.kind === "list" && isNew && this.toks[decl.next + 3]?.value === "ArrayList") return this.listDeclaration();
+            if (info.kind === "dyn" && isNew && this.toks[decl.next + 3]?.value === "DynArray") return this.dynDeclaration();
+            this.pos = decl.next + 1;
+            const fields = { TYPE: decl.type, NAME: String(declName.value) };
+            this.vars.set(fields.NAME, decl.type);
             if (this.is(TokenType.semicolon)) {
                 this.pos++;
                 return this.block(B.varDeclare, begin, this.pos, { fields });
@@ -478,7 +846,7 @@ export class JavaBlockParser {
         }
 
         const name = String(first.value);
-        const coll = this.colls.get(name);
+        const coll = this.collection(name);
         if (coll) {
             const b = this.collectionStatement(name, coll.kind);
             if (b) return b;
@@ -519,15 +887,17 @@ export class JavaBlockParser {
             b.inputs = { MS: { block: this.expression(open + 1, close) } };
             return b;
         }
+        // Operation eines Objekts usw.: obj.m(…);  obj.attr = …;
+        if (second.tt === TokenType.dot || second.tt === TokenType.leftSquareBracket) return this.expressionStatement();
         return undefined;
     }
 
     // ------------------------------------------------------------------ Reihungen und Listen
 
-    collection(name: string) { return this.colls.get(name); }
+    collection(name: string) { return collectionOfType(this.vars.get(name)); }
 
     private remember(name: string, kind: CollKind, elem: string | null) {
-        this.colls.set(name, { kind, elem });
+        this.vars.set(name, collectionType(kind, elem));
     }
 
     /** "[]" (ein Token beim Lexer) oder "[" "]" an Position i: Anzahl der Tokens, sonst 0 */
@@ -597,8 +967,7 @@ export class JavaBlockParser {
         this.expect(TokenType.lower);
         const wrapper = String(this.expect(TokenType.identifier).value);
         this.expect(TokenType.greater);
-        const elem = Object.keys(WRAPPERS).find((k) => WRAPPERS[k] === wrapper);
-        if (!elem) throw new Fail();
+        const elem = unwrap(wrapper);
         const name = String(this.expect(TokenType.identifier).value);
         this.expect(TokenType.assignment);
         this.expect(TokenType.keywordNew);
@@ -685,18 +1054,15 @@ export class JavaBlockParser {
     private forEachLoop(begin: number): BlockState | undefined {
         const t = (k: number) => this.toks[begin + k];
         if (t(1)?.tt !== TokenType.leftBracket || t(2)?.tt !== TokenType.identifier) return undefined;
-        let k = 3, type = String(t(2).value);
-        const brackets = this.emptyBrackets(begin + k);
-        if (brackets) {
-            type += "[]";
-            k += brackets;
-        }
+        const ty = this.typeAt(begin + 2);
+        if (!ty) return undefined;
+        const type = ty.type, k = ty.next - begin;
         if (t(k)?.tt !== TokenType.identifier || t(k + 1)?.tt !== TokenType.colon || t(k + 2)?.tt !== TokenType.identifier
             || t(k + 3)?.tt !== TokenType.rightBracket) return undefined;
         const item = String(t(k).value), list = String(t(k + 2).value);
-        const coll = this.colls.get(list);
+        const coll = this.collection(list);
         if (!coll || elementJavaType(coll) !== type) throw new Fail();
-        if (coll.kind === "array2d") this.remember(item, "array", coll.elem);   // Zeile einer zweidimensionalen Reihung
+        this.vars.set(item, unwrap(type));   // bei zweidimensionalen Reihungen: eine Zeile (Reihung)
         this.pos = begin + k + 4;
         const body = this.body();
         const b = this.block(B.forEach, begin, this.pos, { fields: { VAR: item, LIST: list } });
@@ -708,12 +1074,12 @@ export class JavaBlockParser {
     addArguments(b: BlockState, open: number, close: number) {
         if (close === open + 1) return;
         const bounds = [open, ...this.topLevelCommas(open + 1, close), close];
-        b.inputs = {};
+        b.inputs = b.inputs ?? {};
         for (let i = 0; i < bounds.length - 1; i++) {
             if (bounds[i + 1] === bounds[i] + 1) throw new Fail();
             b.inputs["ARG" + i] = { block: this.expression(bounds[i] + 1, bounds[i + 1]) };
         }
-        b.extraState = { args: bounds.length - 1 };
+        b.extraState = { ...(b.extraState ?? {}), args: bounds.length - 1 };
     }
 
     /** Index der passenden schließenden Klammer zu ( [ { an Position open */
@@ -893,7 +1259,7 @@ class ExpressionParser {
                 if (c) return this.postfix(c, start);
             }
             const call = this.operationCall();
-            if (call) return call;
+            if (call) return this.postfix(call, start);
             this.pos++;
             const next = this.peek();
             if (!this.isChainContinuation()) return this.p.value(B.varGet, { fields: { NAME: String(t.value) } });
@@ -901,7 +1267,36 @@ class ExpressionParser {
             this.chain();
             return this.p.value(B.javaExpression, { fields: { CODE: this.p.sourceText(start, this.pos) } });
         }
-        if (t.tt === TokenType.charLiteral || t.tt === TokenType.keywordNull || t.tt === TokenType.keywordThis
+        // new Klasse(…): neues Objekt
+        if (t.tt === TokenType.keywordNew && this.p.tok(start + 1)?.tt === TokenType.identifier && this.p.tok(start + 2)?.tt === TokenType.leftBracket) {
+            const open = start + 2, close = this.p.matchingBracket(open);
+            if (close >= this.to) throw new Fail();
+            const b = this.p.value(B.objNew, { fields: { CLASS: String(this.p.tok(start + 1)!.value) } });
+            this.p.addArguments(b, open, close);
+            this.pos = close + 1;
+            return this.postfix(b, start);
+        }
+        // this, this.attribut
+        if (t.tt === TokenType.keywordThis) {
+            const dot = this.p.tok(start + 1), name = this.p.tok(start + 2), after = this.p.tok(start + 3);
+            if (start + 2 < this.to && dot?.tt === TokenType.dot && name?.tt === TokenType.identifier && !(start + 3 < this.to && after?.tt === TokenType.leftBracket)) {
+                this.pos = start + 3;
+                return this.postfix(this.p.value(B.thisAttrGet, { fields: { NAME: String(name.value) } }), start);
+            }
+            this.pos = start + 1;
+            return this.postfix(this.p.value(B.thisValue), start);
+        }
+        // super.operation(…)
+        if (t.tt === TokenType.keywordSuper && this.p.tok(start + 1)?.tt === TokenType.dot && this.p.tok(start + 2)?.tt === TokenType.identifier
+            && this.p.tok(start + 3)?.tt === TokenType.leftBracket) {
+            const open = start + 3, close = this.p.matchingBracket(open);
+            if (close >= this.to) throw new Fail();
+            const b = this.p.value(B.superMethodCallExpr, { fields: { METHOD: String(this.p.tok(start + 2)!.value) } });
+            this.p.addArguments(b, open, close);
+            this.pos = close + 1;
+            return this.postfix(b, start);
+        }
+        if (t.tt === TokenType.charLiteral || t.tt === TokenType.keywordNull
             || t.tt === TokenType.keywordNew) {
             this.pos++;
             if (t.tt === TokenType.keywordNew) {
@@ -922,6 +1317,24 @@ class ExpressionParser {
     private postfix(base: BlockState, start: number): BlockState {
         let b = base;
         while (this.peek()?.tt === TokenType.dot) {
+            // Objekt: obj.operation(…) bzw. obj.attribut
+            if (isClassType(this.p.staticType(b))) {
+                const nameTok = this.p.tok(this.pos + 1);
+                if (this.pos + 1 >= this.to || nameTok?.tt !== TokenType.identifier) throw new Fail();
+                const name = String(nameTok.value);
+                if (this.pos + 2 < this.to && this.p.tok(this.pos + 2)?.tt === TokenType.leftBracket) {
+                    const open = this.pos + 2, close = this.p.matchingBracket(open);
+                    if (close >= this.to) throw new Fail();
+                    const call = this.p.value(B.objCallExpr, { fields: { METHOD: name }, inputs: { OBJ: { block: b } } });
+                    this.p.addArguments(call, open, close);
+                    b = call;
+                    this.pos = close + 1;
+                } else {
+                    b = this.p.value(B.objAttrGet, { fields: { ATTR: name }, inputs: { OBJ: { block: b } } });
+                    this.pos += 2;
+                }
+                continue;
+            }
             const nameTok = this.p.tok(this.pos + 1), open = this.p.tok(this.pos + 2);
             const known = nameTok?.tt === TokenType.identifier && open?.tt === TokenType.leftBracket && this.pos + 2 < this.to;
             const openIndex = this.pos + 2;

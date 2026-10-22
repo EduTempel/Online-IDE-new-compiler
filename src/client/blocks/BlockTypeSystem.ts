@@ -1,5 +1,6 @@
 import * as Blockly from "blockly/core";
 import { B, COLLECTION_DECLARATIONS, COLLECTION_USES, type Collections } from "./BlockTypes";
+import { addMember, attributesOf, collectionOfType, collectionType, findConstructor, findMethod, isClassType, isScalar, isSubclass, methodsOf, typeInfo, type ClassInfo, type ClassMap } from "./ClassModel";
 
 /**
  * Datentypen der Blöcke: Jeder Werte-Block hat einen Typ, jedes Loch nimmt nur passende Typen
@@ -17,23 +18,45 @@ import { B, COLLECTION_DECLARATIONS, COLLECTION_USES, type Collections } from ".
  * das Loch bleibt offen und der Block bekommt einen Hinweis.
  */
 
-export type JType = "int" | "double" | "String" | "boolean" | "char";
+/** Datentyp als Text: int, double, String, boolean, char – und int[], ArrayList<Integer>, Hund … */
+export type JType = string;
 /** null = unbekannt bzw. beliebig */
 export type TypeSet = JType[] | null;
 
-/** Formen (Nummern wie im zelos-Renderer, 6 und 7 sind eigene) */
-export const SHAPE = { HEXAGON: 1, ROUND: 2, SQUARE: 3, BEVEL: 6, WAVE: 7 } as const;
+/** Formen (Nummern wie im zelos-Renderer, 6–8 sind eigene) */
+export const SHAPE = { HEXAGON: 1, ROUND: 2, SQUARE: 3, BEVEL: 6, WAVE: 7, OBJECT: 8 } as const;
 
 const NUMERIC: JType[] = ["int", "double"];
 const NUMERIC_OR_CHAR: JType[] = ["int", "double", "char"];
 
-export const TYPE_NAMES: Record<JType, string> = {
+export const TYPE_NAMES: Record<string, string> = {
     int: "Ganzzahl (int)", double: "Kommazahl (double)", String: "Text (String)", boolean: "Wahrheitswert (boolean)", char: "Zeichen (char)",
 };
+const PLURAL: Record<string, string> = { int: "Ganzzahlen", double: "Kommazahlen", String: "Texten", boolean: "Wahrheitswerten", char: "Zeichen" };
 
-/** Was passt in eine Variable dieses Typs? (Ganzzahlen auch in Kommazahl-Variablen) */
-export function acceptsForType(t: JType): JType[] {
-    return t === "double" ? ["double", "int"] : [t];
+/** Beschriftung eines Datentyps (Auswahllisten, Hinweise) */
+export function typeLabel(t: string): string {
+    if (TYPE_NAMES[t]) return TYPE_NAMES[t];
+    const info = typeInfo(t);
+    const of = PLURAL[info.elem] ?? info.elem;
+    switch (info.kind) {
+        case "array": return `Reihung von ${of} (${t})`;
+        case "array2d": return `zweidim. Reihung von ${of} (${t})`;
+        case "list": return `Liste von ${of} (${t})`;
+        case "dyn": return "dynamische Reihung (DynArray)";
+    }
+    return t;
+}
+
+/** Was passt in eine Variable dieses Typs? (Ganzzahlen auch in Kommazahl-Variablen, Unterklassen in Oberklassen) */
+export function acceptsForType(t: JType): JType[] | null {
+    if (t === "double") return ["double", "int"];
+    if (t === "Object") return null;
+    if (isClassType(t) && activeClasses) {
+        const subs = [...activeClasses.values()].filter((c) => isSubclass(activeClasses!, c.name, t)).map((c) => c.name);
+        return [...new Set([t, ...subs])];
+    }
+    return [t];
 }
 
 export function shapeFor(types: TypeSet): number {
@@ -42,6 +65,7 @@ export function shapeFor(types: TypeSet): number {
     if (types.every((t) => t === "String")) return SHAPE.SQUARE;
     if (types.every((t) => t === "char")) return SHAPE.BEVEL;
     if (types.every((t) => t === "int" || t === "double" || t === "char")) return SHAPE.ROUND;
+    if (types.every((t) => !isScalar(t))) return SHAPE.OBJECT;
     return SHAPE.WAVE;
 }
 
@@ -53,12 +77,77 @@ export function compatible(a: TypeSet, b: TypeSet): boolean {
 function describe(types: TypeSet): string {
     if (!types) return "ein beliebiger Wert";
     if (types.every((t) => t === "int" || t === "double")) return types.includes("double") ? "eine Zahl" : "eine Ganzzahl (int)";
-    return types.map((t) => TYPE_NAMES[t]).join(" oder ");
+    return types.map((t) => typeLabel(t)).join(" oder ");
 }
 
-// ------------------------------------------------------------------ Variablen
+// ------------------------------------------------------------------ Klassen
 
-/** Variablen aus Blöcken sammeln; Namen mit verschiedenen Typen fallen heraus (Typ unklar) */
+/** Klassen aus anderen Dateien des Projekts (setzt die Blockansicht) */
+let externalClasses: ClassInfo[] = [];
+export function setExternalClasses(list: ClassInfo[]) {
+    externalClasses = list;
+}
+
+/** während applyTypes: die Klassen nur einmal bestimmen */
+let activeClasses: ClassMap | null = null;
+
+/** Beschreibung einer Klasse aus ihrem Block */
+export function classInfoFromBlock(c: Blockly.Block): ClassInfo {
+    const info: ClassInfo = { name: String(c.getFieldValue("NAME") ?? ""), superName: String(c.getFieldValue("SUPER") ?? ""), attributes: [], constructors: [], methods: [] };
+    for (let m = c.getInputTargetBlock("MEMBERS"); m; m = m.getNextBlock()) {
+        const f: { [name: string]: string } = {};
+        for (const name of ["VIS", "NAME", "TYPE", "RETURN"]) if (m.getField(name)) f[name] = String(m.getFieldValue(name) ?? "");
+        addMember(info, m.type, f, methodParamsOf(m));
+    }
+    return info;
+}
+
+/** Alle bekannten Klassen: die dieser Datei (Blöcke) und die anderer Dateien */
+export function classInfos(ws: Blockly.Workspace): ClassMap {
+    if (activeClasses) return activeClasses;
+    const result: ClassMap = new Map();
+    for (const c of externalClasses) result.set(c.name, c);
+    for (const b of mainWorkspace(ws).getTopBlocks(false)) {
+        if (b.type !== B.class) continue;
+        const info = classInfoFromBlock(b);
+        if (info.name) result.set(info.name, info);
+    }
+    return result;
+}
+
+/** Klassenblock, in dem der Block steckt */
+export function enclosingClass(b: Blockly.Block): Blockly.Block | null {
+    const root = b.getRootBlock();
+    return root.type === B.class ? root : null;
+}
+
+// ------------------------------------------------------------------ Variablen und Geltungsbereiche
+
+/** Blöcke mit eigenen Variablen: Hauptprogramm, Operation, Konstruktor, Operation einer Klasse */
+const SCOPE_ROOTS = new Set<string>([B.start, B.method, B.ctor, B.classMethod]);
+
+/** Ist der Block ein Hut (Hauptprogramm, Operation, Klasse)? */
+export function isHat(b: Blockly.Block | null | undefined): boolean {
+    return !!b && (b.type === B.start || b.type === B.method || b.type === B.class);
+}
+
+/** Geltungsbereich eines Blocks (Operation, Konstruktor, Hauptprogramm; direkt in der Klasse: die Klasse) */
+export function scopeRoot(b: Blockly.Block): Blockly.Block | null {
+    for (let x: Blockly.Block | null = b; x; x = x.getParent()) if (SCOPE_ROOTS.has(x.type) || x.type === B.class) return x;
+    return null;
+}
+
+/** der Block und alles in seinen Eingängen (ohne die folgenden Blöcke) */
+export function innerBlocks(root: Blockly.Block): Blockly.Block[] {
+    const result = [root];
+    for (const input of root.inputList) {
+        const t = input.connection?.targetBlock();
+        if (t) result.push(...t.getDescendants(false));
+    }
+    return result;
+}
+
+/** Variablen mit Datentyp aus Blöcken; Namen mit verschiedenen Typen fallen heraus (Typ unklar) */
 function variablesOf(blocks: Blockly.Block[]): Map<string, JType> {
     const result = new Map<string, JType>();
     const conflicts = new Set<string>();
@@ -67,73 +156,73 @@ function variablesOf(blocks: Blockly.Block[]): Map<string, JType> {
         if (result.has(name) && result.get(name) !== type) conflicts.add(name);
         else result.set(name, type);
     };
-    let colls: Collections | undefined;
     for (const b of blocks) {
-        if (b.type === B.varDeclare) add(String(b.getFieldValue("NAME") ?? ""), b.getFieldValue("TYPE") as JType);
+        const kind = COLLECTION_DECLARATIONS[b.type];
+        if (kind) add(String(b.getFieldValue("NAME") ?? ""), collectionType(kind, kind === "dyn" ? null : String(b.getFieldValue("TYPE") ?? "int")));
+        else if (b.type === B.varDeclare || b.type === B.attribute) add(String(b.getFieldValue("NAME") ?? ""), String(b.getFieldValue("TYPE") ?? "int"));
         else if (b.type === B.for) add(String(b.getFieldValue("VAR") ?? ""), "int");
-        else if (b.type === B.method) for (const p of methodParamsOf(b)) add(p.name, p.type);
-        else if (b.type === B.forEach) {
-            // für jedes Element: die Variable hat den Elementtyp (Zeilen zweidimensionaler Reihungen sind Reihungen)
-            colls ??= collectionsOf(blocks);
-            const c = colls.get(String(b.getFieldValue("LIST") ?? ""));
-            if (c && (c.kind === "array" || c.kind === "list") && c.elem) add(String(b.getFieldValue("VAR") ?? ""), c.elem as JType);
-        }
+        else if (b.type === B.method || b.type === B.ctor || b.type === B.classMethod) for (const p of methodParamsOf(b)) add(p.name, p.type);
+    }
+    // für jedes Element: die Variable hat den Elementtyp (Zeilen zweidimensionaler Reihungen sind Reihungen)
+    for (const b of blocks) {
+        if (b.type !== B.forEach) continue;
+        const c = collectionOfType(result.get(String(b.getFieldValue("LIST") ?? "")));
+        const v = String(b.getFieldValue("VAR") ?? "");
+        if (c?.kind === "array2d") add(v, `${c.elem}[]`);
+        else if (c && c.kind !== "dyn" && c.elem) add(v, c.elem);
     }
     for (const c of conflicts) result.delete(c);
     return result;
 }
 
-/** Deklarierte Variablen der ganzen Arbeitsfläche mit Typ (Variablen-Blöcke, Zählschleifen, Parameter) */
+/** Deklarierte Variablen der ganzen Arbeitsfläche mit Typ (für die Werkzeugleiste) */
 export function collectVariables(ws: Blockly.Workspace): Map<string, JType> {
     return variablesOf(ws.getAllBlocks(true));
 }
 
-/** Ist der Block ein Hut (Hauptprogramm oder Operation)? Dann hat er eigene Variablen. */
-export function isHat(b: Blockly.Block | null | undefined): boolean {
-    return !!b && (b.type === B.start || b.type === B.method);
-}
-
-/** Variablen, die in einem Hauptprogramm bzw. einer Operation (samt Parametern) bekannt sind */
+/** Variablen eines Geltungsbereichs; in Klassen samt Attributen (auch geerbten), lokale verdecken sie */
 export function scopeVariables(root: Blockly.Block): Map<string, JType> {
-    return variablesOf(root.getDescendants(true));
+    const cls = enclosingClass(root);
+    const attributes = cls ? attributesOf(classInfos(root.workspace), String(cls.getFieldValue("NAME") ?? "")) : [];
+    if (root.type === B.class) return new Map(attributes.map((a) => [a.name, a.type]));
+    const own = variablesOf(innerBlocks(root));
+    const result = new Map(attributes.map((a) => [a.name, a.type] as [string, string]));
+    for (const [k, v] of own) result.set(k, v);
+    return result;
 }
 
-/** Variablen, die für einen Block gelten: die seines Huts, bei losen Blöcken alle */
+/** Variablen, die für einen Block gelten (seines Geltungsbereichs; bei losen Blöcken alle) */
 export function variablesFor(b: Blockly.Block): Map<string, JType> {
-    const root = b.getRootBlock();
-    return isHat(root) ? scopeVariables(root) : collectVariables(mainWorkspace(b.workspace));
+    const root = scopeRoot(b);
+    return root ? scopeVariables(root) : collectVariables(mainWorkspace(b.workspace));
 }
 
 // ------------------------------------------------------------------ Reihungen und Listen
 
-/** Reihungen und Listen aus Blöcken: Name -> Art und Elementtyp */
-export function collectionsOf(blocks: Blockly.Block[]): Collections {
+function onlyCollections(vars: Map<string, JType>): Collections {
     const result: Collections = new Map();
-    for (const b of blocks) {
-        const kind = COLLECTION_DECLARATIONS[b.type];
-        const name = String(b.getFieldValue("NAME") ?? "");
-        if (kind && name) result.set(name, { kind, elem: kind === "dyn" ? null : String(b.getFieldValue("TYPE") ?? "int") });
-    }
-    // Zeilen zweidimensionaler Reihungen ("für jedes Element" über eine zweidimensionale Reihung)
-    for (const b of blocks) {
-        if (b.type !== B.forEach) continue;
-        const list = result.get(String(b.getFieldValue("LIST") ?? ""));
-        if (list?.kind === "array2d") result.set(String(b.getFieldValue("VAR") ?? ""), { kind: "array", elem: list.elem });
+    for (const [name, type] of vars) {
+        const c = collectionOfType(type);
+        if (c) result.set(name, c);
     }
     return result;
 }
 
-/** Reihungen und Listen, die für einen Block gelten (seines Huts; bei losen Blöcken alle) */
-export function collectionsFor(b: Blockly.Block): Collections {
-    const root = b.getRootBlock();
-    return collectionsOf(isHat(root) ? root.getDescendants(true) : mainWorkspace(b.workspace).getAllBlocks(true));
+/** Reihungen und Listen aus Blöcken: Name -> Art und Elementtyp */
+export function collectionsOf(blocks: Blockly.Block[]): Collections {
+    return onlyCollections(variablesOf(blocks));
 }
 
-/** während applyTypes: Reihungen und Listen je Hut nur einmal bestimmen */
-let collectionCache: Map<Blockly.Block, Collections> | null = null;
+/** Reihungen und Listen, die für einen Block gelten */
+export function collectionsFor(b: Blockly.Block): Collections {
+    return onlyCollections(variablesFor(b));
+}
+
+/** während applyTypes: Reihungen und Listen je Geltungsbereich nur einmal bestimmen */
+let collectionCache: Map<Blockly.Block | null, Collections> | null = null;
 
 function collectionNamed(b: Blockly.Block): { kind: string; elem: string | null } | undefined {
-    const root = b.getRootBlock();
+    const root = scopeRoot(b);
     let colls = collectionCache?.get(root);
     if (!colls) {
         colls = collectionsFor(b);
@@ -152,16 +241,16 @@ export function mainWorkspace(ws: Blockly.Workspace): Blockly.Workspace {
     return svg.isFlyout && svg.targetWorkspace ? svg.targetWorkspace : ws;
 }
 
-/** Parameter eines Operation-Blocks (Felder PNAME0/PTYPE0 …) */
+/** Parameter eines Operation- bzw. Konstruktor-Blocks (Felder PNAME0/PTYPE0 …) */
 export function methodParamsOf(b: Blockly.Block): { name: string; type: JType }[] {
     const result: { name: string; type: JType }[] = [];
     for (let i = 0; b.getField("PNAME" + i); i++) {
-        result.push({ name: String(b.getFieldValue("PNAME" + i) ?? ""), type: String(b.getFieldValue("PTYPE" + i) ?? "int") as JType });
+        result.push({ name: String(b.getFieldValue("PNAME" + i) ?? ""), type: String(b.getFieldValue("PTYPE" + i) ?? "int") });
     }
     return result;
 }
 
-/** Alle Operationen der Arbeitsfläche (bei gleichem Namen zählt die erste) */
+/** Alle Operationen ohne Klasse (bei gleichem Namen zählt die erste) */
 export function methodSignatures(ws: Blockly.Workspace): Map<string, Signature> {
     const result = new Map<string, Signature>();
     for (const b of mainWorkspace(ws).getTopBlocks(true)) {
@@ -172,10 +261,65 @@ export function methodSignatures(ws: Blockly.Workspace): Map<string, Signature> 
     return result;
 }
 
+/**
+ * Operationen, die ein Block ohne Objekt aufrufen kann: in einer Klasse die der Klasse (samt
+ * geerbter), sonst die Operationen ohne Klasse.
+ */
+export function callSignatures(b: Blockly.Block): Map<string, Signature> {
+    const cls = enclosingClass(b);
+    if (!cls) return methodSignatures(b.workspace);
+    const result = new Map<string, Signature>();
+    for (const m of methodsOf(classInfos(b.workspace), String(cls.getFieldValue("NAME") ?? ""))) {
+        if (!result.has(m.name)) result.set(m.name, { name: m.name, ret: m.ret, params: m.params });
+    }
+    return result;
+}
+
 /** Ergebnistyp der Operation, in der der Block steckt (undefined: Hauptprogramm oder lose) */
 function enclosingReturnType(b: Blockly.Block): string | undefined {
-    const root = b.getRootBlock();
-    return root.type === B.method ? String(root.getFieldValue("RETURN") ?? "void") : undefined;
+    const root = scopeRoot(b);
+    if (root?.type === B.method || root?.type === B.classMethod) return String(root.getFieldValue("RETURN") ?? "void");
+    return root?.type === B.ctor ? "void" : undefined;
+}
+
+/** Klasse eines Objekt-Werts (Eingang OBJ) */
+function objectClass(b: Blockly.Block, vars: Map<string, JType>, memo: Map<string, TypeSet>, input = "OBJ"): string | undefined {
+    const o = b.getInputTargetBlock(input);
+    const t = o ? outputType(o, vars, memo) : null;
+    return t && t.length === 1 && isClassType(t[0]) ? t[0] : undefined;
+}
+
+/** Klasse des Objekts im Eingang OBJ (z. B. für Umbenennen) */
+export function receiverClass(b: Blockly.Block): string | undefined {
+    return objectClass(b, variablesFor(b), new Map());
+}
+
+/** Oberklasse der Klasse, in der der Block steckt */
+function superOf(b: Blockly.Block): string | undefined {
+    const cls = enclosingClass(b);
+    const sup = cls ? String(cls.getFieldValue("SUPER") ?? "") : "";
+    return sup || undefined;
+}
+
+/** Parameter, zu denen die Werte eines Aufrufs (ARG0 …) passen müssen */
+export function callTarget(b: Blockly.Block, vars?: Map<string, JType>, memo = new Map<string, TypeSet>()): { params: { name: string; type: JType }[]; ret: string } | undefined {
+    const classes = classInfos(b.workspace);
+    const argc = (b as Blockly.Block & { state?: { args?: number } }).state?.args;
+    const name = (f: string) => String(b.getFieldValue(f) ?? "");
+    switch (b.type) {
+        case B.call: case B.callExpr: return callSignatures(b).get(name("NAME"));
+        case B.objNew: {
+            const c = findConstructor(classes, name("CLASS"), argc);
+            return c ? { params: c.params, ret: name("CLASS") } : undefined;
+        }
+        case B.objCall: case B.objCallExpr: return findMethod(classes, objectClass(b, vars ?? variablesFor(b), memo), name("METHOD"), argc);
+        case B.superCall: {
+            const c = findConstructor(classes, superOf(b), argc);
+            return c ? { params: c.params, ret: "void" } : undefined;
+        }
+        case B.superMethodCall: case B.superMethodCallExpr: return findMethod(classes, superOf(b), name("METHOD"), argc);
+    }
+    return undefined;
 }
 
 // ------------------------------------------------------------------ Startwert beim Typwechsel
@@ -185,6 +329,7 @@ export type Literal = { type: string; fields: { [name: string]: string } };
 /** Startwert für eine neue Variable dieses Typs */
 export function defaultLiteral(t: JType): Literal {
     switch (t) {
+        default: return { type: B.javaExpression, fields: { CODE: "null" } };   // Objekte, Reihungen, Listen
         case "int": return { type: B.number, fields: { NUM: "0" } };
         case "double": return { type: B.number, fields: { NUM: "0.0" } };
         case "String": return { type: B.text, fields: { TEXT: "" } };
@@ -210,6 +355,7 @@ function literalText(b: Blockly.Block): string | null {
  */
 export function convertLiteral(oldText: string | null, t: JType): Literal {
     const fallback = defaultLiteral(t);
+    if (!isScalar(t)) return fallback;
     if (oldText === null) return fallback;
     const s = oldText.trim();
     const num = /^-?(\d+\.?\d*|\.\d+)([eE][-+]?\d+)?[dDfFlL]?$/.test(s) ? Number(s.replace(/[dDfFlL]$/, "")) : NaN;
@@ -232,6 +378,7 @@ export function convertLiteral(oldText: string | null, t: JType): Literal {
  * Ausdrücke (Rechnungen, Eingaben, Variablen) bleiben unverändert.
  */
 export function adaptDeclarationValue(declaration: Blockly.Block, t: JType) {
+    if (!isScalar(t)) return;   // Reihungen, Listen, Objekte: Wert bleibt
     const input = declaration.getInput("VALUE");
     if (!input?.connection) return;
     const child = declaration.getInputTargetBlock("VALUE");
@@ -319,9 +466,26 @@ export function outputType(b: Blockly.Block, vars: Map<string, JType>, memo = ne
             else t = [...NUMERIC];
             break;
         }
-        case B.callExpr: {
-            const sig = methodSignatures(b.workspace).get(String(b.getFieldValue("NAME") ?? ""));
-            t = sig && sig.ret !== "void" ? [sig.ret as JType] : null;
+        case B.callExpr: case B.objCallExpr: case B.superMethodCallExpr: {
+            const target = callTarget(b, vars, memo);
+            t = target && target.ret !== "void" ? [target.ret] : null;
+            break;
+        }
+        case B.objNew: t = [String(b.getFieldValue("CLASS") ?? "Object")]; break;
+        case B.thisValue: {
+            const cls = enclosingClass(b);
+            t = cls ? [String(cls.getFieldValue("NAME") ?? "")] : null;
+            break;
+        }
+        case B.thisAttrGet: {
+            const cls = enclosingClass(b);
+            const a = cls ? attributesOf(classInfos(b.workspace), String(cls.getFieldValue("NAME") ?? "")).find((x) => x.name === b.getFieldValue("NAME")) : undefined;
+            t = a ? [a.type] : null;
+            break;
+        }
+        case B.objAttrGet: {
+            const a = attributesOf(classInfos(b.workspace), objectClass(b, vars, memo)).find((x) => x.name === b.getFieldValue("ATTR"));
+            t = a ? [a.type] : null;
             break;
         }
         case B.arrayGet: case B.array2dGet: case B.listGet: {
@@ -391,10 +555,22 @@ export function inputType(b: Blockly.Block, input: string, vars: Map<string, JTy
         case B.input: return ["String"];
         case B.random: return ["int"];
         case B.math: return [...NUMERIC];
-        case B.call: case B.callExpr: {
+        case B.call: case B.callExpr: case B.objNew: case B.objCall: case B.objCallExpr:
+        case B.superCall: case B.superMethodCall: case B.superMethodCallExpr: {
             const m = /^ARG(\d+)$/.exec(input);
-            const p = m ? methodSignatures(b.workspace).get(String(b.getFieldValue("NAME") ?? ""))?.params[Number(m[1])] : undefined;
+            const p = m ? callTarget(b, vars, memo)?.params[Number(m[1])] : undefined;
             return p ? acceptsForType(p.type) : null;
+        }
+        case B.attribute: return acceptsForType(String(b.getFieldValue("TYPE") ?? "int"));
+        case B.thisAttrSet: {
+            const cls = enclosingClass(b);
+            const a = cls ? attributesOf(classInfos(b.workspace), String(cls.getFieldValue("NAME") ?? "")).find((x) => x.name === b.getFieldValue("NAME")) : undefined;
+            return a ? acceptsForType(a.type) : null;
+        }
+        case B.objAttrSet: {
+            if (input !== "V") return null;
+            const a = attributesOf(classInfos(b.workspace), objectClass(b, vars, memo)).find((x) => x.name === b.getFieldValue("ATTR"));
+            return a ? acceptsForType(a.type) : null;
         }
         case B.return: {
             const ret = enclosingReturnType(b);
@@ -420,12 +596,15 @@ const sameTypes = (a: TypeSet | undefined, b: TypeSet | undefined) =>
  * Typen, Lochformen und Blockformen auf der Arbeitsfläche setzen. `vars` kommt bei der
  * Werkzeugleiste (Flyout) von der Haupt-Arbeitsfläche.
  */
-export function applyTypes(ws: Blockly.Workspace, vars: Map<string, JType> = collectVariables(ws)) {
+export function applyTypes(ws: Blockly.Workspace, vars?: Map<string, JType>) {
+    activeClasses = null;
+    activeClasses = classInfos(ws);
     collectionCache = new Map();
     try {
-        applyTypesNow(ws, vars);
+        applyTypesNow(ws, vars ?? collectVariables(ws));
     } finally {
         collectionCache = null;
+        activeClasses = null;
     }
 }
 
@@ -433,11 +612,11 @@ function applyTypesNow(ws: Blockly.Workspace, vars: Map<string, JType>) {
     const memo = new Map<string, TypeSet>();
     const blocks = ws.getAllBlocks(false);
     const toRender = new Set<Blockly.Block>();
-    // Variablen je Hauptprogramm bzw. Operation (lose Blöcke: alle)
+    // Variablen je Geltungsbereich (Hauptprogramm, Operation, Konstruktor; lose Blöcke: alle)
     const scopes = new Map<Blockly.Block, Map<string, JType>>();
     const varsFor = (b: Blockly.Block) => {
-        const root = b.getRootBlock();
-        if (!isHat(root)) return vars;
+        const root = scopeRoot(b);
+        if (!root) return vars;
         if (!scopes.has(root)) scopes.set(root, scopeVariables(root));
         return scopes.get(root)!;
     };
@@ -499,9 +678,20 @@ function applyTypesNow(ws: Blockly.Workspace, vars: Map<string, JType>) {
         if (!mismatches.has(b)) mismatches.set(b, []);
         mismatches.get(b)!.push(text);
     };
+    // Teile einer Klasse gehören direkt in eine Klasse, Anweisungen in eine Operation
+    const MEMBERS = new Set<string>([B.attribute, B.ctor, B.classMethod]);
+    for (const b of blocks) {
+        const surround = b.getSurroundParent();
+        const inClassBody = surround?.type === B.class;
+        if (MEMBERS.has(b.type) && !inClassBody && !b.isInFlyout) note(b, "Gehört direkt in eine Klasse (Block „Klasse“).");
+        else if (inClassBody && !MEMBERS.has(b.type) && b.previousConnection && ![B.comment, B.javaStatement, B.javaRaw].includes(b.type as never)) {
+            note(b, "Anweisungen gehören in eine Operation oder einen Konstruktor der Klasse.");
+        }
+        if (b.type === B.superCall && scopeRoot(b)?.type !== B.ctor) note(b, "„super(…)“ steht am Anfang eines Konstruktors.");
+    }
     for (const b of blocks) {
         if (b.type !== B.return && b.type !== B.returnVoid) continue;
-        const root = b.getRootBlock();
+        const root = scopeRoot(b) ?? b.getRootBlock();
         const ret = enclosingReturnType(b);
         if (b.type === B.return && root.type === B.start) note(b, "Das Hauptprogramm hat kein Ergebnis. Zum Beenden „beende die Operation“ nehmen.");
         else if (b.type === B.return && ret === "void") note(b, "Diese Operation liefert kein Ergebnis (void): oben einen Ergebnistyp wählen oder „beende die Operation“ nehmen.");

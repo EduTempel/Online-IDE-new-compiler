@@ -4,6 +4,8 @@ import { collectVariables, variablesFor } from "./BlockTypeSystem";
 import { defineIfBlock, definePrintBlock } from "./BlockMutators";
 import { defineOperationBlocks, OPERATIONS_CATEGORY, OPERATIONS_COLOUR } from "./BlockOperations";
 import { ADT_CATEGORY, ADT_COLOUR, ARRAYS_CATEGORY, ARRAYS_COLOUR, defineCollectionBlocks, LISTS_CATEGORY, LISTS_COLOUR } from "./BlockCollections";
+import { CLASSES_CATEGORY, CLASSES_COLOUR, defineClassBlocks, OBJECTS_CATEGORY, OBJECTS_COLOUR } from "./BlockClasses";
+import { registerTypeField } from "./BlockFields";
 
 /**
  * Blöcke der Stufe 1 (Grundlagen, Abitur-Operationen): deutsche Beschriftung, das Java-Wort klein dahinter
@@ -72,6 +74,7 @@ export function defineBlocks() {
     if (defined) return;
     defined = true;
     Blockly.fieldRegistry.register("field_gsg_variable", FieldVariableName as unknown as Blockly.fieldRegistry.RegistrableField);
+    registerTypeField();
 
     // Java-Bezeichner: nur Buchstaben, Ziffern, _ und $; nicht mit Ziffer beginnen
     Blockly.Extensions.register("gsg_identifier", function (this: Blockly.Block) {
@@ -100,6 +103,7 @@ export function defineBlocks() {
     definePrintBlock(COLOURS.output);
     defineOperationBlocks((json) => Blockly.common.defineBlocksWithJsonArray(json));
     defineCollectionBlocks((json) => Blockly.common.defineBlocksWithJsonArray(json));
+    defineClassBlocks((json) => Blockly.common.defineBlocksWithJsonArray(json));
 
     Blockly.common.defineBlocksWithJsonArray([
         {
@@ -114,7 +118,7 @@ export function defineBlocks() {
         {
             type: B.varDeclare, message0: "erstelle neue Variable %1 vom Datentyp %2 mit Wert %3",
             args0: [{ type: "field_input", name: "NAME", text: "zahl" },
-                { type: "field_dropdown", name: "TYPE", options: VAR_TYPE_OPTIONS }, { type: "input_value", name: "VALUE" }],
+                { type: "field_gsg_type", name: "TYPE", text: "int", mode: "full" }, { type: "input_value", name: "VALUE" }],
             inputsInline: true, ...statement, colour: COLOURS.variables, extensions: ["gsg_identifier"],
             tooltip: "Legt eine neue Variable an und gibt ihr einen Startwert, z. B. int zahl = 5; "
                 + "Beim Wechsel des Datentyps wird der Startwert passend umgestellt.",
@@ -384,7 +388,7 @@ export function defineBlocks() {
 }
 
 export const VARIABLES_CATEGORY = "GSG_VARIABLES";
-export { OPERATIONS_CATEGORY, ARRAYS_CATEGORY, LISTS_CATEGORY, ADT_CATEGORY };
+export { OPERATIONS_CATEGORY, ARRAYS_CATEGORY, LISTS_CATEGORY, ADT_CATEGORY, CLASSES_CATEGORY, OBJECTS_CATEGORY };
 
 /**
  * Inhalt der Kategorie "Variablen": neue Variablen (je Typ mit passendem Startwert) und
@@ -492,6 +496,8 @@ export function toolbox(): Blockly.utils.toolbox.ToolboxDefinition {
             { kind: "category", name: "Listen", colour: LISTS_COLOUR, custom: LISTS_CATEGORY },
             { kind: "category", name: "ADT", colour: ADT_COLOUR, custom: ADT_CATEGORY },
             { kind: "category", name: "Operationen", colour: OPERATIONS_COLOUR, custom: OPERATIONS_CATEGORY },
+            { kind: "category", name: "Klassen", colour: CLASSES_COLOUR, custom: CLASSES_CATEGORY },
+            { kind: "category", name: "Objekte", colour: OBJECTS_COLOUR, custom: OBJECTS_CATEGORY },
             {
                 kind: "category", name: "Java", colour: COLOURS.java, contents: [
                     { kind: "label", text: "Für alles, was es (noch) nicht als Block gibt." },

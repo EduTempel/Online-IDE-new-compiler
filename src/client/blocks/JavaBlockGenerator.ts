@@ -1,7 +1,10 @@
 import { Lexer } from "../../compiler/java/lexer/Lexer";
 import { TokenType } from "../../compiler/java/TokenType";
-import { B, COLLECTION_CALLS, COLLECTION_DECLARATIONS, elementJavaType, WRAPPERS, type BlockState, type Collections, type Param, type WorkspaceState } from "./BlockTypes";
+import { B, COLLECTION_CALLS, COLLECTION_DECLARATIONS, elementJavaType, type BlockState, type Collections, type Param, type WorkspaceState } from "./BlockTypes";
+import { collectionOfType, collectionType, methodParams, wrapperOf } from "./ClassModel";
 import type { LineRange } from "./JavaBlockParser";
+
+export { methodParams };
 
 /**
  * Blöcke -> Java. Arbeitet auf dem Speicherformat von Blockly (JSON), damit es auch ohne
@@ -10,17 +13,6 @@ import type { LineRange } from "./JavaBlockParser";
  */
 
 export const INDENT = "    ";
-
-/** Parameter einer Operation aus den Feldern PNAME0/PTYPE0 … */
-export function methodParams(b: BlockState): Param[] {
-    const f = b.fields ?? {};
-    const count = Math.max(b.extraState?.params?.length ?? 0, Object.keys(f).filter((k) => /^PNAME\d+$/.test(k)).length);
-    const result: Param[] = [];
-    for (let i = 0; i < count; i++) {
-        result.push({ name: f["PNAME" + i] ?? b.extraState?.params?.[i]?.name ?? "wert" + (i + 1), type: f["PTYPE" + i] ?? b.extraState?.params?.[i]?.type ?? "int" });
-    }
-    return result;
-}
 
 /** Bindungsstärke (kleiner = bindet stärker), wie in Java */
 const enum Order { ATOMIC = 0, UNARY = 1, MULT = 2, ADD = 3, REL = 4, EQ = 5, AND = 6, OR = 7, NONE = 99 }
@@ -66,37 +58,75 @@ export class JavaBlockGenerator {
     private ranges: LineRange[] = [];
     /** Reihungen und Listen des Hauptprogramms bzw. der Operation (für "für jedes Element") */
     private colls: Collections = new Map();
+    /** Klasse, deren Inhalt gerade erzeugt wird (Name des Konstruktors) */
+    private className = "";
+    /** Attribute der Klasse (gelten in allen Operationen der Klasse) */
+    private classColls: Collections = new Map();
 
     static generate(state: WorkspaceState): GeneratorResult {
         return new JavaBlockGenerator().run(state);
     }
 
     /**
-     * Erst das Hauptprogramm, dann die Operationen in der Reihenfolge ihrer Position (von oben
-     * nach unten), jeweils durch eine Leerzeile getrennt.
+     * Erst das Hauptprogramm, dann Operationen und Klassen in der Reihenfolge ihrer Position (von
+     * oben nach unten), jeweils durch eine Leerzeile getrennt.
      */
     run(state: WorkspaceState): GeneratorResult {
         const top = state.blocks?.blocks ?? [];
         const start = top.find((b) => b.type === B.start);
         this.colls = collectionsInTree(start?.inputs?.BODY?.block);
         this.statements(start?.inputs?.BODY?.block, "");
-        const methods = top.filter((b) => b.type === B.method).sort((a, b) => (a.y ?? 0) - (b.y ?? 0) || (a.x ?? 0) - (b.x ?? 0));
-        for (const m of methods) {
+        const hats = top.filter((b) => b.type === B.method || b.type === B.class).sort((a, b) => (a.y ?? 0) - (b.y ?? 0) || (a.x ?? 0) - (b.x ?? 0));
+        for (const h of hats) {
             if (this.lines.length) this.emit("");
-            this.method(m);
+            if (h.type === B.class) this.classDeclaration(h);
+            else this.method(h, "");
         }
         return { code: this.lines.length ? this.lines.join("\n") + "\n" : "", ranges: this.ranges };
     }
 
-    /** Operation: Typ name(Typ a, Typ b) { … } */
-    private method(b: BlockState) {
+    /** Operation (auch in Klassen) bzw. Konstruktor: [Sichtbarkeit] Typ name(Typ a, Typ b) { … } */
+    private method(b: BlockState, indent: string) {
         const startLine = this.lines.length + 1;
         const f = b.fields ?? {};
-        const params = methodParams(b).map((p) => `${p.type} ${p.name}`).join(", ");
-        this.colls = collectionsInTree(b.inputs?.BODY?.block);
-        this.emit(`${f.RETURN || "void"} ${f.NAME ?? "operation"}(${params}) {`);
-        this.statements(b.inputs?.BODY?.block, INDENT);
+        const params = methodParams(b);
+        this.colls = new Map([...this.classColls, ...paramColls(params), ...collectionsInTree(b.inputs?.BODY?.block)]);
+        const vis = f.VIS && f.VIS !== "package" ? f.VIS + " " : "";
+        if (b.type === B.classMethod && b.extraState?.override) this.emit(`${indent}@Override`);
+        const head = b.type === B.ctor ? `${vis}${this.className}` : `${vis}${f.RETURN || "void"} ${f.NAME ?? "operation"}`;
+        this.emit(`${indent}${head}(${params.map((p) => `${p.type} ${p.name}`).join(", ")}) {`);
+        this.statements(b.inputs?.BODY?.block, indent + INDENT);
+        this.emit(`${indent}}`);
+        if (b.id) this.ranges.push({ id: b.id, startLine, endLine: this.lines.length });
+    }
+
+    /**
+     * Klasse: Attribute, Konstruktoren, Operationen. Vor Konstruktoren und Operationen steht eine
+     * Leerzeile (außer direkt nach einem Kommentar, der zu ihnen gehört).
+     */
+    private classDeclaration(b: BlockState) {
+        const startLine = this.lines.length + 1;
+        const f = b.fields ?? {};
+        const members: BlockState[] = [];
+        for (let m = b.inputs?.MEMBERS?.block; m; m = m.next?.block) members.push(m);
+        const outerName = this.className, outerColls = this.classColls;
+        this.className = f.NAME ?? "Klasse";
+        this.classColls = new Map();
+        for (const m of members) {
+            const c = m.type === B.attribute ? collectionOfType(m.fields?.TYPE) : undefined;
+            if (c && m.fields?.NAME) this.classColls.set(m.fields.NAME, c);
+        }
+        this.emit(`${b.extraState?.isPublic ? "public " : ""}class ${this.className}${f.SUPER ? " extends " + f.SUPER : ""} {`);
+        const big = (m: BlockState | undefined) => !!m && (m.type === B.ctor || m.type === B.classMethod || m.type === B.javaRaw);
+        members.forEach((m, i) => {
+            const prev = members[i - 1];
+            const leadsBig = big(m) || (m.type === B.comment && big(members[i + 1]));
+            if (i > 0 && leadsBig && prev.type !== B.comment) this.emit("");
+            this.statement(m, INDENT);
+        });
         this.emit("}");
+        this.className = outerName;
+        this.classColls = outerColls;
         if (b.id) this.ranges.push({ id: b.id, startLine, endLine: this.lines.length });
     }
 
@@ -120,6 +150,30 @@ export class JavaBlockGenerator {
         const startLine = this.lines.length + 1;
         const f = b.fields ?? {};
         switch (b.type) {
+            case B.ctor:
+            case B.classMethod:
+                this.method(b, indent);
+                return;   // Zeilen merkt sich method()
+            case B.attribute: {
+                const value = b.inputs?.VALUE?.block;
+                this.emit(`${indent}${f.VIS && f.VIS !== "package" ? f.VIS + " " : ""}${f.TYPE ?? "int"} ${f.NAME}${value ? " = " + this.value(value, Order.NONE) : ""};`);
+                break;
+            }
+            case B.superCall:
+                this.emit(`${indent}super${this.args(b)};`);
+                break;
+            case B.superMethodCall:
+                this.emit(`${indent}super.${f.METHOD}${this.args(b)};`);
+                break;
+            case B.thisAttrSet:
+                this.emit(`${indent}this.${f.NAME} = ${this.input(b, "V", Order.NONE)};`);
+                break;
+            case B.objCall:
+                this.emit(`${indent}${this.receiver(b, "OBJ", "objekt")}.${f.METHOD}${this.args(b)};`);
+                break;
+            case B.objAttrSet:
+                this.emit(`${indent}${this.receiver(b, "OBJ", "objekt")}.${f.ATTR} = ${this.input(b, "V", Order.NONE)};`);
+                break;
             case B.varDeclare: {
                 const value = b.inputs?.VALUE?.block;
                 this.emit(`${indent}${f.TYPE} ${f.NAME}${value ? " = " + this.value(value, Order.NONE) : ""};`);
@@ -220,7 +274,7 @@ export class JavaBlockGenerator {
                 this.emit(`${indent}${f.NAME}[${this.input(b, "R", Order.NONE)}][${this.input(b, "C", Order.NONE)}] = ${this.input(b, "V", Order.NONE)};`);
                 break;
             case B.listNew: {
-                const w = WRAPPERS[f.TYPE ?? "int"] ?? "Integer";
+                const w = wrapperOf(f.TYPE ?? "int");
                 this.emit(`${indent}ArrayList<${w}> ${f.NAME} = new ArrayList<${w}>();`);
                 break;
             }
@@ -277,9 +331,9 @@ export class JavaBlockGenerator {
     }
 
     /** Wert vor einem Methodenaufruf (s.length()): nur Einfaches ohne Klammern */
-    private receiver(b: BlockState, name: string): string {
+    private receiver(b: BlockState, name: string, missing = '""'): string {
         const target = b.inputs?.[name]?.block;
-        return target ? this.value(target, Order.ATOMIC, true) : '""';
+        return target ? this.value(target, Order.ATOMIC, true) : missing;
     }
 
     /** Code eines Werte-Blocks, bei Bedarf in Klammern */
@@ -349,6 +403,18 @@ export class JavaBlockGenerator {
                 return [`Math.${f.FUNC ?? "sqrt"}(${this.input(b, "VALUE", Order.NONE)})`, Order.ATOMIC];
             case B.callExpr:
                 return [`${f.NAME ?? ""}${this.args(b)}`, Order.ATOMIC];
+            case B.thisValue:
+                return ["this", Order.ATOMIC];
+            case B.thisAttrGet:
+                return [`this.${f.NAME}`, Order.ATOMIC];
+            case B.objNew:
+                return [`new ${f.CLASS}${this.args(b)}`, Order.ATOMIC];
+            case B.objCallExpr:
+                return [`${this.receiver(b, "OBJ", "objekt")}.${f.METHOD}${this.args(b)}`, Order.ATOMIC];
+            case B.objAttrGet:
+                return [`${this.receiver(b, "OBJ", "objekt")}.${f.ATTR}`, Order.ATOMIC];
+            case B.superMethodCallExpr:
+                return [`super.${f.METHOD}${this.args(b)}`, Order.ATOMIC];
             case B.arrayGet:
                 return [`${f.NAME}[${this.input(b, "I", Order.NONE)}]`, Order.ATOMIC];
             case B.array2dGet:
@@ -372,13 +438,27 @@ export class JavaBlockGenerator {
     }
 }
 
+/** Reihungen und Listen unter den Parametern */
+function paramColls(params: Param[]): Collections {
+    const result: Collections = new Map();
+    for (const p of params) {
+        const c = collectionOfType(p.type);
+        if (c) result.set(p.name, c);
+    }
+    return result;
+}
+
 /** Reihungen und Listen, die in einem Hauptprogramm bzw. einer Operation angelegt werden */
 function collectionsInTree(first: BlockState | undefined): Collections {
     const result: Collections = new Map();
     const visit = (b: BlockState | undefined) => {
         for (; b; b = b.next?.block) {
             const kind = COLLECTION_DECLARATIONS[b.type];
-            if (kind && b.fields?.NAME) result.set(b.fields.NAME, { kind, elem: kind === "dyn" ? null : b.fields.TYPE ?? "int" });
+            if (kind && b.fields?.NAME) result.set(b.fields.NAME, collectionOfType(collectionType(kind, kind === "dyn" ? null : b.fields.TYPE ?? "int"))!);
+            if (b.type === B.varDeclare && b.fields?.NAME) {
+                const c = collectionOfType(b.fields.TYPE);
+                if (c) result.set(b.fields.NAME, c);
+            }
             if (b.type === B.forEach && b.fields?.VAR) {
                 const list = result.get(b.fields.LIST ?? "");
                 if (list?.kind === "array2d") result.set(b.fields.VAR, { kind: "array", elem: list.elem });

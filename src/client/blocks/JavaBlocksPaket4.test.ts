@@ -113,11 +113,8 @@ describe("Paket 4: Operationen", () => {
             "public static int summe(int[] werte) {",
             "    return werte.length;",
             "}",
-            "int[] kopie(int[] a) {",
-            "    return a;",
-            "}",
-            "class Zaehler {",
-            "    int stand;",
+            "interface Form {",
+            "    double flaeche();",
             "}",
         );
         expect(roundTrip(code).replace(/\n\n/g, NL)).toBe(code.replace(/\n\n/g, NL));

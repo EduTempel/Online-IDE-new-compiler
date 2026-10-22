@@ -1,6 +1,7 @@
 import * as Blockly from "blockly/core";
 import { B, VAR_TYPES, type CollKind } from "./BlockTypes";
 import { FieldButton, hintLabel, mutate, type Mutable } from "./BlockMutators";
+import { FieldType } from "./BlockFields";
 import { collectionsFor, collectionsOf, defaultLiteral, TYPE_NAMES, type JType } from "./BlockTypeSystem";
 
 /**
@@ -69,7 +70,7 @@ export function defineCollectionBlocks(defineJson: (json: object[]) => void) {
     const a = { colour: ARRAYS_COLOUR, inputsInline: true };
     const l = { colour: LISTS_COLOUR, inputsInline: true };
     const d = { colour: ADT_COLOUR, inputsInline: true };
-    const typeField = { type: "field_dropdown", name: "TYPE", options: TYPE_OPTIONS };
+    const typeField = { type: "field_gsg_type", name: "TYPE", text: "int", mode: "element" };
     const nameField = { type: "field_input", name: "NAME", text: "zahlen" };
     defineJson([
         // ------------------------------------------------------------ Reihungen
@@ -221,7 +222,7 @@ function defineArrayValuesBlock() {
         build(this: Mutable<ItemsState>) {
             const head = this.appendDummyInput("HEAD").appendField("erstelle neue Reihung")
                 .appendField(new Blockly.FieldTextInput("zahlen", identifier), "NAME")
-                .appendField("vom Datentyp").appendField(new Blockly.FieldDropdown(TYPE_OPTIONS), "TYPE");
+                .appendField("vom Datentyp").appendField(new FieldType("int", "element"), "TYPE");
             head.appendField("mit den Werten");
             for (let i = 0; i < this.state.items; i++) {
                 const input = this.appendValueInput("V" + i);

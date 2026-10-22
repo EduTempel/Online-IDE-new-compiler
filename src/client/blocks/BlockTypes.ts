@@ -67,6 +67,23 @@ export const B = {
     dynLength: "j_dyn_length",      // Feld NAME  (d.getLength())
     dynIsEmpty: "j_dyn_isempty",    // Feld NAME  (d.isEmpty())
 
+    // Klassen und Objekte (Paket 6)
+    class: "j_class",               // Hut-Block; Felder NAME, SUPER ("" = keine Oberklasse); Anweisungen MEMBERS
+    attribute: "j_attribute",       // Felder VIS, NAME, TYPE; Eingang VALUE (Startwert, optional)
+    ctor: "j_constructor",          // Feld VIS, PNAME0/PTYPE0 …; Anweisungen BODY; extraState { params }
+    classMethod: "j_class_method",  // Felder VIS, NAME, RETURN, PNAME0/PTYPE0 …; Anweisungen BODY; extraState { params, override }
+    superCall: "j_super_call",      // Eingänge ARG0 …; extraState { args }  (super(…);)
+    superMethodCall: "j_super_method_call",     // Feld METHOD; Eingänge ARG0 …  (super.m(…);)
+    superMethodCallExpr: "j_super_method_expr", // wie superMethodCall, als Wert
+    thisValue: "j_this",            // (this)
+    thisAttrGet: "j_this_attr_get", // Feld NAME  (this.name)
+    thisAttrSet: "j_this_attr_set", // Feld NAME; Eingang V  (this.name = v;)
+    objNew: "j_obj_new",            // Feld CLASS; Eingänge ARG0 …; extraState { args }  (new Hund(…))
+    objCall: "j_obj_call",          // Feld METHOD; Eingänge OBJ, ARG0 …; extraState { args }  (obj.m(…);)
+    objCallExpr: "j_obj_call_expr", // wie objCall, als Wert
+    objAttrGet: "j_obj_attr_get",   // Feld ATTR; Eingang OBJ  (obj.attr)
+    objAttrSet: "j_obj_attr_set",   // Feld ATTR; Eingänge OBJ, V  (obj.attr = v;)
+
     // Werte
     number: "j_number",             // Feld NUM (Text, z. B. "3.5")
     text: "j_text",                 // Feld TEXT (ohne Anführungszeichen, unmaskiert)
@@ -97,6 +114,8 @@ export const B = {
 } as const;
 
 export const VAR_TYPES = ["int", "double", "String", "boolean", "char"] as const;
+/** Sichtbarkeit in Klassen ("" = ohne Angabe) */
+export const VISIBILITIES = ["private", "public", "protected", ""] as const;
 export const INPUT_METHODS = ["readInt", "readDouble", "readString", "readBoolean", "readChar"] as const;
 export const MATH_FUNCTIONS = ["sqrt", "abs", "round"] as const;
 /** Ergebnistypen von Operationen: void = kein Ergebnis */
@@ -108,7 +127,7 @@ export type Param = { name: string; type: string };
 
 /** Art einer Reihung bzw. Liste */
 export type CollKind = "array" | "array2d" | "list" | "dyn";
-/** Name -> Art und Elementtyp (int, String … ; bei DynArray null) */
+/** Name -> Art und Elementtyp (int, String, Klassenname … ; bei DynArray null) */
 export type Collections = Map<string, { kind: CollKind; elem: string | null }>;
 
 /** Blöcke, die eine Reihung bzw. Liste anlegen */
@@ -146,7 +165,7 @@ export const WRAPPERS: Record<string, string> = { int: "Integer", double: "Doubl
 export function elementJavaType(c: { kind: CollKind; elem: string | null } | undefined): string {
     if (!c) return "var";
     if (c.kind === "dyn") return "Object";
-    if (c.kind === "list") return WRAPPERS[c.elem ?? ""] ?? "Object";
+    if (c.kind === "list") return WRAPPERS[c.elem ?? ""] ?? c.elem ?? "Object";
     if (c.kind === "array2d") return (c.elem ?? "int") + "[]";
     return c.elem ?? "int";
 }
@@ -160,7 +179,7 @@ export type BlockState = {
     fields?: { [name: string]: string };
     inputs?: { [name: string]: { block: BlockState } };
     next?: { block: BlockState };
-    extraState?: { code?: string; elseIfs?: number; hasElse?: boolean; items?: number; params?: Param[]; args?: number };
+    extraState?: { code?: string; elseIfs?: number; hasElse?: boolean; items?: number; params?: Param[]; args?: number; override?: boolean; isPublic?: boolean };
     deletable?: boolean;
 };
 

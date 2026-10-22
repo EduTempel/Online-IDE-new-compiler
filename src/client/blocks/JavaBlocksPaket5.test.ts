@@ -142,7 +142,6 @@ describe("Paket 5: Reihungen und Listen", () => {
     test("Nicht darstellbares bleibt Java-Text", () => {
         const code = lines(
             "int[][] m = {{1, 2}, {3, 4}};",
-            "int[] leer;",
             "ArrayList<int[]> x = new ArrayList<>();",
             "for (double z : zahlen) {",
             "}",

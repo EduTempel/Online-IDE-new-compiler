@@ -1,7 +1,9 @@
 import * as Blockly from "blockly/core";
-import { B, COLLECTION_DECLARATIONS, COLLECTION_USES, VAR_TYPES, type Param } from "./BlockTypes";
+import { B, COLLECTION_DECLARATIONS, COLLECTION_USES, type Param } from "./BlockTypes";
 import { FieldButton, hintLabel, mutate, type Mutable } from "./BlockMutators";
-import { collectionsOf, defaultLiteral, isHat, methodParamsOf, methodSignatures, scopeVariables, TYPE_NAMES, type JType } from "./BlockTypeSystem";
+import { callSignatures, callTarget, classInfos, collectionsOf, defaultLiteral, enclosingClass, innerBlocks, methodParamsOf, methodSignatures, receiverClass, scopeRoot, scopeVariables, type JType } from "./BlockTypeSystem";
+import { FieldType, identifier, VISIBILITY_OPTIONS } from "./BlockFields";
+import { attributesOf, isSubclass, methodsOf } from "./ClassModel";
 
 /**
  * Operationen (Methoden im Hauptprogramm, Paket 4 des Blockmodus):
@@ -14,15 +16,7 @@ import { collectionsOf, defaultLiteral, isHat, methodParamsOf, methodSignatures,
 export const OPERATIONS_COLOUR = "#c2477f";
 export const OPERATIONS_CATEGORY = "GSG_OPERATIONS";
 
-const TYPE_OPTIONS: [string, string][] = VAR_TYPES.map((t) => [TYPE_NAMES[t], t]);
-const RETURN_OPTIONS: [string, string][] = [["nichts (void)", "void"], ...TYPE_OPTIONS];
 const PARAM_FIELD = /^P(NAME|TYPE)\d+$/;
-
-/** Java-Bezeichner: nur Buchstaben, Ziffern, _ und $; nicht mit Ziffer beginnen */
-function identifier(v: string): string | null {
-    const cleaned = String(v).replace(/[^\p{L}\p{N}_$]/gu, "");
-    return cleaned === "" || /^\p{N}/u.test(cleaned) ? null : cleaned;
-}
 
 // ------------------------------------------------------------------ Auswahl der Operation
 
@@ -39,7 +33,7 @@ export class FieldMethodName extends Blockly.FieldDropdown {
         const block = this.getSourceBlock();
         const names = new Set<string>();
         if (block) {
-            for (const s of methodSignatures(block.workspace).values()) if (!this.onlyResults || s.ret !== "void") names.add(s.name);
+            for (const s of callSignatures(block).values()) if (!this.onlyResults || s.ret !== "void") names.add(s.name);
         }
         const current = this.getValue();
         if (typeof current === "string" && current) names.add(current);
@@ -61,7 +55,8 @@ export class FieldMethodName extends Blockly.FieldDropdown {
 
 // ------------------------------------------------------------------ Operation (Hut-Block)
 
-type MethodState = { params: Param[] };
+type MethodState = { params: Param[]; override?: boolean };
+type MethodKind = "method" | "classMethod" | "ctor";
 
 function unusedName(taken: Set<string>): string {
     for (let i = 1; ; i++) {
@@ -71,31 +66,47 @@ function unusedName(taken: Set<string>): string {
 }
 
 function setParams(b: Mutable<MethodState>, params: Param[]) {
-    mutate(b, { params }, (n) => n, true, (name) => !PARAM_FIELD.test(name));
+    mutate(b, { ...b.state, params }, (n) => n, true, (name) => !PARAM_FIELD.test(name));
 }
 
-function defineMethodBlock() {
-    Blockly.Blocks[B.method] = {
+/**
+ * Operation ohne Klasse (Hut-Block), Operation einer Klasse und Konstruktor: gleicher Aufbau
+ * mit Parametern (+ Parameter / ✕); in Klassen zusätzlich die Sichtbarkeit.
+ */
+export function defineMethodBlock(type: string, kind: MethodKind, colour: string) {
+    Blockly.Blocks[type] = {
         state: { params: [] } as MethodState,
 
         init(this: Mutable<MethodState>) {
             this.state = { params: [] };
-            this.hat = "cap";
-            this.setColour(OPERATIONS_COLOUR);
-            this.setTooltip("Eine eigene Operation (in Java: Methode). Sie läuft, wenn sie mit „führe aus“ "
+            if (kind === "method") this.hat = "cap";
+            else {
+                this.setPreviousStatement(true);
+                this.setNextStatement(true);
+            }
+            this.setColour(colour);
+            this.setTooltip(kind === "ctor"
+                ? "Der Konstruktor legt fest, was beim Erzeugen eines Objekts passiert (new Klasse(…)); meist bekommen die Attribute hier ihre Startwerte."
+                : "Eine eigene Operation (in Java: Methode). Sie läuft, wenn sie mit „führe aus“ "
                 + "oder „Ergebnis von“ aufgerufen wird. Parameter sind Werte, die sie beim Aufruf bekommt.");
             this.build();
         },
 
         build(this: Mutable<MethodState>) {
-            this.appendDummyInput("HEAD").appendField("Operation")
-                .appendField(new Blockly.FieldTextInput("meineOperation", identifier), "NAME")
-                .appendField("liefert")
-                .appendField(new Blockly.FieldDropdown(RETURN_OPTIONS), "RETURN")
-                .appendField(hintLabel("Methode"));
+            const head = this.appendDummyInput("HEAD");
+            if (kind === "ctor") {
+                head.appendField("Konstruktor").appendField(new Blockly.FieldDropdown(VISIBILITY_OPTIONS), "VIS").appendField(hintLabel("Klasse(…)"));
+            } else {
+                if (this.state.override) head.appendField(hintLabel("@Override")).appendField("überschreibt:");
+                head.appendField("Operation");
+                if (kind === "classMethod") head.appendField(new Blockly.FieldDropdown(VISIBILITY_OPTIONS), "VIS");
+                head.appendField(new Blockly.FieldTextInput("meineOperation", identifier), "NAME")
+                    .appendField("liefert")
+                    .appendField(new FieldType("void", "return"), "RETURN")
+                    .appendField(hintLabel("Methode"));
+            }
             this.state.params.forEach((p, i) => {
-                const type = new Blockly.FieldDropdown(TYPE_OPTIONS);
-                if (TYPE_OPTIONS.some(([, v]) => v === p.type)) type.setValue(p.type);
+                const type = new FieldType(p.type, "full");
                 this.appendDummyInput("P" + i)
                     .appendField(new FieldButton("✕", (b) => removeParam(b as Mutable<MethodState>, i), "Diesen Parameter entfernen"))
                     .appendField("Parameter")
@@ -110,14 +121,15 @@ function defineMethodBlock() {
 
         saveExtraState(this: Mutable<MethodState>): MethodState | null {
             const params = methodParamsOf(this);
-            return params.length ? { params } : null;
+            if (!params.length && !this.state.override) return null;
+            return { ...(params.length ? { params } : {}), ...(this.state.override ? { override: true } : {}) } as MethodState;
         },
 
         loadExtraState(this: Mutable<MethodState>, state: Partial<MethodState>) {
             const params = Array.isArray(state?.params)
                 ? state.params.map((p) => ({ name: String(p?.name ?? "wert"), type: String(p?.type ?? "int") }))
                 : [];
-            mutate(this, { params }, (n) => n, false, (name) => !PARAM_FIELD.test(name));
+            mutate(this, { params, override: !!state?.override }, (n) => n, false, (name) => !PARAM_FIELD.test(name));
         },
     };
 
@@ -137,41 +149,47 @@ function defineMethodBlock() {
 
 type CallState = { args: number };
 
-function defineCallBlock(type: string, asValue: boolean) {
+/** Aufbau eines Aufruf-Blocks: Kopf (Text, Auswahl, Objekt), danach die Werte ARG0 … */
+export type ArgsSpec = { asValue: boolean; colour: string; tooltip: string; head: (b: CallBlock) => void; tail?: string; mit?: string };
+
+/** Blöcke mit Werten für Parameter: Aufruf einer Operation, neues Objekt, super(…) … */
+export function defineArgsBlock(type: string, spec: ArgsSpec) {
     Blockly.Blocks[type] = {
         state: { args: 0 } as CallState,
 
         init(this: CallBlock) {
             this.state = { args: 0 };
-            if (asValue) this.setOutput(true);
+            if (spec.asValue) this.setOutput(true);
             else {
                 this.setPreviousStatement(true);
                 this.setNextStatement(true);
             }
-            this.setColour(OPERATIONS_COLOUR);
+            this.setColour(spec.colour);
             this.setInputsInline(true);
-            this.setTooltip(asValue
-                ? "Führt die Operation aus und liefert ihr Ergebnis, z. B. quadrat(5)."
-                : "Führt die Operation aus, z. B. begruesse(\"Ada\");");
+            this.setTooltip(spec.tooltip);
             this.build();
         },
 
         build(this: CallBlock) {
-            this.appendDummyInput("HEAD").appendField(asValue ? "Ergebnis von" : "führe aus")
-                .appendField(new FieldMethodName("meineOperation", asValue), "NAME");
+            spec.head(this);
             for (let i = 0; i < this.state.args; i++) {
                 const input = this.appendValueInput("ARG" + i);
-                if (i === 0) input.appendField("mit");
+                if (i === 0) input.appendField(spec.mit ?? "mit");
                 input.appendField(new Blockly.FieldLabel("", "gsg-param-label"), "L" + i);
             }
-            this.appendDummyInput("TAIL").appendField(hintLabel("( )"));
+            this.appendDummyInput("TAIL").appendField(hintLabel(spec.tail ?? "( )"));
             this.updateLabels();
         },
 
         /** Beschriftung der Werte: Namen der Parameter */
         updateLabels(this: CallBlock) {
             if (!this.workspace) return;
-            const sig = methodSignatures(this.workspace).get(String(this.getFieldValue("NAME") ?? ""));
+            let sig: { params: { name: string }[] } | undefined;
+            try {
+                sig = callTarget(this);
+            } catch {
+                sig = undefined;   // während des Ladens: Eingänge noch nicht vollständig
+            }
             Blockly.Events.disable();
             try {
                 for (let i = 0; i < this.state.args; i++) {
@@ -194,10 +212,15 @@ function defineCallBlock(type: string, asValue: boolean) {
     };
 }
 
+const callHead = (asValue: boolean) => (b: CallBlock) => {
+    b.appendDummyInput("HEAD").appendField(asValue ? "Ergebnis von" : "führe aus")
+        .appendField(new FieldMethodName("meineOperation", asValue), "NAME");
+};
+
 export function defineOperationBlocks(defineJson: (json: object[]) => void) {
-    defineMethodBlock();
-    defineCallBlock(B.call, false);
-    defineCallBlock(B.callExpr, true);
+    defineMethodBlock(B.method, "method", OPERATIONS_COLOUR);
+    defineArgsBlock(B.call, { asValue: false, colour: OPERATIONS_COLOUR, head: callHead(false), tooltip: "Führt die Operation aus, z. B. begruesse(\"Ada\");" });
+    defineArgsBlock(B.callExpr, { asValue: true, colour: OPERATIONS_COLOUR, head: callHead(true), tooltip: "Führt die Operation aus und liefert ihr Ergebnis, z. B. quadrat(5)." });
     defineJson([
         {
             type: B.return, message0: "gib zurück %1 %2", args0: [{ type: "input_value", name: "VALUE" }, { type: "field_label", text: "return", class: "gsg-java-hint" }],
@@ -214,18 +237,18 @@ export function defineOperationBlocks(defineJson: (json: object[]) => void) {
 
 // ------------------------------------------------------------------ Abgleich nach Änderungen
 
-const isCall = (b: Blockly.Block) => b.type === B.call || b.type === B.callExpr;
+const CALL_TYPES = new Set<string>([B.call, B.callExpr, B.objNew, B.objCall, B.objCallExpr, B.superCall, B.superMethodCall, B.superMethodCallExpr]);
+const isCall = (b: Blockly.Block) => CALL_TYPES.has(b.type);
 
 /**
- * Aufrufe an ihre Operation anpassen: so viele Werte wie Parameter (überzählige Werte werden
- * abgenommen, nicht gelöscht) und die Parameternamen als Beschriftung.
+ * Aufrufe an ihre Operation bzw. ihren Konstruktor anpassen: so viele Werte wie Parameter
+ * (überzählige Werte werden abgenommen, nicht gelöscht) und die Parameternamen als Beschriftung.
  */
 export function syncCalls(ws: Blockly.Workspace) {
-    const sigs = methodSignatures(ws);
     for (const b of ws.getAllBlocks(false)) {
         if (!isCall(b)) continue;
         const call = b as CallBlock;
-        const sig = sigs.get(String(b.getFieldValue("NAME") ?? ""));
+        const sig = callTarget(b);
         if (sig && sig.params.length !== call.state.args) {
             const n = sig.params.length, before = call.state.args;
             mutate(call, { args: n }, (name) => {
@@ -268,26 +291,95 @@ export function handleRename(ws: Blockly.Workspace, e: Blockly.Events.BlockChang
     const oldName = String(e.oldValue ?? ""), newName = String(e.newValue ?? "");
     if (!oldName || !newName || oldName === newName) return;
 
+    const all = ws.getAllBlocks(false);
+    const classes = classInfos(ws);
+    const className = (b: Blockly.Block | null) => (b ? String(b.getFieldValue("NAME") ?? "") : "");
+    const VAR_USES: string[] = [B.varGet, B.varSet, B.varChange, B.varSub, B.varInc, B.varDec];
+
+    // Operation ohne Klasse: Aufrufe außerhalb von Klassen
     if (block.type === B.method && e.name === "NAME") {
         if (methodSignatures(ws).has(oldName)) return;   // gibt es noch einmal
         withGroup(e, () => {
-            for (const b of ws.getAllBlocks(false)) if (isCall(b) && b.getFieldValue("NAME") === oldName) b.setFieldValue(newName, "NAME");
+            for (const b of all) if ((b.type === B.call || b.type === B.callExpr) && !enclosingClass(b) && b.getFieldValue("NAME") === oldName) b.setFieldValue(newName, "NAME");
+        });
+        return;
+    }
+
+    // Operation einer Klasse: Aufrufe in der Klasse (und Unterklassen) und an Objekten der Klasse
+    if (block.type === B.classMethod && e.name === "NAME") {
+        const cls = className(enclosingClass(block));
+        if (!cls || methodsOf(classes, cls).some((m) => m.name === oldName)) return;
+        withGroup(e, () => {
+            for (const b of all) {
+                const own = className(enclosingClass(b));
+                if ((b.type === B.call || b.type === B.callExpr) && own && isSubclass(classes, own, cls) && b.getFieldValue("NAME") === oldName) b.setFieldValue(newName, "NAME");
+                if ((b.type === B.superMethodCall || b.type === B.superMethodCallExpr) && own && own !== cls && isSubclass(classes, own, cls) && b.getFieldValue("METHOD") === oldName) b.setFieldValue(newName, "METHOD");
+                if ((b.type === B.objCall || b.type === B.objCallExpr) && b.getFieldValue("METHOD") === oldName) {
+                    const recv = receiverClass(b);
+                    if (recv && isSubclass(classes, recv, cls)) b.setFieldValue(newName, "METHOD");
+                }
+            }
+        });
+        return;
+    }
+
+    // Klasse: Datentypen (auch Hund[], ArrayList<Hund>), new Hund(…), Oberklassen
+    if (block.type === B.class && e.name === "NAME") {
+        if (classes.has(oldName)) return;   // gibt es noch (z. B. in einer anderen Datei)
+        const escaped = oldName.replace(/[$]/g, "\\$");
+        const re = new RegExp(`(^|[^\\p{L}\\p{N}_$])${escaped}(?=$|[^\\p{L}\\p{N}_$])`, "gu");
+        withGroup(e, () => {
+            for (const b of all) {
+                for (const input of b.inputList) {
+                    for (const f of input.fieldRow) {
+                        if (!f.name || !(["TYPE", "RETURN", "CLASS", "SUPER"].includes(f.name) || /^PTYPE\d+$/.test(f.name))) continue;
+                        const v = String(f.getValue() ?? "");
+                        const nv = v.replace(re, `$1${newName}`);
+                        if (nv !== v) f.setValue(nv);
+                    }
+                }
+            }
+        });
+        return;
+    }
+
+    // Attribut: this.name, name ohne gleichnamige lokale Variable, obj.name
+    if (block.type === B.attribute && e.name === "NAME") {
+        const clsBlock = enclosingClass(block);
+        const cls = className(clsBlock);
+        if (!clsBlock || attributesOf(classes, cls).some((a) => a.name === oldName)) return;
+        withGroup(e, () => {
+            for (const b of clsBlock.getDescendants(false)) {
+                if ((b.type === B.thisAttrGet || b.type === B.thisAttrSet) && b.getFieldValue("NAME") === oldName) b.setFieldValue(newName, "NAME");
+                if (VAR_USES.includes(b.type) && b.getFieldValue("NAME") === oldName) {
+                    const root = scopeRoot(b);
+                    if (root && !scopeVariables(root).has(oldName)) b.setFieldValue(newName, "NAME");
+                }
+            }
+            for (const b of all) {
+                if ((b.type === B.objAttrGet || b.type === B.objAttrSet) && b.getFieldValue("ATTR") === oldName) {
+                    const recv = receiverClass(b);
+                    if (recv && isSubclass(classes, recv, cls)) b.setFieldValue(newName, "ATTR");
+                }
+            }
         });
         return;
     }
 
     // Variable: neue Variable, Zählschleife, Parameter, für jedes Element
     const isVariable = (block.type === B.varDeclare && e.name === "NAME") || (block.type === B.for && e.name === "VAR")
-        || (block.type === B.method && /^PNAME\d+$/.test(e.name)) || (block.type === B.forEach && e.name === "VAR");
+        || ((block.type === B.method || block.type === B.ctor || block.type === B.classMethod) && /^PNAME\d+$/.test(e.name))
+        || (block.type === B.forEach && e.name === "VAR");
     // Reihung oder Liste (auch die Zeile einer zweidimensionalen Reihung in "für jedes Element")
-    const isCollection = (!!COLLECTION_DECLARATIONS[block.type] && e.name === "NAME") || (block.type === B.forEach && e.name === "VAR");
+    const isCollection = (!!COLLECTION_DECLARATIONS[block.type] && e.name === "NAME") || (block.type === B.forEach && e.name === "VAR")
+        || (block.type === B.varDeclare && e.name === "NAME");
     if (!isVariable && !isCollection) return;
-    const root = block.getRootBlock();
-    const scope = isHat(root) ? root.getDescendants(false) : ws.getAllBlocks(false);
-    if (scopeVariables(root).has(oldName) || collectionsOf(scope).has(oldName)) return;   // noch anderswo deklariert
+    const root = scopeRoot(block);
+    const scope = root ? innerBlocks(root) : all;
+    if ((root && scopeVariables(root).has(oldName)) || collectionsOf(scope).has(oldName)) return;   // noch anderswo deklariert
     withGroup(e, () => {
         for (const b of scope) {
-            if (isVariable && [B.varGet, B.varSet, B.varChange, B.varSub, B.varInc, B.varDec].includes(b.type as never) && b.getFieldValue("NAME") === oldName) {
+            if (isVariable && VAR_USES.includes(b.type) && b.getFieldValue("NAME") === oldName) {
                 b.setFieldValue(newName, "NAME");
             }
             if (isCollection && COLLECTION_USES.includes(b.type) && b.getFieldValue("NAME") === oldName) b.setFieldValue(newName, "NAME");

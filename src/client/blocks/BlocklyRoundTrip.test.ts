@@ -22,6 +22,7 @@ test("Blöcke laden und speichern (Blockly ohne Oberfläche) ändert den Code ni
         "    }",
         "}",
         "double w = Math.sqrt(summe) * Input.readDouble(\"Faktor?\");",
+        "",
         "class A {",
         "    int x;",
         "}",

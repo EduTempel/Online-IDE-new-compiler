@@ -6,8 +6,10 @@ import type { GUIFile } from "../workspace/File";
 import { defineBlocks, theme, toolbox, VARIABLES_CATEGORY, variablesFlyout } from "./BlockDefinitions";
 import { handleRename, OPERATIONS_CATEGORY, operationsFlyout, syncCalls } from "./BlockOperations";
 import { ADT_CATEGORY, adtFlyout, ARRAYS_CATEGORY, arraysFlyout, LISTS_CATEGORY, listsFlyout } from "./BlockCollections";
+import { CLASSES_CATEGORY, classesFlyout, OBJECTS_CATEGORY, objectsFlyout } from "./BlockClasses";
+import { classInfosFromState, type ClassInfo } from "./ClassModel";
 import { registerRenderer } from "./BlockRenderer";
-import { adaptDeclarationValue, applyTypes, collectVariables, isHat, type JType } from "./BlockTypeSystem";
+import { adaptDeclarationValue, applyTypes, collectVariables, isHat, setExternalClasses, type JType } from "./BlockTypeSystem";
 import { B, type WorkspaceState } from "./BlockTypes";
 import { JavaBlockGenerator } from "./JavaBlockGenerator";
 import { JavaBlockParser, type LineRange } from "./JavaBlockParser";
@@ -195,6 +197,8 @@ export class BlockView {
         this.ws.registerToolboxCategoryCallback(ARRAYS_CATEGORY, (w) => arraysFlyout(w));
         this.ws.registerToolboxCategoryCallback(LISTS_CATEGORY, (w) => listsFlyout(w));
         this.ws.registerToolboxCategoryCallback(ADT_CATEGORY, (w) => adtFlyout(w));
+        this.ws.registerToolboxCategoryCallback(CLASSES_CATEGORY, (w) => classesFlyout(w));
+        this.ws.registerToolboxCategoryCallback(OBJECTS_CATEGORY, (w) => objectsFlyout(w));
     }
 
     private previewCollapsedByUser: boolean | null = null;
@@ -215,7 +219,9 @@ export class BlockView {
     private load(keepScroll: boolean) {
         if (!this.ws || !this.model) return;
         const text = this.model.getValue(monaco.editor.EndOfLinePreference.LF);
-        const { state, ranges } = JavaBlockParser.parse(text);
+        const classes = this.otherFilesClasses();
+        setExternalClasses(classes);
+        const { state, ranges } = JavaBlockParser.parse(text, { classes });
         const scroll = keepScroll ? { x: this.ws.scrollX, y: this.ws.scrollY } : null;
 
         this.loading = true;
@@ -242,12 +248,44 @@ export class BlockView {
         this.notice.hidden = !this.hasLooseBlocks();
     }
 
-    /** Operationen unter dem Hauptprogramm anordnen (Reihenfolge wie im Code) */
+    private classCache = new Map<string, ClassInfo[]>();
+
+    /** Klassen aus den anderen Dateien des Projekts (für Objekte dieser Klassen) */
+    private otherFilesClasses(): ClassInfo[] {
+        const result: ClassInfo[] = [];
+        const files = this.main.getCurrentWorkspace()?.getFiles() ?? [];
+        const used = new Set<string>();
+        for (const f of files) {
+            if (f === this.file || f.isFolder) continue;
+            let text: string;
+            try {
+                text = f.getText();
+            } catch {
+                continue;
+            }
+            if (!/\bclass\b/.test(text)) continue;
+            used.add(text);
+            let infos = this.classCache.get(text);
+            if (!infos) {
+                try {
+                    infos = classInfosFromState(JavaBlockParser.parse(text).state);
+                } catch {
+                    infos = [];
+                }
+                this.classCache.set(text, infos);
+            }
+            result.push(...infos);
+        }
+        for (const key of [...this.classCache.keys()]) if (!used.has(key)) this.classCache.delete(key);
+        return result;
+    }
+
+    /** Operationen und Klassen unter dem Hauptprogramm anordnen (Reihenfolge wie im Code) */
     private layoutOperations() {
         const ws = this.ws;
         const start = ws?.getBlockById("start") as Blockly.BlockSvg | null;
         if (!ws || !start) return;
-        const methods = ws.getTopBlocks(false).filter((b) => b.type === B.method)
+        const methods = ws.getTopBlocks(false).filter((b) => b.type === B.method || b.type === B.class)
             .sort((a, b) => a.getRelativeToSurfaceXY().y - b.getRelativeToSurfaceXY().y);
         if (methods.length === 0) return;
         Blockly.renderManagement.triggerQueuedRenders(ws);
