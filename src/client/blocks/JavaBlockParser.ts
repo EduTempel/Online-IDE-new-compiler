@@ -1,6 +1,6 @@
 import { Lexer } from "../../compiler/java/lexer/Lexer";
 import { TokenType } from "../../compiler/java/TokenType";
-import { B, INPUT_METHODS, MATH_FUNCTIONS, VAR_TYPES, type BlockState, type WorkspaceState } from "./BlockTypes";
+import { B, INPUT_METHODS, MATH_FUNCTIONS, VAR_TYPES, type BlockState, type Param, type WorkspaceState } from "./BlockTypes";
 
 /**
  * Java -> Blöcke. Eigener kleiner Parser für den Teil von Java, den es als Blöcke gibt
@@ -68,11 +68,73 @@ export class JavaBlockParser {
         return new JavaBlockParser(src).parseProgram();
     }
 
+    /**
+     * Oberste Ebene: Anweisungen des Hauptprogramms und Operationen (Methoden ohne Klasse,
+     * z. B. "int quadrat(int x) { … }"). Jede Operation wird ein eigener Hut-Block; ihre
+     * Reihenfolge steht in der y-Position (die Blockansicht ordnet sie neben dem Hauptprogramm
+     * untereinander an). Der Generator schreibt erst das Hauptprogramm, dann die Operationen.
+     */
     parseProgram(): ParseResult {
-        const body = this.statementList(false);
+        const main: BlockState[] = [];
+        const methods: BlockState[] = [];
+        while (this.pos < this.toks.length) {
+            const method = this.tryMethod();
+            if (method) {
+                method.x = 400;
+                method.y = 20 + methods.length * 200;
+                methods.push(method);
+                continue;
+            }
+            const b = this.statement(true);
+            if (b) main.push(b);
+        }
+        for (let i = main.length - 2; i >= 0; i--) main[i].next = { block: main[i + 1] };
         const start: BlockState = { type: B.start, id: "start", x: 20, y: 20, deletable: false };
-        if (body) start.inputs = { BODY: { block: body } };
-        return { state: { blocks: { languageVersion: 0, blocks: [start] } }, ranges: this.ranges };
+        if (main[0]) start.inputs = { BODY: { block: main[0] } };
+        return { state: { blocks: { languageVersion: 0, blocks: [start, ...methods] } }, ranges: this.ranges };
+    }
+
+    /**
+     * Operation: Typ (oder void) Name ( Typ Name, … ) { … } – Typen nur die der Blöcke.
+     * Passt etwas nicht, bleibt die Position unverändert (dann wird es Java-Text im Hauptprogramm).
+     */
+    private tryMethod(): BlockState | undefined {
+        const begin = this.pos;
+        const t = this.peek(), n = this.peek(1), open = this.peek(2);
+        const isType = !!t && (t.tt === TokenType.keywordVoid || (t.tt === TokenType.identifier && (VAR_TYPES as readonly string[]).includes(String(t.value))));
+        if (!isType || n?.tt !== TokenType.identifier || open?.tt !== TokenType.leftBracket) return undefined;
+        const rangeCount = this.ranges.length;
+        try {
+            const close = this.matching(begin + 2);
+            const params: Param[] = [];
+            let i = begin + 3;
+            while (i < close) {
+                const pt = this.toks[i], pn = this.toks[i + 1];
+                if (pt.tt !== TokenType.identifier || !(VAR_TYPES as readonly string[]).includes(String(pt.value)) || pn?.tt !== TokenType.identifier) throw new Fail();
+                params.push({ name: String(pn.value), type: String(pt.value) });
+                i += 2;
+                if (i < close) {
+                    if (this.toks[i].tt !== TokenType.comma) throw new Fail();
+                    i++;
+                }
+            }
+            this.pos = close + 1;
+            if (!this.is(TokenType.leftCurlyBracket)) throw new Fail();
+            this.pos++;
+            const body = this.statementList(true);
+            this.expect(TokenType.rightCurlyBracket);
+            const fields: { [name: string]: string } = { NAME: String(n.value), RETURN: t.tt === TokenType.keywordVoid ? "void" : String(t.value) };
+            params.forEach((p, k) => { fields["PNAME" + k] = p.name; fields["PTYPE" + k] = p.type; });
+            const b = this.block(B.method, begin, this.pos, { fields });
+            if (params.length) b.extraState = { params };
+            if (body) b.inputs = { BODY: { block: body } };
+            return b;
+        } catch (e) {
+            if (!(e instanceof Fail)) throw e;
+            this.pos = begin;
+            this.ranges.length = rangeCount;
+            return undefined;
+        }
     }
 
     // ------------------------------------------------------------------ Hilfen
@@ -268,6 +330,19 @@ export class JavaBlockParser {
             }
             case TokenType.keywordFor:
                 return this.forLoop();
+            case TokenType.keywordReturn: {
+                this.pos++;
+                if (this.is(TokenType.semicolon)) {
+                    this.pos++;
+                    return this.block(B.returnVoid, begin, this.pos);
+                }
+                const valueStart = this.pos;
+                const end = this.findAtDepth0(TokenType.semicolon, valueStart);
+                this.pos = end + 1;
+                const b = this.block(B.return, begin, this.pos);
+                b.inputs = { VALUE: { block: this.expression(valueStart, end) } };
+                return b;
+            }
             case TokenType.identifier:
                 return this.identifierStatement();
         }
@@ -406,6 +481,15 @@ export class JavaBlockParser {
             b.inputs = { VALUE: { block: this.expression(valueStart, end) } };
             return b;
         }
+        // Aufruf einer Operation: name(…);
+        if (second.tt === TokenType.leftBracket) {
+            const close = this.matching(this.pos + 1);
+            this.pos = close + 1;
+            this.expect(TokenType.semicolon);
+            const b = this.block(B.call, begin, this.pos, { fields: { NAME: name } });
+            this.addArguments(b, begin + 1, close);
+            return b;
+        }
         // Thread.sleep(…);
         if (name === "Thread" && second.tt === TokenType.dot && this.peek(2)?.value === "sleep" && this.peek(3)?.tt === TokenType.leftBracket) {
             const open = this.pos + 3;
@@ -418,6 +502,18 @@ export class JavaBlockParser {
             return b;
         }
         return undefined;
+    }
+
+    /** Argumente eines Aufrufs (Klammern an open und close) als Eingänge ARG0 … */
+    addArguments(b: BlockState, open: number, close: number) {
+        if (close === open + 1) return;
+        const bounds = [open, ...this.topLevelCommas(open + 1, close), close];
+        b.inputs = {};
+        for (let i = 0; i < bounds.length - 1; i++) {
+            if (bounds[i + 1] === bounds[i] + 1) throw new Fail();
+            b.inputs["ARG" + i] = { block: this.expression(bounds[i] + 1, bounds[i + 1]) };
+        }
+        b.extraState = { args: bounds.length - 1 };
     }
 
     /** Index der passenden schließenden Klammer zu ( [ { an Position open */
@@ -582,6 +678,8 @@ class ExpressionParser {
         if (t.tt === TokenType.identifier) {
             const special = this.knownCall();
             if (special) return special;
+            const call = this.operationCall();
+            if (call) return call;
             this.pos++;
             const next = this.peek();
             if (!this.isChainContinuation()) return this.p.value(B.varGet, { fields: { NAME: String(t.value) } });
@@ -682,6 +780,20 @@ class ExpressionParser {
                 this.pos++;
             }
         }
+    }
+
+    /** Ergebnis einer Operation: name(…) ohne Punkt davor und danach */
+    private operationCall(): BlockState | undefined {
+        const name = this.p.tok(this.pos), open = this.p.tok(this.pos + 1);
+        if (!name || open?.tt !== TokenType.leftBracket || this.pos + 1 >= this.to) return undefined;
+        const close = this.p.matchingBracket(this.pos + 1);
+        if (close >= this.to) return undefined;
+        const after = close + 1 < this.to ? this.p.tok(close + 1) : undefined;
+        if (after && (after.tt === TokenType.dot || after.tt === TokenType.leftSquareBracket)) return undefined;
+        const b = this.p.value(B.callExpr, { fields: { NAME: String(name.value) } });
+        this.p.addArguments(b, this.pos + 1, close);
+        this.pos = close + 1;
+        return b;
     }
 
     /** Input.readInt("…"), Random.randint(a, b), Math.sqrt(x) */

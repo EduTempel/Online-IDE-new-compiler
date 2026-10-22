@@ -58,8 +58,8 @@ function describe(types: TypeSet): string {
 
 // ------------------------------------------------------------------ Variablen
 
-/** Deklarierte Variablen der Arbeitsfläche mit Typ (Variablen-Blöcke und Zählschleifen) */
-export function collectVariables(ws: Blockly.Workspace): Map<string, JType> {
+/** Variablen aus Blöcken sammeln; Namen mit verschiedenen Typen fallen heraus (Typ unklar) */
+function variablesOf(blocks: Blockly.Block[]): Map<string, JType> {
     const result = new Map<string, JType>();
     const conflicts = new Set<string>();
     const add = (name: string, type: JType) => {
@@ -67,12 +67,70 @@ export function collectVariables(ws: Blockly.Workspace): Map<string, JType> {
         if (result.has(name) && result.get(name) !== type) conflicts.add(name);
         else result.set(name, type);
     };
-    for (const b of ws.getAllBlocks(true)) {
+    for (const b of blocks) {
         if (b.type === B.varDeclare) add(String(b.getFieldValue("NAME") ?? ""), b.getFieldValue("TYPE") as JType);
         else if (b.type === B.for) add(String(b.getFieldValue("VAR") ?? ""), "int");
+        else if (b.type === B.method) for (const p of methodParamsOf(b)) add(p.name, p.type);
     }
     for (const c of conflicts) result.delete(c);
     return result;
+}
+
+/** Deklarierte Variablen der ganzen Arbeitsfläche mit Typ (Variablen-Blöcke, Zählschleifen, Parameter) */
+export function collectVariables(ws: Blockly.Workspace): Map<string, JType> {
+    return variablesOf(ws.getAllBlocks(true));
+}
+
+/** Ist der Block ein Hut (Hauptprogramm oder Operation)? Dann hat er eigene Variablen. */
+export function isHat(b: Blockly.Block | null | undefined): boolean {
+    return !!b && (b.type === B.start || b.type === B.method);
+}
+
+/** Variablen, die in einem Hauptprogramm bzw. einer Operation (samt Parametern) bekannt sind */
+export function scopeVariables(root: Blockly.Block): Map<string, JType> {
+    return variablesOf(root.getDescendants(true));
+}
+
+/** Variablen, die für einen Block gelten: die seines Huts, bei losen Blöcken alle */
+export function variablesFor(b: Blockly.Block): Map<string, JType> {
+    const root = b.getRootBlock();
+    return isHat(root) ? scopeVariables(root) : collectVariables(mainWorkspace(b.workspace));
+}
+
+// ------------------------------------------------------------------ Operationen
+
+export type Signature = { name: string; ret: string; params: { name: string; type: JType }[] };
+
+/** Haupt-Arbeitsfläche (Blöcke der Werkzeugleiste gehören zur Arbeitsfläche daneben) */
+export function mainWorkspace(ws: Blockly.Workspace): Blockly.Workspace {
+    const svg = ws as Blockly.WorkspaceSvg;
+    return svg.isFlyout && svg.targetWorkspace ? svg.targetWorkspace : ws;
+}
+
+/** Parameter eines Operation-Blocks (Felder PNAME0/PTYPE0 …) */
+export function methodParamsOf(b: Blockly.Block): { name: string; type: JType }[] {
+    const result: { name: string; type: JType }[] = [];
+    for (let i = 0; b.getField("PNAME" + i); i++) {
+        result.push({ name: String(b.getFieldValue("PNAME" + i) ?? ""), type: String(b.getFieldValue("PTYPE" + i) ?? "int") as JType });
+    }
+    return result;
+}
+
+/** Alle Operationen der Arbeitsfläche (bei gleichem Namen zählt die erste) */
+export function methodSignatures(ws: Blockly.Workspace): Map<string, Signature> {
+    const result = new Map<string, Signature>();
+    for (const b of mainWorkspace(ws).getTopBlocks(true)) {
+        if (b.type !== B.method) continue;
+        const name = String(b.getFieldValue("NAME") ?? "");
+        if (name && !result.has(name)) result.set(name, { name, ret: String(b.getFieldValue("RETURN") ?? "void"), params: methodParamsOf(b) });
+    }
+    return result;
+}
+
+/** Ergebnistyp der Operation, in der der Block steckt (undefined: Hauptprogramm oder lose) */
+function enclosingReturnType(b: Blockly.Block): string | undefined {
+    const root = b.getRootBlock();
+    return root.type === B.method ? String(root.getFieldValue("RETURN") ?? "void") : undefined;
 }
 
 // ------------------------------------------------------------------ Startwert beim Typwechsel
@@ -216,6 +274,11 @@ export function outputType(b: Blockly.Block, vars: Map<string, JType>, memo = ne
             else t = [...NUMERIC];
             break;
         }
+        case B.callExpr: {
+            const sig = methodSignatures(b.workspace).get(String(b.getFieldValue("NAME") ?? ""));
+            t = sig && sig.ret !== "void" ? [sig.ret as JType] : null;
+            break;
+        }
         case B.javaExpression: t = null; break;
     }
     memo.set(b.id, t);
@@ -271,6 +334,15 @@ export function inputType(b: Blockly.Block, input: string, vars: Map<string, JTy
         case B.input: return ["String"];
         case B.random: return ["int"];
         case B.math: return [...NUMERIC];
+        case B.call: case B.callExpr: {
+            const m = /^ARG(\d+)$/.exec(input);
+            const p = m ? methodSignatures(b.workspace).get(String(b.getFieldValue("NAME") ?? ""))?.params[Number(m[1])] : undefined;
+            return p ? acceptsForType(p.type) : null;
+        }
+        case B.return: {
+            const ret = enclosingReturnType(b);
+            return ret && ret !== "void" ? acceptsForType(ret as JType) : null;
+        }
     }
     return null;
 }
@@ -288,15 +360,23 @@ export function applyTypes(ws: Blockly.Workspace, vars: Map<string, JType> = col
     const memo = new Map<string, TypeSet>();
     const blocks = ws.getAllBlocks(false);
     const toRender = new Set<Blockly.Block>();
+    // Variablen je Hauptprogramm bzw. Operation (lose Blöcke: alle)
+    const scopes = new Map<Blockly.Block, Map<string, JType>>();
+    const varsFor = (b: Blockly.Block) => {
+        const root = b.getRootBlock();
+        if (!isHat(root)) return vars;
+        if (!scopes.has(root)) scopes.set(root, scopeVariables(root));
+        return scopes.get(root)!;
+    };
 
     // 1. gewünschte Typen bestimmen
     const outputs = new Map<Blockly.Block, TypeSet>();
-    for (const b of blocks) if (b.outputConnection) outputs.set(b, outputType(b, vars, memo));
+    for (const b of blocks) if (b.outputConnection) outputs.set(b, outputType(b, varsFor(b), memo));
     const inputs: { block: Blockly.Block; input: Blockly.Input; wanted: TypeSet }[] = [];
     for (const b of blocks) {
         for (const input of b.inputList) {
             if (input.type !== Blockly.inputs.inputTypes.VALUE || !input.connection) continue;
-            inputs.push({ block: b, input, wanted: inputType(b, input.name, vars, memo) });
+            inputs.push({ block: b, input, wanted: inputType(b, input.name, varsFor(b), memo) });
         }
     }
 
@@ -341,6 +421,19 @@ export function applyTypes(ws: Blockly.Workspace, vars: Map<string, JType> = col
             mismatches.get(b)!.push("Texte bitte mit dem Block „ist gleich“ vergleichen (.equals) – == prüft nur, ob es dasselbe Objekt ist.");
         }
     }
+    // gib zurück / beende passend zur Operation
+    const note = (b: Blockly.Block, text: string) => {
+        if (!mismatches.has(b)) mismatches.set(b, []);
+        mismatches.get(b)!.push(text);
+    };
+    for (const b of blocks) {
+        if (b.type !== B.return && b.type !== B.returnVoid) continue;
+        const root = b.getRootBlock();
+        const ret = enclosingReturnType(b);
+        if (b.type === B.return && root.type === B.start) note(b, "Das Hauptprogramm hat kein Ergebnis. Zum Beenden „beende die Operation“ nehmen.");
+        else if (b.type === B.return && ret === "void") note(b, "Diese Operation liefert kein Ergebnis (void): oben einen Ergebnistyp wählen oder „beende die Operation“ nehmen.");
+        else if (b.type === B.returnVoid && ret && ret !== "void") note(b, "Diese Operation muss ein Ergebnis liefern: „gib zurück“ nehmen.");
+    }
     for (const b of blocks) {
         const text = mismatches.get(b);
         if ((b as Blockly.Block & { gsgTypeWarning?: string }).gsgTypeWarning !== (text?.join("\n") ?? undefined)) {
@@ -348,6 +441,9 @@ export function applyTypes(ws: Blockly.Workspace, vars: Map<string, JType> = col
             if (b.rendered) b.setWarningText(text ? text.join("\n") : null, "typ");
         }
     }
+
+    // Aufrufe: Parameternamen als Beschriftung (die Operation kann nach dem Aufruf geladen worden sein)
+    for (const b of blocks) (b as Blockly.Block & { updateLabels?(): void }).updateLabels?.();
 
     for (const b of toRender) {
         const svg = b as Blockly.BlockSvg;

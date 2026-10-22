@@ -9,7 +9,14 @@
  */
 
 export const B = {
-    start: "j_start",               // Programmstart (Hut-Block), Eingang BODY
+    start: "j_start",               // Hauptprogramm (Hut-Block), Eingang BODY
+
+    // Operationen (Methoden im Hauptprogramm)
+    method: "j_method",             // Hut-Block; Felder NAME, RETURN (void/int/…), PNAME0/PTYPE0 …; Anweisungen BODY; extraState { params }
+    return: "j_return",             // Eingang VALUE  (return wert;)
+    returnVoid: "j_return_void",    // (return;)
+    call: "j_call",                 // Feld NAME; Eingänge ARG0 …; extraState { args }  (name(…);)
+    callExpr: "j_call_expr",        // wie call, als Wert  (name(…))
 
     // Anweisungen
     varDeclare: "j_var_declare",    // Felder NAME, TYPE; Eingang VALUE (optional)
@@ -61,6 +68,10 @@ export const B = {
 export const VAR_TYPES = ["int", "double", "String", "boolean", "char"] as const;
 export const INPUT_METHODS = ["readInt", "readDouble", "readString", "readBoolean", "readChar"] as const;
 export const MATH_FUNCTIONS = ["sqrt", "abs", "round"] as const;
+/** Ergebnistypen von Operationen: void = kein Ergebnis */
+export const RETURN_TYPES = ["void", ...VAR_TYPES] as const;
+
+export type Param = { name: string; type: string };
 
 /** Blockly-Speicherformat (vereinfacht) */
 export type BlockState = {
@@ -71,7 +82,7 @@ export type BlockState = {
     fields?: { [name: string]: string };
     inputs?: { [name: string]: { block: BlockState } };
     next?: { block: BlockState };
-    extraState?: { code?: string; elseIfs?: number; hasElse?: boolean; items?: number };
+    extraState?: { code?: string; elseIfs?: number; hasElse?: boolean; items?: number; params?: Param[]; args?: number };
     deletable?: boolean;
 };
 

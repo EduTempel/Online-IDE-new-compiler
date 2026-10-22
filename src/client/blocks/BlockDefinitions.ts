@@ -1,7 +1,8 @@
 import * as Blockly from "blockly/core";
 import { B } from "./BlockTypes";
-import { collectVariables } from "./BlockTypeSystem";
+import { collectVariables, variablesFor } from "./BlockTypeSystem";
 import { defineIfBlock, definePrintBlock } from "./BlockMutators";
+import { defineOperationBlocks, OPERATIONS_CATEGORY, OPERATIONS_COLOUR } from "./BlockOperations";
 
 /**
  * Blöcke der Stufe 1 (Grundlagen, Abitur-Operationen): deutsche Beschriftung, das Java-Wort klein dahinter
@@ -42,11 +43,10 @@ export class FieldVariableName extends Blockly.FieldDropdown {
         this.setValue(value);
     }
 
+    /** Variablen des eigenen Hauptprogramms bzw. der eigenen Operation (lose Blöcke: alle) */
     private variableOptions(): [string, string][] {
         const block = this.getSourceBlock();
-        let ws = block?.workspace as Blockly.WorkspaceSvg | undefined;
-        if (ws?.isFlyout && ws.targetWorkspace) ws = ws.targetWorkspace;
-        const names = new Set<string>(ws ? [...collectVariables(ws).keys()] : []);
+        const names = new Set<string>(block ? [...variablesFor(block).keys()] : []);
         const current = this.getValue();
         if (typeof current === "string" && current) names.add(current);
         if (names.size === 0) names.add("zahl");
@@ -55,6 +55,13 @@ export class FieldVariableName extends Blockly.FieldDropdown {
 
     protected override doClassValidation_(newValue?: unknown): string | null {
         return typeof newValue === "string" && /^[\p{L}_$][\p{L}\p{N}_$]*$/u.test(newValue) ? newValue : null;
+    }
+
+    /** Die Auswahlliste wird zwischengespeichert: nach dem Setzen neu erzeugen, damit der Name darin steht */
+    protected override doValueUpdate_(newValue: string) {
+        super.doValueUpdate_(newValue);
+        this.getOptions(false);
+        super.doValueUpdate_(newValue);
     }
 }
 
@@ -90,13 +97,15 @@ export function defineBlocks() {
 
     defineIfBlock(COLOURS.control);
     definePrintBlock(COLOURS.output);
+    defineOperationBlocks((json) => Blockly.common.defineBlocksWithJsonArray(json));
 
     Blockly.common.defineBlocksWithJsonArray([
         {
-            type: B.start, message0: "Programmstart %1", args0: [hint("main")],
+            type: B.start, message0: "Hauptprogramm %1", args0: [hint("main")],
             message1: "%1", args1: [{ type: "input_statement", name: "BODY" }],
             colour: COLOURS.start, hat: "cap",
-            tooltip: "Hier beginnt das Programm. Nur Blöcke, die hier angehängt sind, werden ausgeführt.",
+            tooltip: "Hier beginnt das Programm. Ausgeführt werden die Blöcke, die hier angehängt sind "
+                + "(und Operationen, wenn sie aufgerufen werden).",
         },
 
         // ------------------------------------------------------------ Variablen
@@ -373,6 +382,7 @@ export function defineBlocks() {
 }
 
 export const VARIABLES_CATEGORY = "GSG_VARIABLES";
+export { OPERATIONS_CATEGORY };
 
 /**
  * Inhalt der Kategorie "Variablen": neue Variablen (je Typ mit passendem Startwert) und
@@ -415,7 +425,7 @@ export function toolbox(): Blockly.utils.toolbox.ToolboxDefinition {
             // Reihenfolge: Steuerung, Ausgabe & Eingabe, Variablen, Bedingungen, Rechnen & Werte, Text, Java
             {
                 kind: "category", name: "Steuerung", colour: COLOURS.control, contents: [
-                    { kind: "label", text: "Blöcke unter „Programmstart“ hängen – nur sie werden ausgeführt." },
+                    { kind: "label", text: "Blöcke unter „Hauptprogramm“ hängen – nur sie werden ausgeführt." },
                     blk(B.if),
                     blk(B.if, { extraState: { elseIfs: 0, hasElse: true } }),
                     blk(B.forever),
@@ -476,6 +486,7 @@ export function toolbox(): Blockly.utils.toolbox.ToolboxDefinition {
                     blk(B.cast, { fields: { TYPE: "char" }, inputs: { VALUE: num("65") } }),
                 ],
             },
+            { kind: "category", name: "Operationen", colour: OPERATIONS_COLOUR, custom: OPERATIONS_CATEGORY },
             {
                 kind: "category", name: "Java", colour: COLOURS.java, contents: [
                     { kind: "label", text: "Für alles, was es (noch) nicht als Block gibt." },

@@ -22,7 +22,7 @@ export class FieldButton extends Blockly.FieldLabel {
     }
 }
 
-type Mutable<S> = Blockly.BlockSvg & {
+export type Mutable<S> = Blockly.BlockSvg & {
     state: S;
     build(): void;
     saveExtraState(): S | null;
@@ -34,7 +34,8 @@ type Mutable<S> = Blockly.BlockSvg & {
  * Form ändern: Kinder abnehmen, Eingänge neu aufbauen, Kinder (umbenannt) wieder anstecken,
  * Feldwerte erhalten, Änderung als Ereignis melden (Rückgängig).
  */
-function mutate<S>(block: Mutable<S>, next: S, rename: (name: string) => string | null, fireEvent: boolean) {
+export function mutate<S>(block: Mutable<S>, next: S, rename: (name: string) => string | null, fireEvent: boolean,
+    restoreField: (name: string) => boolean = () => true) {
     const before = JSON.stringify(block.saveExtraState() ?? {});
     const group = Blockly.Events.getGroup();
     if (fireEvent && !group) Blockly.Events.setGroup(true);
@@ -52,7 +53,13 @@ function mutate<S>(block: Mutable<S>, next: S, rename: (name: string) => string 
         while (block.inputList.length) block.removeInput(block.inputList[0].name);
         block.state = next;
         block.build();
-        for (const [name, value] of fields) if (block.getField(name)) block.setFieldValue(value, name);
+        // Feldwerte ohne Ereignis zurücksetzen: sonst würde "Rückgängig" sie auf die Startwerte stellen
+        Blockly.Events.disable();
+        try {
+            for (const [name, value] of fields) if (restoreField(name) && block.getField(name)) block.setFieldValue(value, name);
+        } finally {
+            Blockly.Events.enable();
+        }
         for (const [name, child] of children) {
             const target = rename(name);
             const input = target ? block.getInput(target) : null;
@@ -71,7 +78,7 @@ function mutate<S>(block: Mutable<S>, next: S, rename: (name: string) => string 
     }
 }
 
-const hintLabel = (text: string) => new Blockly.FieldLabel(text, "gsg-java-hint");
+export const hintLabel = (text: string) => new Blockly.FieldLabel(text, "gsg-java-hint");
 
 // ------------------------------------------------------------------ falls … sonst falls … sonst
 

@@ -1,6 +1,6 @@
 import { Lexer } from "../../compiler/java/lexer/Lexer";
 import { TokenType } from "../../compiler/java/TokenType";
-import { B, type BlockState, type WorkspaceState } from "./BlockTypes";
+import { B, type BlockState, type Param, type WorkspaceState } from "./BlockTypes";
 import type { LineRange } from "./JavaBlockParser";
 
 /**
@@ -10,6 +10,17 @@ import type { LineRange } from "./JavaBlockParser";
  */
 
 export const INDENT = "    ";
+
+/** Parameter einer Operation aus den Feldern PNAME0/PTYPE0 … */
+export function methodParams(b: BlockState): Param[] {
+    const f = b.fields ?? {};
+    const count = Math.max(b.extraState?.params?.length ?? 0, Object.keys(f).filter((k) => /^PNAME\d+$/.test(k)).length);
+    const result: Param[] = [];
+    for (let i = 0; i < count; i++) {
+        result.push({ name: f["PNAME" + i] ?? b.extraState?.params?.[i]?.name ?? "wert" + (i + 1), type: f["PTYPE" + i] ?? b.extraState?.params?.[i]?.type ?? "int" });
+    }
+    return result;
+}
 
 /** Bindungsstärke (kleiner = bindet stärker), wie in Java */
 const enum Order { ATOMIC = 0, UNARY = 1, MULT = 2, ADD = 3, REL = 4, EQ = 5, AND = 6, OR = 7, NONE = 99 }
@@ -58,10 +69,39 @@ export class JavaBlockGenerator {
         return new JavaBlockGenerator().run(state);
     }
 
+    /**
+     * Erst das Hauptprogramm, dann die Operationen in der Reihenfolge ihrer Position (von oben
+     * nach unten), jeweils durch eine Leerzeile getrennt.
+     */
     run(state: WorkspaceState): GeneratorResult {
-        const start = state.blocks?.blocks?.find((b) => b.type === B.start);
+        const top = state.blocks?.blocks ?? [];
+        const start = top.find((b) => b.type === B.start);
         this.statements(start?.inputs?.BODY?.block, "");
+        const methods = top.filter((b) => b.type === B.method).sort((a, b) => (a.y ?? 0) - (b.y ?? 0) || (a.x ?? 0) - (b.x ?? 0));
+        for (const m of methods) {
+            if (this.lines.length) this.emit("");
+            this.method(m);
+        }
         return { code: this.lines.length ? this.lines.join("\n") + "\n" : "", ranges: this.ranges };
+    }
+
+    /** Operation: Typ name(Typ a, Typ b) { … } */
+    private method(b: BlockState) {
+        const startLine = this.lines.length + 1;
+        const f = b.fields ?? {};
+        const params = methodParams(b).map((p) => `${p.type} ${p.name}`).join(", ");
+        this.emit(`${f.RETURN || "void"} ${f.NAME ?? "operation"}(${params}) {`);
+        this.statements(b.inputs?.BODY?.block, INDENT);
+        this.emit("}");
+        if (b.id) this.ranges.push({ id: b.id, startLine, endLine: this.lines.length });
+    }
+
+    /** Argumente eines Aufrufs: (a, b) */
+    private args(b: BlockState): string {
+        const n = b.extraState?.args ?? 0;
+        const list: string[] = [];
+        for (let i = 0; i < n; i++) list.push(this.input(b, "ARG" + i, Order.NONE));
+        return `(${list.join(", ")})`;
     }
 
     // ------------------------------------------------------------------ Anweisungen
@@ -147,6 +187,15 @@ export class JavaBlockGenerator {
                 this.emit(`${indent}}`);
                 break;
             }
+            case B.return:
+                this.emit(`${indent}return ${this.input(b, "VALUE", Order.NONE)};`);
+                break;
+            case B.returnVoid:
+                this.emit(`${indent}return;`);
+                break;
+            case B.call:
+                this.emit(`${indent}${f.NAME ?? ""}${this.args(b)};`);
+                break;
             case B.comment:
                 this.emit(`${indent}//${f.TEXT ? " " + f.TEXT : ""}`);
                 break;
@@ -259,6 +308,8 @@ export class JavaBlockGenerator {
                 return [`Random.randint(${this.input(b, "FROM", Order.NONE)}, ${this.input(b, "TO", Order.NONE)})`, Order.ATOMIC];
             case B.math:
                 return [`Math.${f.FUNC ?? "sqrt"}(${this.input(b, "VALUE", Order.NONE)})`, Order.ATOMIC];
+            case B.callExpr:
+                return [`${f.NAME ?? ""}${this.args(b)}`, Order.ATOMIC];
             case B.javaExpression: {
                 const code = f.CODE ?? "";
                 return [code, rawOrder(code)];

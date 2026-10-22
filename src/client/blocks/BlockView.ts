@@ -4,8 +4,9 @@ import * as monaco from "monaco-editor";
 import type { Main } from "../main/Main";
 import type { GUIFile } from "../workspace/File";
 import { defineBlocks, theme, toolbox, VARIABLES_CATEGORY, variablesFlyout } from "./BlockDefinitions";
+import { handleRename, OPERATIONS_CATEGORY, operationsFlyout, syncCalls } from "./BlockOperations";
 import { registerRenderer } from "./BlockRenderer";
-import { adaptDeclarationValue, applyTypes, collectVariables, type JType } from "./BlockTypeSystem";
+import { adaptDeclarationValue, applyTypes, collectVariables, isHat, type JType } from "./BlockTypeSystem";
 import { B, type WorkspaceState } from "./BlockTypes";
 import { JavaBlockGenerator } from "./JavaBlockGenerator";
 import { JavaBlockParser, type LineRange } from "./JavaBlockParser";
@@ -20,6 +21,9 @@ import { JavaBlockParser, type LineRange } from "./JavaBlockParser";
  * - Ändert sich der Code von außen (z. B. Korrektur der Lehrkraft), werden die Blöcke neu aufgebaut
  * - Fehlermeldungen des Compilers und die aktuelle Programmzeile erscheinen am Block
  */
+/** Abstand zwischen Hauptprogramm und Operationen */
+const HAT_GAP = 40;
+
 export class BlockView {
 
     private ws?: Blockly.WorkspaceSvg;
@@ -60,7 +64,7 @@ export class BlockView {
         this.notice = document.createElement("div");
         this.notice.className = "gsg-blocks-notice";
         this.notice.hidden = true;
-        this.notice.textContent = "Graue Blöcke hängen nicht am Programmstart und werden nicht ausgeführt. "
+        this.notice.textContent = "Graue Blöcke hängen nicht am Hauptprogramm oder an einer Operation und werden nicht ausgeführt. "
             + "Beim Wechsel in die Java-Ansicht gehen sie verloren.";
         // Leiste über den Blöcken: Werkzeugleiste ein-/ausblenden, auf den Stand beim Öffnen zurücksetzen
         const bar = document.createElement("div");
@@ -164,9 +168,9 @@ export class BlockView {
         this.model = undefined;
     }
 
-    /** Gibt es Blöcke, die nicht am Programmstart hängen (gehen beim Umschalten verloren)? */
+    /** Gibt es Blöcke, die nicht am Hauptprogramm oder an einer Operation hängen (gehen beim Umschalten verloren)? */
     hasLooseBlocks(): boolean {
-        return !!this.ws && this.ws.getTopBlocks(false).some((b) => b.type !== B.start);
+        return !!this.ws && this.ws.getTopBlocks(false).some((b) => !isHat(b));
     }
 
     private createWorkspace(readOnly: boolean, dark: boolean) {
@@ -186,6 +190,7 @@ export class BlockView {
         this.ws.addChangeListener(Blockly.Events.disableOrphans);
         this.ws.addChangeListener((e) => this.onBlocklyEvent(e));
         this.ws.registerToolboxCategoryCallback(VARIABLES_CATEGORY, (w) => variablesFlyout(w));
+        this.ws.registerToolboxCategoryCallback(OPERATIONS_CATEGORY, (w) => operationsFlyout(w));
     }
 
     private previewCollapsedByUser: boolean | null = null;
@@ -214,6 +219,7 @@ export class BlockView {
         try {
             this.ws.clear();
             Blockly.serialization.workspaces.load(state, this.ws, { recordUndo: false });
+            this.layoutOperations();
         } finally {
             Blockly.Events.enable();
             this.loading = false;
@@ -232,7 +238,52 @@ export class BlockView {
         this.notice.hidden = !this.hasLooseBlocks();
     }
 
-    /** Programmstart oben links in den sichtbaren Bereich holen */
+    /** Operationen unter dem Hauptprogramm anordnen (Reihenfolge wie im Code) */
+    private layoutOperations() {
+        const ws = this.ws;
+        const start = ws?.getBlockById("start") as Blockly.BlockSvg | null;
+        if (!ws || !start) return;
+        const methods = ws.getTopBlocks(false).filter((b) => b.type === B.method)
+            .sort((a, b) => a.getRelativeToSurfaceXY().y - b.getRelativeToSurfaceXY().y);
+        if (methods.length === 0) return;
+        Blockly.renderManagement.triggerQueuedRenders(ws);
+        const s = start.getRelativeToSurfaceXY();
+        let y = s.y + start.getHeightWidth().height + HAT_GAP;
+        for (const m of methods) {
+            const xy = m.getRelativeToSurfaceXY();
+            m.moveBy(s.x - xy.x, y - xy.y);
+            y += m.getHeightWidth().height + HAT_GAP;
+        }
+    }
+
+    /**
+     * Hauptprogramm und Operationen überlappen nicht: wächst ein Hut-Block in den darunter
+     * liegenden hinein, rutscht dieser (und alles darunter) nach unten.
+     */
+    private keepHatsApart() {
+        const ws = this.ws;
+        if (!ws || ws.isDragging()) return;
+        const hats = ws.getTopBlocks(false).filter((b) => isHat(b)) as Blockly.BlockSvg[];
+        if (hats.length < 2) return;
+        Blockly.renderManagement.triggerQueuedRenders(ws);
+        const boxes = hats.map((b) => ({ b, r: b.getBoundingRectangle() })).sort((a, c) => a.r.top - c.r.top);
+        for (let i = 1; i < boxes.length; i++) {
+            const cur = boxes[i];
+            let minTop = -Infinity;
+            for (let k = 0; k < i; k++) {
+                const above = boxes[k].r;
+                const sideBySide = above.right + 10 < cur.r.left || cur.r.right + 10 < above.left;
+                if (!sideBySide) minTop = Math.max(minTop, above.bottom + HAT_GAP);
+            }
+            if (cur.r.top < minTop) {
+                const dy = minTop - cur.r.top;
+                cur.b.moveBy(0, dy);
+                cur.r = cur.b.getBoundingRectangle();
+            }
+        }
+    }
+
+    /** Hauptprogramm oben links in den sichtbaren Bereich holen */
     private scrollToStart() {
         const ws = this.ws;
         const start = ws?.getBlockById("start") as Blockly.BlockSvg | null;
@@ -269,8 +320,17 @@ export class BlockView {
         }
         if (e.isUiEvent || e.type === Blockly.Events.FINISHED_LOADING) return;
         if (e.type === Blockly.Events.BLOCK_CHANGE) {
-            this.renameVariable(e as Blockly.Events.BlockChange);
+            handleRename(this.ws, e as Blockly.Events.BlockChange);
             this.typeChanged(e as Blockly.Events.BlockChange);
+        }
+        // Aufrufe an geänderte Operationen anpassen, Hut-Blöcke auseinanderhalten (im selben Rückgängig-Schritt)
+        const hadGroup = Blockly.Events.getGroup();
+        if (!hadGroup) Blockly.Events.setGroup(e.group || true);
+        try {
+            syncCalls(this.ws);
+            if (e.type !== Blockly.Events.BLOCK_MOVE || !(e as Blockly.Events.BlockMove).reason?.includes("bump")) this.keepHatsApart();
+        } finally {
+            if (!hadGroup) Blockly.Events.setGroup(false);
         }
         applyTypes(this.ws);
         this.notice.hidden = !this.hasLooseBlocks();
@@ -292,28 +352,6 @@ export class BlockView {
         Blockly.Events.setGroup(e.group || true);
         try {
             adaptDeclarationValue(block, String(e.newValue) as JType);
-        } finally {
-            Blockly.Events.setGroup(false);
-        }
-    }
-
-    /** Variable umbenannt (im Block "neue Variable" oder in der Zählschleife): alle Verwendungen mitnehmen */
-    private renameVariable(e: Blockly.Events.BlockChange) {
-        if (!this.ws || e.element !== "field" || !e.blockId) return;
-        const block = this.ws.getBlockById(e.blockId);
-        if (!block) return;
-        const isDeclaration = (block.type === B.varDeclare && e.name === "NAME") || (block.type === B.for && e.name === "VAR");
-        if (!isDeclaration) return;
-        const oldName = String(e.oldValue ?? ""), newName = String(e.newValue ?? "");
-        if (!oldName || !newName || oldName === newName) return;
-        if (collectVariables(this.ws).has(oldName)) return;   // noch anderswo deklariert
-        Blockly.Events.setGroup(e.group || true);
-        try {
-            for (const b of this.ws.getAllBlocks(false)) {
-                if ([B.varGet, B.varSet, B.varChange, B.varSub, B.varInc, B.varDec].includes(b.type as never) && b.getFieldValue("NAME") === oldName) {
-                    b.setFieldValue(newName, "NAME");
-                }
-            }
         } finally {
             Blockly.Events.setGroup(false);
         }
