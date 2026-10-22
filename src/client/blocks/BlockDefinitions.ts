@@ -3,6 +3,7 @@ import { B } from "./BlockTypes";
 import { collectVariables, variablesFor } from "./BlockTypeSystem";
 import { defineIfBlock, definePrintBlock } from "./BlockMutators";
 import { defineOperationBlocks, OPERATIONS_CATEGORY, OPERATIONS_COLOUR } from "./BlockOperations";
+import { ADT_CATEGORY, ADT_COLOUR, ARRAYS_CATEGORY, ARRAYS_COLOUR, defineCollectionBlocks, LISTS_CATEGORY, LISTS_COLOUR } from "./BlockCollections";
 
 /**
  * Blöcke der Stufe 1 (Grundlagen, Abitur-Operationen): deutsche Beschriftung, das Java-Wort klein dahinter
@@ -98,6 +99,7 @@ export function defineBlocks() {
     defineIfBlock(COLOURS.control);
     definePrintBlock(COLOURS.output);
     defineOperationBlocks((json) => Blockly.common.defineBlocksWithJsonArray(json));
+    defineCollectionBlocks((json) => Blockly.common.defineBlocksWithJsonArray(json));
 
     Blockly.common.defineBlocksWithJsonArray([
         {
@@ -382,7 +384,7 @@ export function defineBlocks() {
 }
 
 export const VARIABLES_CATEGORY = "GSG_VARIABLES";
-export { OPERATIONS_CATEGORY };
+export { OPERATIONS_CATEGORY, ARRAYS_CATEGORY, LISTS_CATEGORY, ADT_CATEGORY };
 
 /**
  * Inhalt der Kategorie "Variablen": neue Variablen (je Typ mit passendem Startwert) und
@@ -486,6 +488,9 @@ export function toolbox(): Blockly.utils.toolbox.ToolboxDefinition {
                     blk(B.cast, { fields: { TYPE: "char" }, inputs: { VALUE: num("65") } }),
                 ],
             },
+            { kind: "category", name: "Reihungen", colour: ARRAYS_COLOUR, custom: ARRAYS_CATEGORY },
+            { kind: "category", name: "Listen", colour: LISTS_COLOUR, custom: LISTS_CATEGORY },
+            { kind: "category", name: "ADT", colour: ADT_COLOUR, custom: ADT_CATEGORY },
             { kind: "category", name: "Operationen", colour: OPERATIONS_COLOUR, custom: OPERATIONS_CATEGORY },
             {
                 kind: "category", name: "Java", colour: COLOURS.java, contents: [

@@ -1,6 +1,6 @@
 import { Lexer } from "../../compiler/java/lexer/Lexer";
 import { TokenType } from "../../compiler/java/TokenType";
-import { B, type BlockState, type Param, type WorkspaceState } from "./BlockTypes";
+import { B, COLLECTION_CALLS, COLLECTION_DECLARATIONS, elementJavaType, WRAPPERS, type BlockState, type Collections, type Param, type WorkspaceState } from "./BlockTypes";
 import type { LineRange } from "./JavaBlockParser";
 
 /**
@@ -64,6 +64,8 @@ export class JavaBlockGenerator {
     private lines: string[] = [];
     private repeatDepth = 0;
     private ranges: LineRange[] = [];
+    /** Reihungen und Listen des Hauptprogramms bzw. der Operation (für "für jedes Element") */
+    private colls: Collections = new Map();
 
     static generate(state: WorkspaceState): GeneratorResult {
         return new JavaBlockGenerator().run(state);
@@ -76,6 +78,7 @@ export class JavaBlockGenerator {
     run(state: WorkspaceState): GeneratorResult {
         const top = state.blocks?.blocks ?? [];
         const start = top.find((b) => b.type === B.start);
+        this.colls = collectionsInTree(start?.inputs?.BODY?.block);
         this.statements(start?.inputs?.BODY?.block, "");
         const methods = top.filter((b) => b.type === B.method).sort((a, b) => (a.y ?? 0) - (b.y ?? 0) || (a.x ?? 0) - (b.x ?? 0));
         for (const m of methods) {
@@ -90,6 +93,7 @@ export class JavaBlockGenerator {
         const startLine = this.lines.length + 1;
         const f = b.fields ?? {};
         const params = methodParams(b).map((p) => `${p.type} ${p.name}`).join(", ");
+        this.colls = collectionsInTree(b.inputs?.BODY?.block);
         this.emit(`${f.RETURN || "void"} ${f.NAME ?? "operation"}(${params}) {`);
         this.statements(b.inputs?.BODY?.block, INDENT);
         this.emit("}");
@@ -196,6 +200,38 @@ export class JavaBlockGenerator {
             case B.call:
                 this.emit(`${indent}${f.NAME ?? ""}${this.args(b)};`);
                 break;
+            case B.arrayNew:
+                this.emit(`${indent}${f.TYPE ?? "int"}[] ${f.NAME} = new ${f.TYPE ?? "int"}[${this.input(b, "LEN", Order.NONE)}];`);
+                break;
+            case B.arrayValues: {
+                const n = Math.max(1, b.extraState?.items ?? 1);
+                const values: string[] = [];
+                for (let i = 0; i < n; i++) values.push(this.input(b, "V" + i, Order.NONE));
+                this.emit(`${indent}${f.TYPE ?? "int"}[] ${f.NAME} = {${values.join(", ")}};`);
+                break;
+            }
+            case B.array2dNew:
+                this.emit(`${indent}${f.TYPE ?? "int"}[][] ${f.NAME} = new ${f.TYPE ?? "int"}[${this.input(b, "R", Order.NONE)}][${this.input(b, "C", Order.NONE)}];`);
+                break;
+            case B.arraySet:
+                this.emit(`${indent}${f.NAME}[${this.input(b, "I", Order.NONE)}] = ${this.input(b, "V", Order.NONE)};`);
+                break;
+            case B.array2dSet:
+                this.emit(`${indent}${f.NAME}[${this.input(b, "R", Order.NONE)}][${this.input(b, "C", Order.NONE)}] = ${this.input(b, "V", Order.NONE)};`);
+                break;
+            case B.listNew: {
+                const w = WRAPPERS[f.TYPE ?? "int"] ?? "Integer";
+                this.emit(`${indent}ArrayList<${w}> ${f.NAME} = new ArrayList<${w}>();`);
+                break;
+            }
+            case B.dynNew:
+                this.emit(`${indent}DynArray ${f.NAME} = new DynArray();`);
+                break;
+            case B.forEach:
+                this.emit(`${indent}for (${elementJavaType(this.colls.get(f.LIST ?? ""))} ${f.VAR} : ${f.LIST}) {`);
+                this.statements(b.inputs?.DO?.block, indent + INDENT);
+                this.emit(`${indent}}`);
+                break;
             case B.comment:
                 this.emit(`${indent}//${f.TEXT ? " " + f.TEXT : ""}`);
                 break;
@@ -208,8 +244,11 @@ export class JavaBlockGenerator {
                 codeLines.forEach((l, i) => this.emit(i === 0 ? indent + l : l));
                 break;
             }
-            default:
-                return;   // unbekannter Block: nichts erzeugen
+            default: {
+                const call = COLLECTION_CALLS.find((c) => c.type === b.type && c.stmt);
+                if (!call) return;   // unbekannter Block: nichts erzeugen
+                this.emit(`${indent}${f.NAME}.${call.method}(${call.args.map((a) => this.input(b, a, Order.NONE)).join(", ")});`);
+            }
         }
         if (b.id) this.ranges.push({ id: b.id, startLine, endLine: this.lines.length });
     }
@@ -310,11 +349,43 @@ export class JavaBlockGenerator {
                 return [`Math.${f.FUNC ?? "sqrt"}(${this.input(b, "VALUE", Order.NONE)})`, Order.ATOMIC];
             case B.callExpr:
                 return [`${f.NAME ?? ""}${this.args(b)}`, Order.ATOMIC];
+            case B.arrayGet:
+                return [`${f.NAME}[${this.input(b, "I", Order.NONE)}]`, Order.ATOMIC];
+            case B.array2dGet:
+                return [`${f.NAME}[${this.input(b, "R", Order.NONE)}][${this.input(b, "C", Order.NONE)}]`, Order.ATOMIC];
+            case B.arrayLength:
+                return [`${f.NAME}.length`, Order.ATOMIC];
+            case B.array2dSize:
+                return [f.DIM === "cols" ? `${f.NAME}[0].length` : `${f.NAME}.length`, Order.ATOMIC];
+            case B.dynGet: {
+                const get = `${f.NAME}.getItem(${this.input(b, "I", Order.NONE)})`;
+                return !f.TYPE || f.TYPE === "Object" ? [get, Order.ATOMIC] : [`(${f.TYPE}) ${get}`, Order.UNARY];
+            }
             case B.javaExpression: {
                 const code = f.CODE ?? "";
                 return [code, rawOrder(code)];
             }
         }
+        const call = COLLECTION_CALLS.find((c) => c.type === b.type && !c.stmt);
+        if (call) return [`${f.NAME}.${call.method}(${call.args.map((a) => this.input(b, a, Order.NONE)).join(", ")})`, Order.ATOMIC];
         return ["", Order.ATOMIC];
     }
+}
+
+/** Reihungen und Listen, die in einem Hauptprogramm bzw. einer Operation angelegt werden */
+function collectionsInTree(first: BlockState | undefined): Collections {
+    const result: Collections = new Map();
+    const visit = (b: BlockState | undefined) => {
+        for (; b; b = b.next?.block) {
+            const kind = COLLECTION_DECLARATIONS[b.type];
+            if (kind && b.fields?.NAME) result.set(b.fields.NAME, { kind, elem: kind === "dyn" ? null : b.fields.TYPE ?? "int" });
+            if (b.type === B.forEach && b.fields?.VAR) {
+                const list = result.get(b.fields.LIST ?? "");
+                if (list?.kind === "array2d") result.set(b.fields.VAR, { kind: "array", elem: list.elem });
+            }
+            for (const input of Object.values(b.inputs ?? {})) visit(input.block);
+        }
+    };
+    visit(first);
+    return result;
 }

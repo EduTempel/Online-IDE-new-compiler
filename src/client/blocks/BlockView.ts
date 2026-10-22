@@ -5,6 +5,7 @@ import type { Main } from "../main/Main";
 import type { GUIFile } from "../workspace/File";
 import { defineBlocks, theme, toolbox, VARIABLES_CATEGORY, variablesFlyout } from "./BlockDefinitions";
 import { handleRename, OPERATIONS_CATEGORY, operationsFlyout, syncCalls } from "./BlockOperations";
+import { ADT_CATEGORY, adtFlyout, ARRAYS_CATEGORY, arraysFlyout, LISTS_CATEGORY, listsFlyout } from "./BlockCollections";
 import { registerRenderer } from "./BlockRenderer";
 import { adaptDeclarationValue, applyTypes, collectVariables, isHat, type JType } from "./BlockTypeSystem";
 import { B, type WorkspaceState } from "./BlockTypes";
@@ -191,6 +192,9 @@ export class BlockView {
         this.ws.addChangeListener((e) => this.onBlocklyEvent(e));
         this.ws.registerToolboxCategoryCallback(VARIABLES_CATEGORY, (w) => variablesFlyout(w));
         this.ws.registerToolboxCategoryCallback(OPERATIONS_CATEGORY, (w) => operationsFlyout(w));
+        this.ws.registerToolboxCategoryCallback(ARRAYS_CATEGORY, (w) => arraysFlyout(w));
+        this.ws.registerToolboxCategoryCallback(LISTS_CATEGORY, (w) => listsFlyout(w));
+        this.ws.registerToolboxCategoryCallback(ADT_CATEGORY, (w) => adtFlyout(w));
     }
 
     private previewCollapsedByUser: boolean | null = null;
@@ -378,6 +382,25 @@ export class BlockView {
             this.model.pushStackElement();
         }
         this.renderPreview(code);
+        if (/\bDynArray\b/.test(code)) this.ensureLibrary("niedersachsen");
+    }
+
+    /**
+     * Bibliothek im Projekt einschalten (wie im Dialog "Einstellungen"), z. B. "Abiturklassen
+     * Niedersachsen" für die dynamische Reihung (DynArray).
+     */
+    private ensureLibrary(id: string) {
+        const workspace = this.main.getCurrentWorkspace();
+        if (!workspace) return;
+        const libraries = workspace.settings.libraries ?? (workspace.settings.libraries = []);
+        if (libraries.includes(id)) return;
+        libraries.push(id);
+        workspace.saved = false;
+        const compiler = this.main.getCompiler();
+        workspace.getFiles().forEach((f) => compiler.setFileDirty(f));
+        workspace.setLibraries(compiler);
+        compiler.triggerCompile();
+        this.main.networkManager.sendUpdatesAsync(true);
     }
 
     // ------------------------------------------------------------------ Java-Vorschau

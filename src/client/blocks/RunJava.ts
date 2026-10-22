@@ -5,11 +5,12 @@ import { JavaLibraryManager } from "../../compiler/java/runtime/JavaLibraryManag
 import { CompilerFile } from "../../compiler/common/module/CompilerFile";
 import { StoreOutputPrintManager } from "../../test/StoreOutputPrintManager";
 
-export async function runJava(code: string): Promise<{ errors: string[]; output: string }> {
+export async function runJava(code: string, libraries: string[] = []): Promise<{ errors: string[]; output: string }> {
     const file = new CompilerFile();
     file.setText(code);
     const compiler = new JavaCompiler();
     const libManager = new JavaLibraryManager();
+    libManager.addLibraries(...libraries);
     libManager.addLibrariesToCompiler(compiler);
     compiler.setFiles([<any>file]);
     const executable = await compiler.compileIfDirty();

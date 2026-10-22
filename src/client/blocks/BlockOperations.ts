@@ -1,7 +1,7 @@
 import * as Blockly from "blockly/core";
-import { B, VAR_TYPES, type Param } from "./BlockTypes";
+import { B, COLLECTION_DECLARATIONS, COLLECTION_USES, VAR_TYPES, type Param } from "./BlockTypes";
 import { FieldButton, hintLabel, mutate, type Mutable } from "./BlockMutators";
-import { defaultLiteral, isHat, methodParamsOf, methodSignatures, scopeVariables, TYPE_NAMES, type JType } from "./BlockTypeSystem";
+import { collectionsOf, defaultLiteral, isHat, methodParamsOf, methodSignatures, scopeVariables, TYPE_NAMES, type JType } from "./BlockTypeSystem";
 
 /**
  * Operationen (Methoden im Hauptprogramm, Paket 4 des Blockmodus):
@@ -276,17 +276,22 @@ export function handleRename(ws: Blockly.Workspace, e: Blockly.Events.BlockChang
         return;
     }
 
-    const isDeclaration = (block.type === B.varDeclare && e.name === "NAME") || (block.type === B.for && e.name === "VAR")
-        || (block.type === B.method && /^PNAME\d+$/.test(e.name));
-    if (!isDeclaration) return;
+    // Variable: neue Variable, Zählschleife, Parameter, für jedes Element
+    const isVariable = (block.type === B.varDeclare && e.name === "NAME") || (block.type === B.for && e.name === "VAR")
+        || (block.type === B.method && /^PNAME\d+$/.test(e.name)) || (block.type === B.forEach && e.name === "VAR");
+    // Reihung oder Liste (auch die Zeile einer zweidimensionalen Reihung in "für jedes Element")
+    const isCollection = (!!COLLECTION_DECLARATIONS[block.type] && e.name === "NAME") || (block.type === B.forEach && e.name === "VAR");
+    if (!isVariable && !isCollection) return;
     const root = block.getRootBlock();
-    if (scopeVariables(root).has(oldName)) return;   // noch anderswo deklariert
-    const uses = isHat(root) ? root.getDescendants(false) : ws.getAllBlocks(false);
+    const scope = isHat(root) ? root.getDescendants(false) : ws.getAllBlocks(false);
+    if (scopeVariables(root).has(oldName) || collectionsOf(scope).has(oldName)) return;   // noch anderswo deklariert
     withGroup(e, () => {
-        for (const b of uses) {
-            if ([B.varGet, B.varSet, B.varChange, B.varSub, B.varInc, B.varDec].includes(b.type as never) && b.getFieldValue("NAME") === oldName) {
+        for (const b of scope) {
+            if (isVariable && [B.varGet, B.varSet, B.varChange, B.varSub, B.varInc, B.varDec].includes(b.type as never) && b.getFieldValue("NAME") === oldName) {
                 b.setFieldValue(newName, "NAME");
             }
+            if (isCollection && COLLECTION_USES.includes(b.type) && b.getFieldValue("NAME") === oldName) b.setFieldValue(newName, "NAME");
+            if (isCollection && b.type === B.forEach && b.getFieldValue("LIST") === oldName) b.setFieldValue(newName, "LIST");
         }
     });
 }

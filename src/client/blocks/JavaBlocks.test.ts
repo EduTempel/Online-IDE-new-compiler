@@ -54,7 +54,7 @@ describe("Java -> Blöcke -> Java", () => {
     test("Nicht darstellbares bleibt als unveränderter Java-Text erhalten", () => {
         const code = [
             "System.out.println(\"Hallo\");",
-            "int[] feld = {1, 2, 3};",
+            "int[] feld;",
             "double z = Math.random() * 6;",
             "char c = 'a';",
             "x = y > 0 ? 1 : 2;",

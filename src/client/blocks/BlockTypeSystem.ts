@@ -1,5 +1,5 @@
 import * as Blockly from "blockly/core";
-import { B } from "./BlockTypes";
+import { B, COLLECTION_DECLARATIONS, COLLECTION_USES, type Collections } from "./BlockTypes";
 
 /**
  * Datentypen der Blöcke: Jeder Werte-Block hat einen Typ, jedes Loch nimmt nur passende Typen
@@ -67,10 +67,17 @@ function variablesOf(blocks: Blockly.Block[]): Map<string, JType> {
         if (result.has(name) && result.get(name) !== type) conflicts.add(name);
         else result.set(name, type);
     };
+    let colls: Collections | undefined;
     for (const b of blocks) {
         if (b.type === B.varDeclare) add(String(b.getFieldValue("NAME") ?? ""), b.getFieldValue("TYPE") as JType);
         else if (b.type === B.for) add(String(b.getFieldValue("VAR") ?? ""), "int");
         else if (b.type === B.method) for (const p of methodParamsOf(b)) add(p.name, p.type);
+        else if (b.type === B.forEach) {
+            // für jedes Element: die Variable hat den Elementtyp (Zeilen zweidimensionaler Reihungen sind Reihungen)
+            colls ??= collectionsOf(blocks);
+            const c = colls.get(String(b.getFieldValue("LIST") ?? ""));
+            if (c && (c.kind === "array" || c.kind === "list") && c.elem) add(String(b.getFieldValue("VAR") ?? ""), c.elem as JType);
+        }
     }
     for (const c of conflicts) result.delete(c);
     return result;
@@ -95,6 +102,44 @@ export function scopeVariables(root: Blockly.Block): Map<string, JType> {
 export function variablesFor(b: Blockly.Block): Map<string, JType> {
     const root = b.getRootBlock();
     return isHat(root) ? scopeVariables(root) : collectVariables(mainWorkspace(b.workspace));
+}
+
+// ------------------------------------------------------------------ Reihungen und Listen
+
+/** Reihungen und Listen aus Blöcken: Name -> Art und Elementtyp */
+export function collectionsOf(blocks: Blockly.Block[]): Collections {
+    const result: Collections = new Map();
+    for (const b of blocks) {
+        const kind = COLLECTION_DECLARATIONS[b.type];
+        const name = String(b.getFieldValue("NAME") ?? "");
+        if (kind && name) result.set(name, { kind, elem: kind === "dyn" ? null : String(b.getFieldValue("TYPE") ?? "int") });
+    }
+    // Zeilen zweidimensionaler Reihungen ("für jedes Element" über eine zweidimensionale Reihung)
+    for (const b of blocks) {
+        if (b.type !== B.forEach) continue;
+        const list = result.get(String(b.getFieldValue("LIST") ?? ""));
+        if (list?.kind === "array2d") result.set(String(b.getFieldValue("VAR") ?? ""), { kind: "array", elem: list.elem });
+    }
+    return result;
+}
+
+/** Reihungen und Listen, die für einen Block gelten (seines Huts; bei losen Blöcken alle) */
+export function collectionsFor(b: Blockly.Block): Collections {
+    const root = b.getRootBlock();
+    return collectionsOf(isHat(root) ? root.getDescendants(true) : mainWorkspace(b.workspace).getAllBlocks(true));
+}
+
+/** während applyTypes: Reihungen und Listen je Hut nur einmal bestimmen */
+let collectionCache: Map<Blockly.Block, Collections> | null = null;
+
+function collectionNamed(b: Blockly.Block): { kind: string; elem: string | null } | undefined {
+    const root = b.getRootBlock();
+    let colls = collectionCache?.get(root);
+    if (!colls) {
+        colls = collectionsFor(b);
+        collectionCache?.set(root, colls);
+    }
+    return colls.get(String(b.getFieldValue("NAME") ?? ""));
 }
 
 // ------------------------------------------------------------------ Operationen
@@ -279,6 +324,18 @@ export function outputType(b: Blockly.Block, vars: Map<string, JType>, memo = ne
             t = sig && sig.ret !== "void" ? [sig.ret as JType] : null;
             break;
         }
+        case B.arrayGet: case B.array2dGet: case B.listGet: {
+            const c = collectionNamed(b);
+            t = c?.elem ? [c.elem as JType] : null;
+            break;
+        }
+        case B.arrayLength: case B.array2dSize: case B.listSize: case B.dynLength: t = ["int"]; break;
+        case B.listContains: case B.collIsEmpty: case B.dynIsEmpty: t = ["boolean"]; break;
+        case B.dynGet: {
+            const type = String(b.getFieldValue("TYPE") ?? "Object");
+            t = type === "Object" ? null : [type as JType];
+            break;
+        }
         case B.javaExpression: t = null; break;
     }
     memo.set(b.id, t);
@@ -343,6 +400,13 @@ export function inputType(b: Blockly.Block, input: string, vars: Map<string, JTy
             const ret = enclosingReturnType(b);
             return ret && ret !== "void" ? acceptsForType(ret as JType) : null;
         }
+        case B.arrayNew: case B.array2dNew: return ["int"];
+        case B.arrayValues: return acceptsForType(String(b.getFieldValue("TYPE") ?? "int") as JType);
+    }
+    if (COLLECTION_USES.includes(b.type)) {
+        if (input !== "V") return ["int"];   // Position, Zeile, Spalte
+        const c = collectionNamed(b);
+        return c?.elem && c.kind !== "dyn" ? acceptsForType(c.elem as JType) : null;
     }
     return null;
 }
@@ -357,6 +421,15 @@ const sameTypes = (a: TypeSet | undefined, b: TypeSet | undefined) =>
  * Werkzeugleiste (Flyout) von der Haupt-Arbeitsfläche.
  */
 export function applyTypes(ws: Blockly.Workspace, vars: Map<string, JType> = collectVariables(ws)) {
+    collectionCache = new Map();
+    try {
+        applyTypesNow(ws, vars);
+    } finally {
+        collectionCache = null;
+    }
+}
+
+function applyTypesNow(ws: Blockly.Workspace, vars: Map<string, JType>) {
     const memo = new Map<string, TypeSet>();
     const blocks = ws.getAllBlocks(false);
     const toRender = new Set<Blockly.Block>();

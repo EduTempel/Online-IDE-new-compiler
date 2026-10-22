@@ -15,6 +15,12 @@ import { TreeviewNode } from '../../tools/components/treeview/TreeviewNode.js';
 import { GuiMessages } from '../main/gui/language/GuiMessages.js';
 
 
+/**
+ * Bibliotheken, die in neuen Projekten eingeschaltet sind (GSG): die Abiturklassen Niedersachsen
+ * (DynArray, Stack, Queue, BinTree). Im Dialog "Einstellungen" des Projekts abschaltbar.
+ */
+export const DEFAULT_LIBRARIES: readonly string[] = ["niedersachsen"];
+
 export class Workspace extends CompilerWorkspace {
 
     isFolder: boolean;
@@ -48,7 +54,7 @@ export class Workspace extends CompilerWorkspace {
 
     settings: WorkspaceSettings = {
         language: "Java",
-        libraries: []
+        libraries: [...DEFAULT_LIBRARIES]
     };
 
     constructor(name: string, private main: MainBase, owner_id: number) {
@@ -164,7 +170,7 @@ export class Workspace extends CompilerWorkspace {
 
     static restoreFromData(wd: WorkspaceData, main: MainBase): Workspace {
 
-        let settings: WorkspaceSettings = (wd.settings != null && wd.settings.startsWith("{")) ? JSON.parse(wd.settings) : { libraries: [] };
+        let settings: WorkspaceSettings = (wd.settings != null && wd.settings.startsWith("{")) ? JSON.parse(wd.settings) : { libraries: [...DEFAULT_LIBRARIES] };
 
         //@ts-ignore
         if (settings.libaries) {
@@ -192,7 +198,7 @@ export class Workspace extends CompilerWorkspace {
         w.comment = wd.comment;
 
         if (w.settings.libraries == null) {
-            w.settings.libraries = [];
+            w.settings.libraries = [...DEFAULT_LIBRARIES];
         }
 
         for (let f of wd.files) {
