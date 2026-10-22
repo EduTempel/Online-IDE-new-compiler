@@ -15,6 +15,9 @@ export const SCHOOL_PRIVACY_URL = "https://gsg-os.de/datenschutzerklaerung/";
 /** Verwaltung der Lerngruppen und Konten (eigenes Backend, Menü "Klassen, Benutzer, Tests") */
 export const SCHOOL_ADMIN_URL = "/verwaltung/";
 
+/** Startseite des eigenen Backends: Anwendungen, Projekte per Link teilen */
+export const SCHOOL_START_URL = "/start/";
+
 /**
  * Login-Seite: Knopf "Mit IServ anmelden" zeigen, wenn der Server IServ eingerichtet hat
  * (Elemente mit Klasse gsg-iserv-only in index.html, Abfrage /api/login-optionen des Backends).

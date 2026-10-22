@@ -11,6 +11,7 @@ import { IssueReporter } from "./IssueReporter.js";
 import * as monaco from 'monaco-editor'
 import { GuiMessages } from "./language/GuiMessages.js";
 import { SCHOOL_ADMIN_URL, SCHOOL_IMPRINT_URL, SCHOOL_PRIVACY_URL } from "./SchoolBranding.js";
+import { openSchoolStartPage } from "./SchoolStartPage.js";
 import { SettingsGUI } from "../../settings/SettingsGUI.js";
 import { ImportRepositoryGUI } from "./ImportRepositoryGUI.js";
 
@@ -346,6 +347,14 @@ export class MainMenu {
                     }
                 }
             )
+        }
+
+        // eigene Startseite: Anwendungen, Projekte per Link teilen
+        if (user != null) {
+            mainMenu.items[0].subMenu.items.push({
+                identifier: "Startseite und geteilte Links",
+                action: () => { openSchoolStartPage(); }
+            });
         }
 
         // if (user != null && (user.is_admin)) {

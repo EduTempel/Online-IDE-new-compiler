@@ -29,6 +29,7 @@ import { ProgrammingLanguageManager } from '../../../compiler/common/programming
 import { ProgrammingLanguage } from '../../../compiler/common/programminglanguage/ProgrammingLanguage.js';
 import { ProgrammingLanguageData } from '../../../compiler/common/programminglanguage/ProgrammingLanguageData.js';
 import { ByArchitecture } from '../../../compiler/assembly/byassembly/ByArchitecture.js';
+import { openSchoolStartPage } from './SchoolStartPage.js';
 
 
 export class ProjectExplorer {
@@ -545,6 +546,17 @@ export class ProjectExplorer {
                             }
                         }
                     );
+
+                    // Teilen per Link (eigenes Backend: Startseite /start/)
+                    if (this.main.workspacesOwnerId == null || this.main.workspacesOwnerId == this.main.user.id) {
+                        cmiList.push({
+                            caption: "Per Link teilen ...",
+                            callback: () => {
+                                this.main.networkManager.sendUpdatesAsync(true);   // aktuellen Stand speichern
+                                openSchoolStartPage(workspace.id);
+                            }
+                        });
+                    }
 
                     if (this.main.user.is_teacher && this.main.teacherExplorer.classPanel.size(true) > 0) {
                         cmiList.push({ caption: '-', callback: () => { } });
