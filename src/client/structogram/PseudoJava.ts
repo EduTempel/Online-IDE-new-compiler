@@ -164,6 +164,7 @@ class ExprParser {
         const l = this.sum();
         // nachgestellte Formulierungen: "f ist leer", "f nicht leer", "l enthält x"
         if (this.take("ist", "leer")) return { code: `${ExprParser.wrap(l, P.ATOM)}.isEmpty()`, prec: P.ATOM, type: "boolean" };
+        if (this.take("ist", "ein", "Blatt")) return { code: `${ExprParser.wrap(l, P.ATOM)}.isLeaf()`, prec: P.ATOM, type: "boolean" };
         if (this.take("nicht", "leer")) return { code: `!${ExprParser.wrap(l, P.ATOM)}.isEmpty()`, prec: P.UNARY, type: "boolean" };
         if (this.take("enthält")) {
             const r = this.sum();
@@ -379,6 +380,25 @@ class ExprParser {
             const e = this.typeWords();
             const w = WRAP[e] ?? e;
             return { code: `new ArrayList<${w}>()`, prec: P.ATOM, type: `ArrayList<${w}>` };
+        }
+        // Binärbaum: neuer Binärbaum [mit Inhalt …], Inhalt von b, linker/rechter Teilbaum von b
+        if (this.take("neuer", "Binärbaum")) {
+            if (this.take("mit", "Inhalt")) {
+                const v = this.sum();
+                return { code: `new BinTree(${v.code})`, prec: P.ATOM, type: "BinTree" };
+            }
+            const elem = this.take("vom", "Inhaltstyp") ? this.typeWords() : undefined;
+            return { code: "new BinTree()", prec: P.ATOM, type: "BinTree", elem };
+        }
+        if (this.take("Inhalt", "von")) {
+            const x = this.primary();
+            const call = `${x.code}.getItem()`;
+            return x.elem ? { code: `(${x.elem}) ${call}`, prec: P.UNARY, type: x.elem } : { code: call, prec: P.ATOM };
+        }
+        if (this.take("linker", "Teilbaum", "von") || this.take("rechter", "Teilbaum", "von")) {
+            const left = this.toks[this.pos - 3].v.toLowerCase() === "linker";
+            const x = this.primary();
+            return { code: `${x.code}.${left ? "getLeft" : "getRight"}()`, prec: P.ATOM, type: "BinTree", elem: x.elem };
         }
         if (this.take("leere", "dynamische", "Reihung") || this.take("leerer", "Stapel") || this.take("leere", "Schlange")) {
             const t = this.toks[this.pos - 1].v.toLowerCase();
@@ -682,6 +702,23 @@ class Translator {
             if (!v || !l) return undefined;
             const method = l.type === "DynArray" ? "append" : l.type === "Stack" ? "push" : l.type === "Queue" ? "enqueue" : "add";
             return `${l.code}.${method}(${v.code});`;
+        }
+        // Stapel, Schlange, Binärbaum
+        if ((m = /^entnimm\s+(?:das\s+)?(?:oberstes\s+|erstes\s+)?Element\s+(?:von|aus)\s+(.+)$/i.exec(s))) {
+            const l = x(m[1]);
+            return l ? `${l.code}.${l.type === "Queue" ? "dequeue" : "pop"}();` : undefined;
+        }
+        if ((m = /^setze\s+Inhalt\s+von\s+(.+?)\s+auf\s+(.+)$/i.exec(s))) {
+            const t = x(m[1]), v = x(m[2]);
+            return t && v ? `${t.code}.setItem(${v.code});` : undefined;
+        }
+        if ((m = /^setze\s+(linken|rechten)\s+Teilbaum\s+von\s+(.+?)\s+auf\s+(.+)$/i.exec(s))) {
+            const t = x(m[2]), v = x(m[3]);
+            return t && v ? `${t.code}.${m[1].toLowerCase() === "linken" ? "setLeft" : "setRight"}(${v.code});` : undefined;
+        }
+        if ((m = /^mache\s+(.+?)\s+leer$/i.exec(s))) {
+            const t = x(m[1]);
+            return t ? `${t.code}.setEmpty();` : undefined;
         }
         if ((m = /^lege\s+(.+?)\s+auf\s+(.+)$/i.exec(s))) {
             const v = x(m[1]), l = x(m[2]);

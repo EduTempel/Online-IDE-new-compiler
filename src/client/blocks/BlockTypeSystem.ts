@@ -1,5 +1,6 @@
 import * as Blockly from "blockly/core";
 import { FIGURE_BLOCK_TYPES, FIGURE_CREATIONS, FIGURE_OUTPUT_TYPES, figureInputType } from "./FigureSpec";
+import { ADT_BLOCK_TYPES, ADT_CREATIONS, ADT_GET_TYPES } from "./AdtSpec";
 import { B, COLLECTION_DECLARATIONS, COLLECTION_USES, type Collections } from "./BlockTypes";
 import { addMember, attributesOf, collectionOfType, collectionType, findConstructor, findMethod, isClassType, isScalar, isSubclass, methodsOf, typeInfo, type ClassInfo, type ClassMap } from "./ClassModel";
 
@@ -46,7 +47,8 @@ export function typeLabel(t: string): string {
         case "list": return `Liste von ${of} (${t})`;
         case "dyn": return "dynamische Reihung (DynArray)";
     }
-    return t;
+    const adt: Record<string, string> = { Stack: "Stapel (Stack)", Queue: "Schlange (Queue)", BinTree: "Binärbaum (BinTree)" };
+    return adt[t] ?? t;
 }
 
 /** Was passt in eine Variable dieses Typs? (Ganzzahlen auch in Kommazahl-Variablen, Unterklassen in Oberklassen) */
@@ -149,7 +151,7 @@ export function innerBlocks(root: Blockly.Block): Blockly.Block[] {
 }
 
 /** Figur anlegen (Paket 8): Blocktyp -> Klasse der Figur */
-const FIGURE_CLASS_OF: Record<string, string> = Object.fromEntries(FIGURE_CREATIONS.map((c) => [c.block, c.cls]));
+const FIGURE_CLASS_OF: Record<string, string> = Object.fromEntries([...FIGURE_CREATIONS, ...ADT_CREATIONS].map((c) => [c.block, c.cls]));
 
 /** Variablen mit Datentyp aus Blöcken; Namen mit verschiedenen Typen fallen heraus (Typ unklar) */
 function variablesOf(blocks: Blockly.Block[]): Map<string, JType> {
@@ -506,8 +508,14 @@ export function outputType(b: Blockly.Block, vars: Map<string, JType>, memo = ne
             break;
         }
         case B.javaExpression: t = null; break;
+        case B.treeChild: t = ["BinTree"]; break;
+        case B.treeTest: case B.adtIsEmpty: t = ["boolean"]; break;
         default:
             if (FIGURE_OUTPUT_TYPES[b.type]) t = [FIGURE_OUTPUT_TYPES[b.type] as JType];
+            else if (ADT_GET_TYPES.has(b.type)) {
+                const type = String(b.getFieldValue("TYPE") ?? "Object");
+                t = type === "Object" ? null : [type as JType];
+            }
     }
     memo.set(b.id, t);
     return t;
@@ -587,6 +595,7 @@ export function inputType(b: Blockly.Block, input: string, vars: Map<string, JTy
         case B.arrayValues: return acceptsForType(String(b.getFieldValue("TYPE") ?? "int") as JType);
     }
     if (FIGURE_BLOCK_TYPES.has(b.type)) return figureInputType(b.type, input) as TypeSet;
+    if (ADT_BLOCK_TYPES.has(b.type)) return input === "T" ? ["BinTree"] : null;   // Inhalte: beliebige Werte (Object)
     if (COLLECTION_USES.includes(b.type)) {
         if (input !== "V") return ["int"];   // Position, Zeile, Spalte
         const c = collectionNamed(b);

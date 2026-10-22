@@ -15,6 +15,7 @@ import { MemoryTab } from '../../../compiler/assembly/debugger/MemoryTab.js';
 import { addStructogramTab } from '../../structogram/StructogramTab.js';
 import { addTaskTab } from '../../task/TaskTab.js';
 import { addTraceTab } from '../../trace/TraceTab.js';
+import { addObjectsTab } from '../../objects/ObjectsTab.js';
 
 
 export class RightDiv {
@@ -174,6 +175,7 @@ export class RightDiv {
                 addStructogramTab(this.main, this.tabManager);
                 addTaskTab(this.main, this.tabManager);   // GSG: Aufgabenstellung mit Hilfen
                 addTraceTab(this.main, this.tabManager);  // GSG: Tracetabelle
+                addObjectsTab(this.main, this.tabManager); // GSG: Objektdiagramm, Zurückblättern, Zeitlupe
             } catch (e) {
                 console.error(e);
             }

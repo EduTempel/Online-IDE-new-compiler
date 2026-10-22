@@ -4,6 +4,7 @@ import { B, type BlockState } from "../blocks/BlockTypes";
 import { JavaBlockParser } from "../blocks/JavaBlockParser";
 import { methodParams, typeInfo, type ClassInfo } from "../blocks/ClassModel";
 import { colourLabel, FIGURE_ACTIONS, FIGURE_PROPS, keyLabel } from "../blocks/FigureSpec";
+import { ADT_GETS } from "../blocks/AdtSpec";
 
 /**
  * Struktogramme (Nassi-Shneiderman) aus Java-Code – im Stil der Ergänzenden Hinweise für das
@@ -192,7 +193,14 @@ class Expr {
             case B.listSize: return [`Anzahl der Elemente von ${name}`, P.NONE];
             case B.dynLength: return [`Länge von ${name}`, P.NONE];
             case B.listContains: return [`${name} enthält ${this.input(b, "V", P.ATOM)}`, P.EQ];
-            case B.collIsEmpty: case B.dynIsEmpty: return [`${name} ist leer`, P.EQ];
+            case B.collIsEmpty: case B.dynIsEmpty: case B.adtIsEmpty: return [`${name} ist leer`, P.EQ];
+            // Stapel, Schlange, Binärbaum (Wendungen wie in den Ergänzenden Hinweisen)
+            case B.stackGet: case B.queueGet: case B.treeItem: {
+                const op = ADT_GETS.find((g) => g.block === b.type)?.ops.find(([, m]) => m === f.OP)?.[0] ?? "Inhalt von";
+                return [`${op} ${name}`, P.NONE];
+            }
+            case B.treeChild: return [`${f.SIDE === "right" ? "rechter" : "linker"} Teilbaum von ${name}`, P.NONE];
+            case B.treeTest: return [`${name} ist ein Blatt`, P.EQ];
             case B.thisValue: return ["this", P.ATOM];
             case B.thisAttrGet: return [`this.${name}`, P.ATOM];
             case B.objNew: return [`erzeuge ${f.CLASS}${this.args(b)}`, P.NONE];
@@ -329,6 +337,17 @@ class Converter {
             case B.thisAttrSet: return this.stmt(`this.${name} ← ${v("V")}`);
             case B.objCall: return this.stmt(`${e.receiver(b)}.${f.METHOD}${e.args(b)}`);
             case B.objAttrSet: return this.stmt(`${e.receiver(b)}.${f.ATTR} ← ${v("V")}`);
+            // Stapel, Schlange, Binärbaum
+            case B.stackNew: return this.stmt(`${name} ← leerer Stapel`);
+            case B.queueNew: return this.stmt(`${name} ← leere Schlange`);
+            case B.treeNew: return this.stmt(b.inputs?.V?.block ? `${name} ← neuer Binärbaum mit Inhalt ${v("V")}` : `${name} ← neuer Binärbaum`);
+            case B.stackPush: return this.stmt(`lege ${v("V")} auf ${name}`);
+            case B.queueEnqueue: return this.stmt(`füge ${v("V")} zu ${name} hinzu`);
+            case B.stackPop: return this.stmt(`entnimm oberstes Element von ${name}`);
+            case B.queueDequeue: return this.stmt(`entnimm erstes Element von ${name}`);
+            case B.treeSetItem: return this.stmt(`setze Inhalt von ${name} auf ${v("V")}`);
+            case B.treeSetChild: return this.stmt(`setze ${f.SIDE === "right" ? "rechten" : "linken"} Teilbaum von ${name} auf ${v("T")}`);
+            case B.treeDelete: return this.stmt(`mache ${name} leer`);
             // Figuren (Paket 8)
             case B.worldNew: return this.stmt(`Grafikfenster ${v("W")} × ${v("H")}, Hintergrund ${colourLabel(f.COLOR ?? "white")}`);
             case B.figCircle: return this.stmt(`${name} ← neuer Kreis, Mittelpunkt (${v("X")} | ${v("Y")}), Radius ${v("R")}`);

@@ -3,6 +3,7 @@ import { B, VAR_TYPES, type CollKind } from "./BlockTypes";
 import { FieldButton, hintLabel, mutate, type Mutable } from "./BlockMutators";
 import { FieldType } from "./BlockFields";
 import { collectionsFor, collectionsOf, defaultLiteral, TYPE_NAMES, type JType } from "./BlockTypeSystem";
+import { adtExtraItems, defineAdtBlocks } from "./BlockAdt";
 
 /**
  * Paket 5 des Blockmodus, drei getrennte Kategorien (Positionen zählen immer ab 0):
@@ -65,6 +66,7 @@ const ARRAY: CollKind[] = ["array"], ARRAY2D: CollKind[] = ["array2d"], LIST: Co
 
 export function defineCollectionBlocks(defineJson: (json: object[]) => void) {
     Blockly.fieldRegistry.register("field_gsg_collection", FieldCollectionName as unknown as Blockly.fieldRegistry.RegistrableField);
+    defineAdtBlocks(defineJson, ADT_COLOUR);   // Stapel, Schlange, Binärbaum
     defineArrayValuesBlock();
 
     const a = { colour: ARRAYS_COLOUR, inputsInline: true };
@@ -312,7 +314,7 @@ export function listsFlyout(ws: Blockly.WorkspaceSvg): Blockly.utils.toolbox.Fly
     return items as Blockly.utils.toolbox.FlyoutItemInfoArray;
 }
 
-/** ADT: abstrakte Datentypen der Abiturklassen Niedersachsen (bisher: dynamische Reihung) */
+/** ADT: abstrakte Datentypen der Abiturklassen Niedersachsen (dynamische Reihung, Stapel, Schlange, Binärbaum) */
 export function adtFlyout(ws: Blockly.WorkspaceSvg): Blockly.utils.toolbox.FlyoutItemInfoArray {
     const d = existing(ws, "dyn");
     const items: object[] = [
@@ -327,6 +329,7 @@ export function adtFlyout(ws: Blockly.WorkspaceSvg): Blockly.utils.toolbox.Flyou
         { kind: "block", type: B.dynLength, fields: { NAME: d.name } },
         { kind: "block", type: B.dynIsEmpty, fields: { NAME: d.name } },
         { kind: "block", type: B.forEach, fields: { VAR: "element", LIST: d.name } },
+        ...adtExtraItems(ws),
     ];
     return items as Blockly.utils.toolbox.FlyoutItemInfoArray;
 }

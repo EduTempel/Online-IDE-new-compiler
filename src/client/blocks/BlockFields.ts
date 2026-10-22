@@ -38,7 +38,7 @@ export class FieldType extends Blockly.FieldDropdown {
             groups.push([...scalars, ...classes].map((t) => t + "[]"));
             groups.push(scalars.map((t) => t + "[][]"));
             groups.push([...scalars, ...classes].map((t) => `ArrayList<${({ int: "Integer", double: "Double", boolean: "Boolean", char: "Character" } as Record<string, string>)[t] ?? t}>`));
-            groups.push(["DynArray"]);
+            groups.push(["DynArray", "Stack", "Queue", "BinTree"]);
         }
         const current = this.getValue();
         if (typeof current === "string" && current && !groups.some((g) => g.includes(current))) groups[0].push(current);

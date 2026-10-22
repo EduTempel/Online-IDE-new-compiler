@@ -1,0 +1,39 @@
+/* Reiter "Objekte" (GSG, Paket 9) */
+
+.gsg-objects {
+    flex-direction: column;
+    min-height: 0;
+    font: 13px/1.4 Roboto, "Segoe UI", sans-serif;
+    color: var(--fontColorNormal, #ddd);
+}
+
+.gsg-od-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--slider, #555);
+}
+.gsg-od-label { font-size: 12px; opacity: .85; min-width: 9em; text-align: center; }
+
+.gsg-od-button {
+    font: 600 12px/20px Roboto, "Segoe UI", sans-serif;
+    padding: 0 8px;
+    border: 1px solid var(--slider, #555);
+    border-radius: 5px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+}
+.gsg-od-button:hover:not(:disabled) { background: rgba(127, 127, 127, .2); }
+.gsg-od-button:disabled { opacity: .4; cursor: default; }
+.gsg-od-slow { margin-right: auto; }
+.gsg-slow-on { background: #2e7d32 !important; border-color: #2e7d32 !important; color: #fff !important; }
+
+.gsg-od-area { flex: 1; min-height: 0; overflow: auto; padding: 10px; }
+.gsg-od-sheet { display: inline-block; background: #fbfbf8; border-radius: 6px; padding: 4px; }
+.gsg-od-help { max-width: 40em; opacity: .85; }
+
+/* Rückblick: markierte Zeile im Editor */
+.gsg-history-pointer { background: rgba(240, 160, 32, .35); }

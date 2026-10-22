@@ -3,6 +3,7 @@ import { TokenType } from "../../compiler/java/TokenType";
 import { B, COLLECTION_CALLS, elementJavaType, INPUT_METHODS, MATH_FUNCTIONS, VAR_TYPES, type BlockState, type CollKind, type Param, type WorkspaceState } from "./BlockTypes";
 import { attributesOf, collectionOfType, collectionType, findMethod, isClassType, methodsOf, typeInfo, unwrap, type ClassInfo, type ClassMap } from "./ClassModel";
 import { FIGURE_ACTIONS, FIGURE_CALLS, FIGURE_CREATIONS, FIGURE_PROPS, FILLED, isFigureClass, type FigureClass } from "./FigureSpec";
+import { ADT_CALLS, ADT_CREATIONS, ADT_GET_TYPES, getOp, isAdtClass, TREE_DELETES, TREE_SIDES, TREE_TESTS, type AdtClass } from "./AdtSpec";
 
 /**
  * Java -> Blöcke. Eigener kleiner Parser für den Teil von Java, den es als Blöcke gibt
@@ -918,6 +919,10 @@ export class JavaBlockParser {
                 const f = this.figureDeclaration(decl.type, String(declName.value), decl.next + 2);
                 if (f) return f;
             }
+            if (isAdtClass(decl.type) && isNew) {
+                const a = this.adtDeclaration(decl.type, String(declName.value), decl.next + 2);
+                if (a) return a;
+            }
             this.pos = decl.next + 1;
             const fields = { TYPE: decl.type, NAME: String(declName.value) };
             this.vars.set(fields.NAME, decl.type);
@@ -940,6 +945,10 @@ export class JavaBlockParser {
         if (isFigureClass(figureType) && second.tt === TokenType.dot) {
             const f = this.figureStatement(name, figureType);
             if (f) return f;
+        }
+        if (isAdtClass(figureType) && second.tt === TokenType.dot) {
+            const a = this.adtStatement(name, figureType);
+            if (a) return a;
         }
         const coll = this.collection(name);
         if (coll) {
@@ -1080,6 +1089,52 @@ export class JavaBlockParser {
         const callText = `${method}(${this.text(open + 1, close).trim()})`;
         const action = FIGURE_ACTIONS.find(([, , java]) => java === callText);
         if (action) return done(B.figAction, { ACTION: action[1] });
+        return undefined;
+    }
+
+    /** Stack s = new Stack();  Queue q = new Queue();  BinTree b = new BinTree();  BinTree b = new BinTree(5); */
+    private adtDeclaration(cls: AdtClass, name: string, newIndex: number): BlockState | undefined {
+        const begin = this.pos;
+        const open = newIndex + 2;
+        if (this.toks[newIndex + 1]?.value !== cls || this.toks[open]?.tt !== TokenType.leftBracket) return undefined;
+        const close = this.matching(open);
+        if (this.toks[close + 1]?.tt !== TokenType.semicolon) return undefined;
+        const args = this.argBounds(open, close);
+        if (!args || args.length > (cls === "BinTree" ? 1 : 0)) return undefined;
+        const inputs = args.length ? { V: { block: this.expression(args[0][0], args[0][1]) } } : undefined;
+        this.pos = close + 2;
+        this.vars.set(name, cls);
+        const b = this.block(ADT_CREATIONS.find((c) => c.cls === cls)!.block, begin, this.pos, { fields: { NAME: name } });
+        if (inputs) b.inputs = inputs;
+        return b;
+    }
+
+    /** s.push(v);  s.pop();  q.enqueue(v);  b.setItem(v);  b.setLeft(t);  b.deleteRight(); … */
+    private adtStatement(name: string, cls: AdtClass): BlockState | undefined {
+        const begin = this.pos;
+        const m = this.toks[begin + 2], open = begin + 3;
+        if (m?.tt !== TokenType.identifier || this.toks[open]?.tt !== TokenType.leftBracket) return undefined;
+        const close = this.matching(open);
+        if (this.toks[close + 1]?.tt !== TokenType.semicolon) return undefined;
+        const args = this.argBounds(open, close);
+        if (!args) return undefined;
+        const method = String(m.value);
+        const done = (type: string, fields: Record<string, string>, inputs?: Record<string, { block: BlockState }>) => {
+            this.pos = close + 2;
+            const b = this.block(type, begin, this.pos, { fields: { ...fields, NAME: name } });
+            if (inputs) b.inputs = inputs;
+            return b;
+        };
+        const call = ADT_CALLS.find((c) => c.cls === cls && c.method === method && c.inputs.length === args.length);
+        if (call) {
+            const inputs: Record<string, { block: BlockState }> = {};
+            call.inputs.forEach((input, i) => { inputs[input] = { block: this.expression(args[i][0], args[i][1]) }; });
+            return done(call.block, {}, inputs);
+        }
+        if (cls !== "BinTree") return undefined;
+        const side = TREE_SIDES.find(([, , set]) => set === method);
+        if (side && args.length === 1) return done(B.treeSetChild, { SIDE: side[1] }, { T: { block: this.expression(args[0][0], args[0][1]) } });
+        if (args.length === 0 && TREE_DELETES.some(([, v]) => v === method)) return done(B.treeDelete, {});
         return undefined;
     }
 
@@ -1446,8 +1501,8 @@ class ExpressionParser {
                 && (["int", "double", "char"].includes(ct) || (dynGetFollows && (VAR_TYPES as readonly string[]).includes(ct)))) {
                 this.pos = start + 3;
                 const inner = this.unary();
-                // (int) d.getItem(i): Element einer dynamischen Reihung als Ganzzahl
-                if (inner.type === B.dynGet && inner.fields?.TYPE === "Object") {
+                // (int) d.getItem(i), (int) s.top() …: Element als Ganzzahl
+                if ((inner.type === B.dynGet || ADT_GET_TYPES.has(inner.type)) && inner.fields?.TYPE === "Object") {
                     inner.fields.TYPE = ct;
                     return inner;
                 }
@@ -1529,6 +1584,15 @@ class ExpressionParser {
     private postfix(base: BlockState, start: number): BlockState {
         let b = base;
         while (this.peek()?.tt === TokenType.dot) {
+            // Stapel, Schlange, Binärbaum: s.top(), q.isEmpty(), b.getLeft(), b.isLeaf() …
+            const adtType = b.type === B.varGet ? this.p.staticType(b) : undefined;
+            if (isAdtClass(adtType)) {
+                const adt = this.adtValue(String(b.fields?.NAME ?? ""), adtType);
+                if (adt) {
+                    b = adt;
+                    continue;
+                }
+            }
             // Figur: ball.getCenterX(), ball.collidesWith(wand), ball.isOutsideView()
             if (b.type === B.varGet && isFigureClass(this.p.staticType(b))) {
                 const fig = this.figureValue(String(b.fields?.NAME ?? ""));
@@ -1629,11 +1693,13 @@ class ExpressionParser {
         }
     }
 
-    /** d.getItem( an Position i (d eine dynamische Reihung)? */
+    /** d.getItem( bzw. s.top(, q.head(, b.getItem( … an Position i? (dahinter darf eine Typumwandlung stehen) */
     private isDynGetAt(i: number): boolean {
         const a = this.p.tok(i), dot = this.p.tok(i + 1), m = this.p.tok(i + 2);
-        return a?.tt === TokenType.identifier && this.p.collection(String(a.value))?.kind === "dyn"
-            && dot?.tt === TokenType.dot && m?.value === "getItem";
+        if (a?.tt !== TokenType.identifier || dot?.tt !== TokenType.dot) return false;
+        if (this.p.collection(String(a.value))?.kind === "dyn" && m?.value === "getItem") return true;
+        const t = this.p.staticType({ type: B.varGet, fields: { NAME: String(a.value) } } as BlockState);
+        return isAdtClass(t) && !!getOp(t, String(m?.value ?? ""));
     }
 
     /** a[i], m[r][c], a.length, m[0].length, liste.get(i), liste.size(), d.getItem(i) … */
@@ -1694,6 +1760,26 @@ class ExpressionParser {
     }
 
     /** Input.readInt("…"), Random.randint(a, b), Math.sqrt(x) */
+    /** Wert von Stapel, Schlange, Binärbaum hinter dem Punkt (this.pos zeigt auf den Punkt) */
+    private adtValue(name: string, cls: AdtClass): BlockState | undefined {
+        const m = this.p.tok(this.pos + 1), openIndex = this.pos + 2;
+        if (m?.tt !== TokenType.identifier || openIndex >= this.to || this.p.tok(openIndex)?.tt !== TokenType.leftBracket) return undefined;
+        const close = this.p.matchingBracket(openIndex);
+        if (close !== openIndex + 1 || close >= this.to) return undefined;   // alle ohne Argumente
+        const method = String(m.value);
+        let result: BlockState | undefined;
+        const get = getOp(cls, method);
+        if (get) result = this.p.value(get.block, { fields: { OP: method, NAME: name, TYPE: "Object" } });
+        else if (method === "isEmpty") result = this.p.value(B.adtIsEmpty, { fields: { NAME: name } });
+        else if (cls === "BinTree") {
+            const side = TREE_SIDES.find(([, , , read]) => read === method);
+            if (side) result = this.p.value(B.treeChild, { fields: { SIDE: side[1], NAME: name } });
+            else if (TREE_TESTS.some(([, v]) => v === method)) result = this.p.value(B.treeTest, { fields: { NAME: name } });
+        }
+        if (result) this.pos = close + 1;
+        return result;
+    }
+
     /** Wert einer Figur hinter dem Punkt (this.pos zeigt auf den Punkt) */
     private figureValue(name: string): BlockState | undefined {
         const m = this.p.tok(this.pos + 1), openIndex = this.pos + 2;

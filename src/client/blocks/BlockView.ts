@@ -1,3 +1,4 @@
+import { slowMotionButton } from "../objects/SlowMotion";
 import * as Blockly from "blockly/core";
 import * as De from "blockly/msg/de";
 import * as monaco from "monaco-editor";
@@ -87,7 +88,7 @@ export class BlockView {
         const keys = document.createElement("span");
         keys.className = "gsg-blocks-keys";
         keys.textContent = "Strg+B: Blöcke ↔ Java";
-        bar.append(this.toolboxButton, this.resetButton, keys);
+        bar.append(this.toolboxButton, this.resetButton, slowMotionButton(this.main, "gsg-blocks-slow"), keys);
         area.append(bar, this.blocklyDiv, this.notice);
 
         const preview = document.createElement("div");
@@ -509,7 +510,10 @@ export class BlockView {
 
     private updateProgramPointer() {
         if (!this.ws || !this.model || this.model.isDisposed()) return;
-        const pointer = this.model.getAllDecorations().find((d) => d.options.className === "jo_revealProgramPointer");
+        // Rückblick im Reiter "Objekte" (orange) hat Vorrang vor dem aktuellen Programmzeiger
+        const decorations = this.model.getAllDecorations();
+        const pointer = decorations.find((d) => d.options.className === "gsg-history-pointer")
+            ?? decorations.find((d) => d.options.className === "jo_revealProgramPointer");
         const id = pointer ? this.blockAtLine(pointer.range.startLineNumber) : null;
         if (id === this.highlighted) return;
         this.highlighted = id;

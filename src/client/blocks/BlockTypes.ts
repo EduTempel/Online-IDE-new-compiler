@@ -67,6 +67,23 @@ export const B = {
     dynGet: "j_dyn_get",            // Felder NAME, TYPE (Object = ohne Umwandlung); Eingang I  ((int) d.getItem(i))
     dynLength: "j_dyn_length",      // Feld NAME  (d.getLength())
     dynIsEmpty: "j_dyn_isempty",    // Feld NAME  (d.isEmpty())
+    // ADT: Stapel, Schlange, Binärbaum (Abiturklassen Niedersachsen); Feld NAME = Name der Variablen
+    stackNew: "j_stack_new",        // Feld NAME  (Stack s = new Stack();)
+    stackPush: "j_stack_push",      // Feld NAME; Eingang V  (s.push(v);)
+    stackPop: "j_stack_pop",        // Feld NAME  (s.pop(); – Element verwerfen)
+    stackGet: "j_stack_get",        // Felder OP (top/pop), NAME, TYPE  ((int) s.top())
+    queueNew: "j_queue_new",        // Feld NAME  (Queue q = new Queue();)
+    queueEnqueue: "j_queue_enqueue",// Feld NAME; Eingang V  (q.enqueue(v);)
+    queueDequeue: "j_queue_dequeue",// Feld NAME  (q.dequeue(); – Element verwerfen)
+    queueGet: "j_queue_get",        // Felder OP (head/dequeue), NAME, TYPE  ((int) q.head())
+    treeNew: "j_tree_new",          // Feld NAME; Eingang V (Inhalt, freiwillig)  (BinTree b = new BinTree(v);)
+    treeSetItem: "j_tree_setitem",  // Feld NAME; Eingang V  (b.setItem(v);)
+    treeItem: "j_tree_item",        // Felder OP (getItem), NAME, TYPE  ((int) b.getItem())
+    treeSetChild: "j_tree_setchild",// Felder SIDE (left/right), NAME; Eingang T  (b.setLeft(t);)
+    treeChild: "j_tree_child",      // Felder SIDE, NAME  (b.getLeft())
+    treeDelete: "j_tree_delete",    // Feld NAME  (b.setEmpty();)
+    treeTest: "j_tree_test",        // Feld NAME  (b.isLeaf())
+    adtIsEmpty: "j_adt_isempty",    // Feld NAME (Stapel, Schlange oder Binärbaum)  (x.isEmpty())
 
     // Klassen und Objekte (Paket 6)
     class: "j_class",               // Hut-Block; Felder NAME, SUPER ("" = keine Oberklasse); Anweisungen MEMBERS

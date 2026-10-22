@@ -4,6 +4,7 @@ import { B, COLLECTION_CALLS, COLLECTION_DECLARATIONS, elementJavaType, type Blo
 import { collectionOfType, collectionType, methodParams, wrapperOf } from "./ClassModel";
 import type { LineRange } from "./JavaBlockParser";
 import { colourJava, FIGURE_ACTIONS, FIGURE_CALLS, FIGURE_CREATIONS, FIGURE_PROPS } from "./FigureSpec";
+import { ADT_CALLS, ADT_CREATIONS, ADT_GET_TYPES, TREE_SIDES } from "./AdtSpec";
 
 export { methodParams };
 
@@ -306,7 +307,7 @@ export class JavaBlockGenerator {
                 break;
             }
             default: {
-                const figure = this.figureStatement(b);
+                const figure = this.figureStatement(b) ?? this.adtStatement(b);
                 if (figure !== undefined) {
                     this.emit(indent + figure);
                     break;
@@ -448,7 +449,44 @@ export class JavaBlockGenerator {
         if (call) return [`${f.NAME}.${call.method}(${call.args.map((a) => this.input(b, a, Order.NONE)).join(", ")})`, Order.ATOMIC];
         const figure = this.figureExpression(b);
         if (figure !== undefined) return [figure, Order.ATOMIC];
+        const adt = this.adtExpression(b);
+        if (adt !== undefined) return adt;
         return ["", Order.ATOMIC];
+    }
+
+    // ------------------------------------------------------------------ Stapel, Schlange, Binärbaum
+
+    private adtStatement(b: BlockState): string | undefined {
+        const f = b.fields ?? {};
+        const creation = ADT_CREATIONS.find((c) => c.block === b.type);
+        if (creation) {
+            const item = b.type === B.treeNew && b.inputs?.V?.block ? this.input(b, "V", Order.NONE) : "";
+            return `${creation.cls} ${f.NAME} = new ${creation.cls}(${item});`;
+        }
+        const call = ADT_CALLS.find((c) => c.block === b.type);
+        if (call) return `${f.NAME}.${call.method}(${call.inputs.map((i) => this.input(b, i, Order.NONE)).join(", ")});`;
+        switch (b.type) {
+            case B.treeSetChild: {
+                const side = TREE_SIDES.find(([, v]) => v === f.SIDE) ?? TREE_SIDES[0];
+                return `${f.NAME}.${side[2]}(${this.input(b, "T", Order.NONE)});`;
+            }
+            case B.treeDelete: return `${f.NAME}.setEmpty();`;
+        }
+        return undefined;
+    }
+
+    private adtExpression(b: BlockState): [string, Order] | undefined {
+        const f = b.fields ?? {};
+        if (ADT_GET_TYPES.has(b.type)) {
+            const get = `${f.NAME}.${f.OP || "getItem"}()`;
+            return !f.TYPE || f.TYPE === "Object" ? [get, Order.ATOMIC] : [`(${f.TYPE}) ${get}`, Order.UNARY];
+        }
+        switch (b.type) {
+            case B.treeChild: return [`${f.NAME}.${(TREE_SIDES.find(([, v]) => v === f.SIDE) ?? TREE_SIDES[0])[3]}()`, Order.ATOMIC];
+            case B.treeTest: return [`${f.NAME}.isLeaf()`, Order.ATOMIC];
+            case B.adtIsEmpty: return [`${f.NAME}.isEmpty()`, Order.ATOMIC];
+        }
+        return undefined;
     }
 
     // ------------------------------------------------------------------ Figuren, Tasten, Maus (Paket 8)
