@@ -125,7 +125,7 @@
 
 .joeCssFence #login.gsg-login #login-center input:focus {
     border-color: var(--gsg-navy) !important;
-    box-shadow: 0 0 0 3px rgba(69, 184, 47, 0.45);
+    box-shadow: 0 0 0 3px rgba(var(--brand-accent-rgb, 69, 184, 47), 0.45);
 }
 
 .joeCssFence #login.gsg-login #login-message {
@@ -161,7 +161,7 @@
 }
 
 .joeCssFence #login.gsg-login #login-button:hover {
-    background-color: #0b4a8a;
+    background-color: var(--brand-primary-hover, #0b4a8a);
 }
 
 .joeCssFence #login.gsg-login #login-button:active {
@@ -275,7 +275,7 @@
 }
 
 .joeCssFence #login.gsg-login .gsg-iserv-button:hover {
-    background: #0b4a8a;
+    background: var(--brand-primary-hover, #0b4a8a);
 }
 
 .joeCssFence #login.gsg-login .gsg-iserv-button:focus-visible {

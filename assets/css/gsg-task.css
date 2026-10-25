@@ -29,7 +29,7 @@
 .gsg-task-text code { font-family: Consolas, "Cascadia Mono", monospace; font-size: .92em; background: rgba(127, 127, 127, .2); padding: 0 .25em; border-radius: 3px; }
 .gsg-task-text pre { background: rgba(127, 127, 127, .15); padding: 8px 10px; border-radius: 6px; overflow: auto; }
 .gsg-task-text pre code { background: none; padding: 0; }
-.gsg-task-text blockquote { border-left: 3px solid #45B82F; padding-left: 10px; opacity: .9; }
+.gsg-task-text blockquote { border-left: 3px solid var(--brand-accent, #45B82F); padding-left: 10px; opacity: .9; }
 .gsg-task-text img { max-width: 100%; border-radius: 4px; }
 .gsg-task-text a { color: #6cb8ff; }
 
@@ -48,7 +48,7 @@
 }
 .gsg-task-button:hover { background: rgba(127, 127, 127, .2); }
 .gsg-task-more { align-self: flex-start; }
-.gsg-task-primary { background: #00376D; border-color: #00376D; color: #fff; }
+.gsg-task-primary { background: var(--brand-primary, #00376D); border-color: var(--brand-primary, #00376D); color: #fff; }
 .gsg-task-primary:hover { background: #0a4c8f; }
 .gsg-task-danger { margin-left: auto; color: #e57373; }
 

@@ -10,7 +10,7 @@ import { WorkspaceExporter } from "../../workspace/WorkspaceImporterExporter.js"
 import { IssueReporter } from "./IssueReporter.js";
 import * as monaco from 'monaco-editor'
 import { GuiMessages } from "./language/GuiMessages.js";
-import { SCHOOL_ADMIN_URL, SCHOOL_IMPRINT_URL, SCHOOL_PRIVACY_URL } from "./SchoolBranding.js";
+import { SCHOOL_ADMIN_URL, SCHOOL_CREDITS_URL, SCHOOL_IMPRINT_URL, SCHOOL_PRIVACY_URL } from "./SchoolBranding.js";
 import { openSchoolStartPage } from "./SchoolStartPage.js";
 import { SettingsGUI } from "../../settings/SettingsGUI.js";
 import { ImportRepositoryGUI } from "./ImportRepositoryGUI.js";
@@ -309,6 +309,10 @@ export class MainMenu {
                             {
                                 identifier: GuiMessages.PrivacyPolicy(),
                                 link: SCHOOL_PRIVACY_URL
+                            },
+                            {
+                                identifier: "Mitwirkende und Lizenzen...",
+                                link: SCHOOL_CREDITS_URL
                             },
                             {
                                 identifier: "<div class='jo_menu_version'>" + GuiMessages.Version() + " " + APP_VERSION + " (" + BUILD_DATE + ")</div>",

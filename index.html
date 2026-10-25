@@ -8,6 +8,10 @@
     <link rel="icon" type="image/png" href="assets/graphics/gsg/favicon-64.png">
     <link rel="apple-touch-icon" href="assets/graphics/gsg/apple-touch-icon.png">
     <meta name="theme-color" content="#00376D">
+    <!-- Name der Schule, Impressum und Datenschutz aus der Verwaltung (Aussehen) -->
+    <script src="/branding/schule.js"></script>
+    <!-- Schulfarben aus der Verwaltung (Aussehen); fehlt das Backend, gelten die Farben aus gsg-branding.css -->
+    <link rel="stylesheet" href="/branding/farben.css">
     <meta name='viewport' content='width=device-width, initial-scale=1, maximum-scale=1.0, minimal-ui'>
 
 
@@ -38,10 +42,10 @@
     <div id="login" class="gsg-login">
         <main class="gsg-login-main">
             <div class="gsg-login-card">
-                <img class="gsg-login-logo" src="assets/graphics/gsg/logo-256.png"
-                    alt="Logo des Graf-Stauffenberg-Gymnasiums Osnabrück" width="112" height="112">
+                <img class="gsg-login-logo" src="/branding/logo" onerror="this.onerror=null; this.src='assets/graphics/gsg/logo-256.png'"
+                    alt="Logo der Schule" width="112" height="112">
                 <h1 class="gsg-login-title">Java-IDE</h1>
-                <p class="gsg-login-school">Graf-Stauffenberg-Gymnasium Osnabrück</p>
+                <p class="gsg-login-school" data-schule="name">Graf-Stauffenberg-Gymnasium Osnabrück</p>
                 <a class="gsg-iserv-button gsg-iserv-only" href="/auth/iserv/login?app=java" hidden>Mit IServ anmelden</a>
                 <div class="gsg-login-divider gsg-iserv-only" hidden><span>oder mit lokalem Konto</span></div>
                 <div id="login-center">
@@ -61,15 +65,16 @@
             <div id="versionDiv" class="versionDiv"></div>
         </main>
         <footer id="login-footer">
-            <div class="gsg-footer-school">Graf-Stauffenberg-Gymnasium Osnabrück</div>
+            <div class="gsg-footer-school" data-schule="name">Graf-Stauffenberg-Gymnasium Osnabrück</div>
             <div id="login-datenschutz">
-                <a href="https://gsg-os.de/impressum/" target="_blank" rel="noopener">Impressum</a>
-                <a href="https://gsg-os.de/datenschutzerklaerung/" target="_blank" rel="noopener">Datenschutz</a>
+                <a data-schule-link="impressum" href="https://gsg-os.de/impressum/" target="_blank" rel="noopener">Impressum</a>
+                <a data-schule-link="datenschutz" href="https://gsg-os.de/datenschutzerklaerung/" target="_blank" rel="noopener">Datenschutz</a>
                 <a href="https://github.com/EduTempel/Online-IDE-new-compiler" target="_blank" rel="noopener">Quellcode</a>
             </div>
             <div class="gsg-credits">
                 Basiert auf der <a href="https://github.com/martin-pabst/Online-IDE-new-compiler" target="_blank"
-                    rel="noopener">Online-IDE</a> von Martin Pabst (GNU GPL v3)
+                    rel="noopener">Online-IDE</a> von Martin Pabst (GNU GPL v3) ·
+                <a href="/mitwirkende/" target="_blank" rel="noopener">Mitwirkende und Lizenzen</a>
             </div>
         </footer>
     </div>

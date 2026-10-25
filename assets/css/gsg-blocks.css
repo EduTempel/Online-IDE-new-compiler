@@ -21,9 +21,9 @@
 
 .gsg-viewtoggle button + button { border-left: 1px solid var(--slider, #555); }
 .gsg-viewtoggle button:hover:not(:disabled) { background: rgba(127, 127, 127, .2); }
-.gsg-viewtoggle button.active { background: #00376D; color: #fff; }
+.gsg-viewtoggle button.active { background: var(--brand-primary, #00376D); color: #fff; }
 .gsg-viewtoggle button:disabled { opacity: .45; cursor: not-allowed; }
-.gsg-viewtoggle button:focus-visible { outline: 2px solid #45B82F; outline-offset: -2px; }
+.gsg-viewtoggle button:focus-visible { outline: 2px solid var(--brand-accent, #45B82F); outline-offset: -2px; }
 
 #gsg-blocks {
     flex-grow: 1;
@@ -75,7 +75,7 @@
 }
 
 .gsg-blocks-bar button:hover { border-color: var(--slider, #555); background: rgba(127, 127, 127, .15); }
-.gsg-blocks-bar button:focus-visible { outline: 2px solid #45B82F; }
+.gsg-blocks-bar button:focus-visible { outline: 2px solid var(--brand-accent, #45B82F); }
 .gsg-blocks-bar button[hidden] { display: none; }
 .gsg-blocks-keys { margin-left: auto; color: var(--fontColorLight, #999); font-size: 11px; }
 
@@ -147,7 +147,7 @@
 }
 
 .gsg-pl { display: flex; padding-right: 8px; }
-.gsg-pl.selected { background: rgba(69, 184, 47, .18); box-shadow: inset 3px 0 #45B82F; }
+.gsg-pl.selected { background: rgba(var(--brand-accent-rgb, 69, 184, 47), .18); box-shadow: inset 3px 0 var(--brand-accent, #45B82F); }
 .gsg-ln {
     flex: 0 0 2.6em;
     text-align: right;
@@ -199,7 +199,7 @@
 
 /* aktuelle Programmzeile (Einzelschritt) und Fehler deutlich zeigen */
 #gsg-blocks .blocklyHighlighted > .blocklyPath {
-    stroke: #45B82F !important;
+    stroke: var(--brand-accent, #45B82F) !important;
     stroke-width: 4px !important;
     filter: drop-shadow(0 0 4px rgba(69, 184, 47, .9));
 }

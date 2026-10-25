@@ -31,7 +31,7 @@
     cursor: pointer;
 }
 .gsg-struct-bar button:hover { background: rgba(127, 127, 127, .2); }
-.gsg-struct-bar button:focus-visible { outline: 2px solid #45B82F; outline-offset: 1px; }
+.gsg-struct-bar button:focus-visible { outline: 2px solid var(--brand-accent, #45B82F); outline-offset: 1px; }
 
 .gsg-struct-content {
     flex: 1;
@@ -94,7 +94,7 @@
 }
 .gsg-sedit-edit > input { flex: 1 1 18rem; min-width: 8rem; }
 .gsg-sedit-edit input:disabled { opacity: .5; }
-.gsg-sedit-edit input:focus { outline: 2px solid #45B82F; outline-offset: 0; }
+.gsg-sedit-edit input:focus { outline: 2px solid var(--brand-accent, #45B82F); outline-offset: 0; }
 .gsg-sedit-extras { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; }
 .gsg-sedit-hint { color: #f0a020; font-weight: 600; }
 
