@@ -630,7 +630,8 @@ export class JavaBlockParser {
                     if (bodies[i]) b.inputs![i === 0 ? "DO" : "DO" + i] = { block: bodies[i]! };
                 });
                 if (elseBody) b.inputs.ELSE = { block: elseBody };
-                if (conds.length > 1 || hasElse) b.extraState = { elseIfs: conds.length - 1, hasElse };
+                // if und if-else: feste Form (wie in der Werkzeugleiste); mit else if: umbaubar
+                b.extraState = conds.length > 1 ? { elseIfs: conds.length - 1, hasElse } : { elseIfs: 0, hasElse, fixed: true };
                 return b;
             }
             case TokenType.keywordWhile: {

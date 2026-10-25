@@ -78,11 +78,63 @@ export function mutate<S>(block: Mutable<S>, next: S, rename: (name: string) => 
     }
 }
 
-export const hintLabel = (text: string) => new Blockly.FieldLabel(text, "gsg-java-hint");
+/**
+ * Java-Schnipsel im Block (z. B. "if"): ausgeblendet – die Blöcke zeigen nur die deutsche Beschriftung.
+ * Das Feld bleibt (unsichtbar) erhalten, damit Eingänge und Felder ihre Reihenfolge behalten.
+ */
+class JavaHintLabel extends Blockly.FieldLabel {
+    constructor(text: string) {
+        super(text, "gsg-java-hint");
+        this.visible_ = false;
+    }
+
+    /** bleibt unsichtbar (Blockly schaltet beim Aufbau eines Eingangs alle seine Felder sichtbar) */
+    override setVisible(_visible: boolean) { /* immer unsichtbar */ }
+}
+
+export const hintLabel = (text: string): Blockly.FieldLabel => new JavaHintLabel(text);
+
+/**
+ * Blockdefinitionen (JSON) ohne die Java-Schnipsel (Felder der Klasse gsg-java-hint): aus der Beschriftung
+ * entfernt, stattdessen am Ende des Tooltips („Java: .setFillColor“) – für Neugierige und Lehrkräfte.
+ */
+export function withoutJavaHints<T extends Record<string, unknown>>(json: T[]): T[] {
+    return json.map((def) => {
+        const d: Record<string, unknown> = { ...def };
+        const hints: string[] = [];
+        for (let i = 0; typeof d[`message${i}`] === "string"; i++) {
+            const args = (d[`args${i}`] as { class?: string; text?: string }[] | undefined) ?? [];
+            const keep: unknown[] = [];
+            const renumber = new Map<number, number>();
+            args.forEach((a, j) => {
+                if (a?.class === "gsg-java-hint") {
+                    if (a.text && a.text !== "Java") hints.push(a.text);
+                } else {
+                    keep.push(a);
+                    renumber.set(j + 1, keep.length);
+                }
+            });
+            if (keep.length === args.length) continue;
+            d[`message${i}`] = String(d[`message${i}`])
+                .replace(/%(\d+)/g, (_, n: string) => (renumber.has(Number(n)) ? `%${renumber.get(Number(n))}` : ""))
+                .replace(/[ \t]{2,}/g, " ").trim();
+            if (keep.length) d[`args${i}`] = keep;
+            else delete d[`args${i}`];
+        }
+        if (hints.length && (d.tooltip === undefined || typeof d.tooltip === "string")) {
+            d.tooltip = `${d.tooltip ? d.tooltip + "\n" : ""}Java: ${hints.join(" ")}`;
+        }
+        return d as T;
+    });
+}
 
 // ------------------------------------------------------------------ falls … sonst falls … sonst
 
-export type IfState = { elseIfs: number; hasElse: boolean };
+/**
+ * fixed: feste Form ohne Knöpfe – „falls … dann“ bzw. „falls … dann … sonst“ (Werkzeugleiste „Steuerung“
+ * und einfaches if/if-else aus dem Java-Code). Sonst umbaubar mit „+ sonst falls“, „+ sonst“ und ✕.
+ */
+export type IfState = { elseIfs: number; hasElse: boolean; fixed?: boolean };
 
 export function defineIfBlock(colour: string) {
     Blockly.Blocks[B.if] = {
@@ -93,12 +145,17 @@ export function defineIfBlock(colour: string) {
             this.setPreviousStatement(true);
             this.setNextStatement(true);
             this.setColour(colour);
-            this.setTooltip("Führt die Blöcke nur aus, wenn die Bedingung wahr ist. "
-                + "„+ sonst falls“ fügt weitere Bedingungen hinzu, „+ sonst“ einen Teil für alle anderen Fälle.");
             this.build();
         },
 
         build(this: Mutable<IfState>) {
+            const fixed = !!this.state.fixed && this.state.elseIfs === 0;
+            this.setTooltip(fixed
+                ? (this.state.hasElse
+                    ? "Ist die Bedingung wahr, werden die Blöcke unter „dann“ ausgeführt, sonst die Blöcke unter „sonst“."
+                    : "Führt die Blöcke unter „dann“ nur aus, wenn die Bedingung wahr ist.")
+                : "Prüft die Bedingungen der Reihe nach und führt die Blöcke beim ersten wahren Fall aus. "
+                + "„+ sonst falls“ fügt weitere Bedingungen hinzu, „+ sonst“ einen Teil für alle anderen Fälle, ✕ entfernt einen Teil.");
             this.appendValueInput("COND").appendField("falls");
             this.appendDummyInput("COND_HINT").appendField(hintLabel("if"));
             this.appendStatementInput("DO").appendField("dann");
@@ -110,10 +167,14 @@ export function defineIfBlock(colour: string) {
                 this.appendStatementInput("DO" + i).appendField("dann");
             }
             if (this.state.hasElse) {
-                this.appendDummyInput("ELSE_LABEL")
-                    .appendField(new FieldButton("✕", (b) => removeElse(b as Mutable<IfState>), "Den sonst-Teil entfernen"))
-                    .appendField("sonst").appendField(hintLabel("else"));
+                const label = this.appendDummyInput("ELSE_LABEL");
+                if (!fixed) label.appendField(new FieldButton("✕", (b) => removeElse(b as Mutable<IfState>), "Den sonst-Teil entfernen"));
+                label.appendField("sonst").appendField(hintLabel("else"));
                 this.appendStatementInput("ELSE");
+            }
+            if (fixed) {
+                this.setInputsInline(true);
+                return;
             }
             const add = this.appendDummyInput("ADD")
                 .appendField(new FieldButton("+ sonst falls", (b) => addElseIf(b as Mutable<IfState>), "Weitere Bedingung hinzufügen"));
@@ -123,11 +184,15 @@ export function defineIfBlock(colour: string) {
         },
 
         saveExtraState(this: Mutable<IfState>): IfState | null {
-            return this.state.elseIfs || this.state.hasElse ? { ...this.state } : null;
+            if (!this.state.elseIfs && !this.state.hasElse && !this.state.fixed) return null;
+            const s: IfState = { elseIfs: this.state.elseIfs, hasElse: this.state.hasElse };
+            if (this.state.fixed) s.fixed = true;
+            return s;
         },
 
         loadExtraState(this: Mutable<IfState>, state: Partial<IfState>) {
-            const next = { elseIfs: Math.max(0, Number(state?.elseIfs ?? 0)), hasElse: !!state?.hasElse };
+            const next: IfState = { elseIfs: Math.max(0, Number(state?.elseIfs ?? 0)), hasElse: !!state?.hasElse };
+            if (state?.fixed && next.elseIfs === 0) next.fixed = true;
             mutate(this, next, (n) => n, false);
         },
     };

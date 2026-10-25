@@ -1,7 +1,7 @@
 import * as Blockly from "blockly/core";
 import { B } from "./BlockTypes";
 import { collectVariables, variablesFor } from "./BlockTypeSystem";
-import { defineIfBlock, definePrintBlock } from "./BlockMutators";
+import { defineIfBlock, definePrintBlock, withoutJavaHints } from "./BlockMutators";
 import { defineOperationBlocks, OPERATIONS_CATEGORY, OPERATIONS_COLOUR } from "./BlockOperations";
 import { defineFigureBlocks, FIGURES_CATEGORY, FIGURES_COLOUR, INPUT_CATEGORY, INPUT_COLOUR } from "./BlockFigures";
 import { ADT_CATEGORY, ADT_COLOUR, ARRAYS_CATEGORY, ARRAYS_COLOUR, defineCollectionBlocks, LISTS_CATEGORY, LISTS_COLOUR } from "./BlockCollections";
@@ -100,14 +100,17 @@ export function defineBlocks() {
         });
     });
 
+    // alle Blöcke ohne Java-Schnipsel (stehen im Tooltip)
+    const defineJson = (json: object[]) => Blockly.common.defineBlocksWithJsonArray(withoutJavaHints(json as Record<string, unknown>[]));
+
     defineIfBlock(COLOURS.control);
     definePrintBlock(COLOURS.output);
-    defineOperationBlocks((json) => Blockly.common.defineBlocksWithJsonArray(json));
-    defineCollectionBlocks((json) => Blockly.common.defineBlocksWithJsonArray(json));
-    defineClassBlocks((json) => Blockly.common.defineBlocksWithJsonArray(json));
-    defineFigureBlocks((json) => Blockly.common.defineBlocksWithJsonArray(json));
+    defineOperationBlocks(defineJson);
+    defineCollectionBlocks(defineJson);
+    defineClassBlocks(defineJson);
+    defineFigureBlocks(defineJson);
 
-    Blockly.common.defineBlocksWithJsonArray([
+    defineJson([
         {
             type: B.start, message0: "Hauptprogramm %1", args0: [hint("main")],
             message1: "%1", args1: [{ type: "input_statement", name: "BODY" }],
@@ -428,8 +431,24 @@ export function variablesFlyout(ws: Blockly.WorkspaceSvg): Blockly.utils.toolbox
     return items as Blockly.utils.toolbox.FlyoutItemInfoArray;
 }
 
-/** Werkzeugkasten mit Kategorien; Blöcke mit sinnvollen Startwerten */
-export function toolbox(): Blockly.utils.toolbox.ToolboxDefinition {
+/**
+ * Kennungen der Kategorien (Reihenfolge der Werkzeugleiste). Lehrkräfte können je Lerngruppe einzelne
+ * ausblenden – gleiche Liste wie BLOCK_CATEGORIES in backend/src/repo/apps.ts.
+ */
+export const BLOCK_CATEGORY_IDS = ["steuerung", "ausgabe", "variablen", "bedingungen", "rechnen", "text", "figuren", "tasten",
+    "reihungen", "listen", "adt", "operationen", "klassen", "objekte", "java"] as const;
+
+/**
+ * Werkzeugkasten mit Kategorien; Blöcke mit sinnvollen Startwerten.
+ * hidden: ausgeblendete Kategorien (Freigaben der Lerngruppe); mindestens eine bleibt immer sichtbar.
+ */
+export function toolbox(hidden: readonly string[] = []): Blockly.utils.toolbox.ToolboxDefinition {
+    const all = fullToolbox();
+    const contents = all.contents.filter((c) => !hidden.includes((c as { toolboxitemid?: string }).toolboxitemid ?? ""));
+    return { ...all, contents: contents.length ? contents : all.contents } as Blockly.utils.toolbox.ToolboxDefinition;
+}
+
+function fullToolbox(): { kind: string; contents: object[] } {
     const num = (n: string) => ({ block: { type: B.number, fields: { NUM: n } } });
     const txt = (t: string) => ({ block: { type: B.text, fields: { TEXT: t } } });
     const v = (name: string) => ({ block: { type: B.varGet, fields: { NAME: name } } });
@@ -439,10 +458,11 @@ export function toolbox(): Blockly.utils.toolbox.ToolboxDefinition {
         contents: [
             // Reihenfolge: Steuerung, Ausgabe & Eingabe, Variablen, Bedingungen, Rechnen & Werte, Text, Java
             {
-                kind: "category", name: "Steuerung", colour: COLOURS.control, contents: [
+                kind: "category", toolboxitemid: "steuerung", name: "Steuerung", colour: COLOURS.control, contents: [
                     { kind: "label", text: "Blöcke unter „Hauptprogramm“ hängen – nur sie werden ausgeführt." },
-                    blk(B.if),
-                    blk(B.if, { extraState: { elseIfs: 0, hasElse: true } }),
+                    blk(B.if, { extraState: { elseIfs: 0, hasElse: false, fixed: true } }),
+                    blk(B.if, { extraState: { elseIfs: 0, hasElse: true, fixed: true } }),
+                    blk(B.if, { extraState: { elseIfs: 1, hasElse: false } }),
                     blk(B.forever),
                     blk(B.repeat, { inputs: { TIMES: num("10") } }),
                     blk(B.while, { inputs: { COND: { block: { type: B.compare, fields: { OP: "<" }, inputs: { A: v("zahl"), B: num("10") } } } } }),
@@ -451,7 +471,7 @@ export function toolbox(): Blockly.utils.toolbox.ToolboxDefinition {
                 ],
             },
             {
-                kind: "category", name: "Ausgabe & Eingabe", colour: COLOURS.output, contents: [
+                kind: "category", toolboxitemid: "ausgabe", name: "Ausgabe & Eingabe", colour: COLOURS.output, contents: [
                     { kind: "label", text: "▸ fügt bei „gib aus“ weitere Werte hinzu." },
                     blk(B.print, { inputs: { VALUE: txt("Hallo Welt!") } }),
                     blk(B.print, { extraState: { items: 2 }, inputs: { VALUE: txt("Ergebnis:"), VALUE1: v("zahl") } }),
@@ -460,9 +480,9 @@ export function toolbox(): Blockly.utils.toolbox.ToolboxDefinition {
                     blk(B.trace),
                 ],
             },
-            { kind: "category", name: "Variablen", colour: COLOURS.variables, custom: VARIABLES_CATEGORY },
+            { kind: "category", toolboxitemid: "variablen", name: "Variablen", colour: COLOURS.variables, custom: VARIABLES_CATEGORY },
             {
-                kind: "category", name: "Bedingungen", colour: COLOURS.conditions, contents: [
+                kind: "category", toolboxitemid: "bedingungen", name: "Bedingungen", colour: COLOURS.conditions, contents: [
                     { kind: "label", text: "Bedingungen passen in die sechseckigen Löcher." },
                     blk(B.compare, { inputs: { A: v("zahl"), B: num("0") } }),
                     blk(B.logic),
@@ -471,7 +491,7 @@ export function toolbox(): Blockly.utils.toolbox.ToolboxDefinition {
                 ],
             },
             {
-                kind: "category", name: "Rechnen & Werte", colour: COLOURS.values, contents: [
+                kind: "category", toolboxitemid: "rechnen", name: "Rechnen & Werte", colour: COLOURS.values, contents: [
                     { kind: "label", text: "Zwei Ganzzahlen: 7 / 2 ergibt 3, 7 mod 2 ergibt 1." },
                     blk(B.number),
                     blk(B.arith, { inputs: { A: num("1"), B: num("1") } }),
@@ -486,7 +506,7 @@ export function toolbox(): Blockly.utils.toolbox.ToolboxDefinition {
                 ],
             },
             {
-                kind: "category", name: "Text", colour: COLOURS.text, contents: [
+                kind: "category", toolboxitemid: "text", name: "Text", colour: COLOURS.text, contents: [
                     { kind: "label", text: "Positionen werden ab 0 gezählt." },
                     blk(B.text),
                     blk(B.char),
@@ -503,16 +523,16 @@ export function toolbox(): Blockly.utils.toolbox.ToolboxDefinition {
                     blk(B.cast, { fields: { TYPE: "char" }, inputs: { VALUE: num("65") } }),
                 ],
             },
-            { kind: "category", name: "Figuren", colour: FIGURES_COLOUR, custom: FIGURES_CATEGORY },
-            { kind: "category", name: "Tasten & Maus", colour: INPUT_COLOUR, custom: INPUT_CATEGORY },
-            { kind: "category", name: "Reihungen", colour: ARRAYS_COLOUR, custom: ARRAYS_CATEGORY },
-            { kind: "category", name: "Listen", colour: LISTS_COLOUR, custom: LISTS_CATEGORY },
-            { kind: "category", name: "ADT", colour: ADT_COLOUR, custom: ADT_CATEGORY },
-            { kind: "category", name: "Operationen", colour: OPERATIONS_COLOUR, custom: OPERATIONS_CATEGORY },
-            { kind: "category", name: "Klassen", colour: CLASSES_COLOUR, custom: CLASSES_CATEGORY },
-            { kind: "category", name: "Objekte", colour: OBJECTS_COLOUR, custom: OBJECTS_CATEGORY },
+            { kind: "category", toolboxitemid: "figuren", name: "Figuren", colour: FIGURES_COLOUR, custom: FIGURES_CATEGORY },
+            { kind: "category", toolboxitemid: "tasten", name: "Tasten & Maus", colour: INPUT_COLOUR, custom: INPUT_CATEGORY },
+            { kind: "category", toolboxitemid: "reihungen", name: "Reihungen", colour: ARRAYS_COLOUR, custom: ARRAYS_CATEGORY },
+            { kind: "category", toolboxitemid: "listen", name: "Listen", colour: LISTS_COLOUR, custom: LISTS_CATEGORY },
+            { kind: "category", toolboxitemid: "adt", name: "ADT", colour: ADT_COLOUR, custom: ADT_CATEGORY },
+            { kind: "category", toolboxitemid: "operationen", name: "Operationen", colour: OPERATIONS_COLOUR, custom: OPERATIONS_CATEGORY },
+            { kind: "category", toolboxitemid: "klassen", name: "Klassen", colour: CLASSES_COLOUR, custom: CLASSES_CATEGORY },
+            { kind: "category", toolboxitemid: "objekte", name: "Objekte", colour: OBJECTS_COLOUR, custom: OBJECTS_CATEGORY },
             {
-                kind: "category", name: "Java", colour: COLOURS.java, contents: [
+                kind: "category", toolboxitemid: "java", name: "Java", colour: COLOURS.java, contents: [
                     { kind: "label", text: "Für alles, was es (noch) nicht als Block gibt." },
                     blk(B.comment),
                     blk(B.javaStatement),
@@ -520,7 +540,7 @@ export function toolbox(): Blockly.utils.toolbox.ToolboxDefinition {
                 ],
             },
         ],
-    } as Blockly.utils.toolbox.ToolboxDefinition;
+    };
 }
 
 /** Farben passend zum hellen bzw. dunklen Thema der IDE */

@@ -2,11 +2,11 @@ import { describe, expect, test } from "vitest";
 import "../../compiler/common/interpreter/Interpreter";
 import "../../compiler/java/JavaCompiler";
 import * as Blockly from "blockly/core";
-import { defineBlocks } from "./BlockDefinitions";
+import { defineBlocks, toolbox } from "./BlockDefinitions";
 import { JavaBlockParser } from "./JavaBlockParser";
 import { JavaBlockGenerator } from "./JavaBlockGenerator";
 import { applyTypes, SHAPE } from "./BlockTypeSystem";
-import { B, type WorkspaceState } from "./BlockTypes";
+import { B, type BlockState, type WorkspaceState } from "./BlockTypes";
 
 defineBlocks();
 const NL = String.fromCharCode(10);
@@ -20,6 +20,21 @@ function load(code: string) {
 }
 const generate = (ws: Blockly.Workspace) => JavaBlockGenerator.generate(Blockly.serialization.workspaces.save(ws) as unknown as WorkspaceState).code;
 const blocksOf = (ws: Blockly.Workspace, type: string) => ws.getAllBlocks(true).filter((b) => b.type === type);
+/** wie load, aber Falls-Blöcke umbaubar (mit Knöpfen) statt in fester Form */
+function loadFlexible(code: string) {
+    const state = JavaBlockParser.parse(code).state;
+    const strip = (b: BlockState | undefined) => {
+        for (; b; b = b.next?.block) {
+            if (b.type === B.if && b.extraState) delete b.extraState.fixed;
+            for (const i of Object.values(b.inputs ?? {})) strip(i.block);
+        }
+    };
+    state.blocks.blocks.forEach(strip);
+    const ws = new Blockly.Workspace();
+    Blockly.serialization.workspaces.load(state, ws);
+    applyTypes(ws);
+    return ws;
+}
 /** Knopf im Block drücken (wie ein Klick) */
 function press(block: Blockly.Block, text: string, nth = 0) {
     const buttons = block.inputList.flatMap((i) => i.fieldRow).filter((f) => f.getText() === text);
@@ -73,7 +88,7 @@ describe("Paket 1 mit Blockly", () => {
     });
 
     test("falls: Zweige per Knopf hinzufügen und entfernen", () => {
-        const ws = load(lines("if (a) {", "    println(1);", "}"));
+        const ws = loadFlexible(lines("if (a) {", "    println(1);", "}"));
         const ifBlock = blocksOf(ws, B.if)[0];
         press(ifBlock, "+ sonst falls");
         press(ifBlock, "+ sonst");
@@ -88,6 +103,24 @@ describe("Paket 1 mit Blockly", () => {
         expect(cond.getParent()).toBeNull();   // herausgenommen, nicht gelöscht
         press(ifBlock, "✕", 0);
         expect(generate(ws)).toBe(lines("if (a) {", "    println(1);", "}"));
+        ws.dispose();
+    });
+
+    test("falls: feste Formen ohne Knöpfe, dritter Block der Werkzeugleiste mit Knöpfen", () => {
+        const ws = load(lines("if (a) {", "    println(1);", "}", "if (b) {", "} else {", "    println(2);", "}"));
+        const [simple, withElse] = blocksOf(ws, B.if);
+        const texts = (blk: Blockly.Block) => blk.inputList.flatMap((i) => i.fieldRow).filter((f) => f.isVisible()).map((f) => f.getText());
+        expect(texts(simple)).toEqual(["falls", "dann"]);
+        expect(texts(withElse)).toEqual(["falls", "dann", "sonst"]);
+        expect(generate(ws)).toBe(lines("if (a) {", "    println(1);", "}", "if (b) {", "} else {", "    println(2);", "}"));
+        // Werkzeugleiste "Steuerung": falls … dann / … sonst (fest), falls … sonst falls (mit Knöpfen)
+        const control = (toolbox() as { contents: { name?: string; contents?: { type?: string; extraState?: object }[] }[] })
+            .contents.find((c) => c.name === "Steuerung")!.contents!.filter((x) => x.type === B.if);
+        expect(control.map((x) => x.extraState)).toEqual([
+            { elseIfs: 0, hasElse: false, fixed: true }, { elseIfs: 0, hasElse: true, fixed: true }, { elseIfs: 1, hasElse: false }]);
+        Blockly.serialization.blocks.append({ type: B.if, extraState: control[2].extraState } as Blockly.serialization.blocks.State, ws);
+        const flexible = blocksOf(ws, B.if).find((b) => b !== simple && b !== withElse)!;
+        expect(texts(flexible)).toEqual(["falls", "dann", "✕", "sonst falls", "dann", "+ sonst falls", "+ sonst"]);
         ws.dispose();
     });
 
@@ -118,8 +151,7 @@ describe("Paket 1 mit Blockly", () => {
     test("Rückgängig nach einem Knopfdruck", async () => {
         // Blockly meldet Ereignisse erst im nächsten Bild (requestAnimationFrame)
         const settle = () => new Promise((r) => setTimeout(r, 250));
-        const ws = new Blockly.Workspace();
-        Blockly.serialization.workspaces.load(JavaBlockParser.parse(lines("if (a) {", "}")).state, ws);
+        const ws = loadFlexible(lines("if (a) {", "}"));   // umbaubare Form (mit Knöpfen)
         await settle();
         ws.clearUndo();
         press(blocksOf(ws, B.if)[0], "+ sonst");

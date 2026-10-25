@@ -224,7 +224,7 @@ export type BlockState = {
     fields?: { [name: string]: string };
     inputs?: { [name: string]: { block: BlockState } };
     next?: { block: BlockState };
-    extraState?: { code?: string; elseIfs?: number; hasElse?: boolean; items?: number; params?: Param[]; args?: number; override?: boolean; isPublic?: boolean; labels?: string[] };
+    extraState?: { code?: string; elseIfs?: number; hasElse?: boolean; fixed?: boolean; items?: number; params?: Param[]; args?: number; override?: boolean; isPublic?: boolean; labels?: string[] };
     deletable?: boolean;
 };
 

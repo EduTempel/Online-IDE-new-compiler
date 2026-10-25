@@ -77,6 +77,7 @@ export default {
             '/auth': 'http://' + serverIP + ':5500',
             '/start': 'http://' + serverIP + ':5500',    // Startseite
             '/s/': 'http://' + serverIP + ':5500',       // geteilte Links
+            '/flaci': 'http://' + serverIP + ':5500',    // Anwendung FLACI (vom Backend ausgeliefert)
             // Anwendung "Blöcke": relative Server-Aufrufe unter /bloecke/ ans Backend
             '/bloecke/servlet': { target: 'http://' + serverIP + ':5500', rewrite: (p: string) => p.replace(/^\/bloecke/, '') },
             '/bloecke/sendUpdates': { target: 'http://' + serverIP + ':5500', rewrite: (p: string) => p.replace(/^\/bloecke/, '') },

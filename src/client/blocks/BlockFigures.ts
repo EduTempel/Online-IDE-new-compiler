@@ -348,10 +348,10 @@ export function inputFlyout(ws: Blockly.WorkspaceSvg): Blockly.utils.toolbox.Fly
             kind: "block", type: B.forever, inputs: {
                 DO: {
                     block: {
-                        type: B.if, inputs: { COND: key("ArrowRight"), DO: move("5", "0") },
+                        type: B.if, extraState: { elseIfs: 0, hasElse: false, fixed: true }, inputs: { COND: key("ArrowRight"), DO: move("5", "0") },
                         next: {
                             block: {
-                                type: B.if, inputs: { COND: key("ArrowLeft"), DO: move("-5", "0") },
+                                type: B.if, extraState: { elseIfs: 0, hasElse: false, fixed: true }, inputs: { COND: key("ArrowLeft"), DO: move("-5", "0") },
                                 next: { block: { type: B.wait, inputs: { MS: num("20") } } },
                             },
                         },

@@ -183,6 +183,21 @@ export class RightDiv {
 
         this.outputTab.show();
 
+        // GSG: beim Programmstart die Ausgabe (Text und Grafikfenster) zeigen – sonst bleibt z. B. der Reiter
+        // "Aufgabe" vorn und das Grafikfenster unsichtbar. Ausnahme: Tracetabelle und Objekte (beim Beobachten).
+        const showOutputOnStart = () => {
+            const interpreter = this.main.getInterpreter?.();
+            if (!interpreter) {
+                setTimeout(showOutputOnStart, 500);   // die IDE legt den Interpreter erst später an
+                return;
+            }
+            interpreter.eventManager.on("start", () => {
+                const active = this.tabManager.tabs.find((t) => t.isActive());
+                if (active && active !== this.outputTab && !["Trace", "Objects"].includes(active.name)) this.outputTab.show();
+            });
+        };
+        showOutputOnStart();
+
         this.wholeWindowButton = new IconButtonComponent(this.tabManager.tabheadingRightDiv,
             ['img_whole-window-dark', 'img_whole-window-back-dark'], (event, state) => {
                 this.onWholeWindowButtonClicked(state);

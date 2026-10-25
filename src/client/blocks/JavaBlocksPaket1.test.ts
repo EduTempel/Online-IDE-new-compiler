@@ -38,7 +38,10 @@ describe("Paket 1: Steuerung", () => {
         expect(Object.keys(b.inputs!).sort()).toEqual(["COND", "COND1", "COND2", "DO", "DO1", "DO2", "ELSE"]);
         const simple = lines("if (a) {", "    println(1);", "}");
         expect(roundTrip(simple)).toBe(simple);
-        expect(body(simple)[0].extraState).toBeUndefined();
+        expect(body(simple)[0].extraState).toEqual({ elseIfs: 0, hasElse: false, fixed: true });   // feste Form
+        const withElse = lines("if (a) {", "    println(1);", "} else {", "    println(2);", "}");
+        expect(roundTrip(withElse)).toBe(withElse);
+        expect(body(withElse)[0].extraState).toEqual({ elseIfs: 0, hasElse: true, fixed: true });
     });
 
     test("Schleifen: fortlaufend, n-mal (auch geschachtelt), zählen auf- und absteigend", () => {

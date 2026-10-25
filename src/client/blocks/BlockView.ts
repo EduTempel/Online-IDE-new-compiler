@@ -16,6 +16,7 @@ import { adaptDeclarationValue, applyTypes, collectVariables, isHat, setExternal
 import { B, type WorkspaceState } from "./BlockTypes";
 import { JavaBlockGenerator } from "./JavaBlockGenerator";
 import { JavaBlockParser, type LineRange } from "./JavaBlockParser";
+import { Constants } from "../Constants";
 
 /**
  * Blockansicht einer Java-Datei: links die Blöcke (Blockly), rechts der daraus erzeugte
@@ -35,6 +36,7 @@ export class BlockView {
     private ws?: Blockly.WorkspaceSvg;
     private wsReadOnly = false;
     private wsDark = true;
+    private wsHidden = "";
 
     private file?: GUIFile;
     private model?: monaco.editor.ITextModel;
@@ -127,7 +129,10 @@ export class BlockView {
 
     show(file: GUIFile, readOnly: boolean) {
         const dark = this.main.themeManager?.currentTheme?.name !== "light";
-        if (!this.ws || this.wsReadOnly !== readOnly || this.wsDark !== dark) this.createWorkspace(readOnly, dark);
+        // neu aufbauen, wenn sich Ansicht, Thema oder die ausgeblendeten Kategorien (andere Anmeldung) geändert haben
+        if (!this.ws || this.wsReadOnly !== readOnly || this.wsDark !== dark || this.wsHidden !== this.hiddenCategories().join(",")) {
+            this.createWorkspace(readOnly, dark);
+        }
 
         if (this.file !== file) {
             this.modelListener?.dispose();
@@ -179,12 +184,20 @@ export class BlockView {
         return !!this.ws && this.ws.getTopBlocks(false).some((b) => !isHat(b));
     }
 
+    /** In der Anwendung "Blöcke": Kategorien, die die Lerngruppe ausgeblendet hat (Verwaltung → Freigaben) */
+    private hiddenCategories(): string[] {
+        if (!Constants.isBlocksApp) return [];
+        const hidden = (this.main.user as { gsgFreigaben?: { bloeckeAusgeblendet?: unknown } } | undefined)?.gsgFreigaben?.bloeckeAusgeblendet;
+        return Array.isArray(hidden) ? hidden.filter((h): h is string => typeof h === "string") : [];
+    }
+
     private createWorkspace(readOnly: boolean, dark: boolean) {
         this.ws?.dispose();
         this.wsReadOnly = readOnly;
         this.wsDark = dark;
+        this.wsHidden = this.hiddenCategories().join(",");
         this.ws = Blockly.inject(this.blocklyDiv, {
-            toolbox: readOnly ? undefined : toolbox(),
+            toolbox: readOnly ? undefined : toolbox(this.hiddenCategories()),
             readOnly,
             theme: theme(dark),
             renderer: "gsg",
