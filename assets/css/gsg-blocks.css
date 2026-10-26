@@ -239,3 +239,19 @@
     display: flex;
     flex-direction: column;
 }
+
+/* Meldung nach „Als Bild kopieren“ (BlockImage.ts) */
+.gsg-block-note {
+    position: fixed;
+    left: 50%;
+    bottom: 32px;
+    transform: translateX(-50%);
+    z-index: 100000;
+    padding: 8px 16px;
+    border-radius: 8px;
+    background: rgba(30, 30, 30, .92);
+    color: #fff;
+    font: 14px/1.3 system-ui, "Segoe UI", sans-serif;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .35);
+    pointer-events: none;
+}

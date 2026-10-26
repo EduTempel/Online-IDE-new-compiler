@@ -46,6 +46,26 @@ export async function createFile(main: Main, name: string, text: string, folderI
     return file;
 }
 
+/**
+ * Bibliotheken im Projekt einschalten (wie im Dialog "Einstellungen"), z. B. "niedersachsen" für die
+ * Abiturklassen. Gibt zurück, ob sich etwas geändert hat.
+ */
+export function ensureLibraries(main: Main, ids: readonly string[]): boolean {
+    const workspace = main.getCurrentWorkspace();
+    if (!workspace) return false;
+    const libraries = workspace.settings.libraries ?? (workspace.settings.libraries = []);
+    const missing = ids.filter((id) => !libraries.includes(id));
+    if (!missing.length) return false;
+    libraries.push(...missing);
+    workspace.saved = false;
+    const compiler = main.getCompiler();
+    workspace.getFiles().forEach((f) => compiler.setFileDirty(f));
+    workspace.setLibraries(compiler);
+    compiler.triggerCompile();
+    main.networkManager.sendUpdatesAsync(true);
+    return true;
+}
+
 /** Text einer vorhandenen Datei ersetzen (wird gespeichert) */
 export function replaceText(main: Main, file: GUIFile, text: string) {
     file.setText(text);

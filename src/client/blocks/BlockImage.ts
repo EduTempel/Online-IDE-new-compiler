@@ -1,10 +1,11 @@
 import * as Blockly from "blockly/core";
 
 /**
- * Blöcke als Bild speichern (Rechtsklick): PNG mit durchsichtigem Hintergrund, z. B. für Arbeitsblätter.
+ * Blöcke als Bild speichern oder kopieren (Rechtsklick): PNG mit durchsichtigem Hintergrund, z. B. für Arbeitsblätter.
  *  - Rechtsklick auf die Arbeitsfläche: alle Blöcke
  *  - Rechtsklick auf einen Block: dieser Block mit allem, was darin und darunter hängt
  *    (auf „Hauptprogramm“ also das ganze Programm)
+ *  - „kopieren“ legt das Bild in die Zwischenablage (wie in Scratch), zum Einfügen in Word, OneNote, Moodle …
  *
  * Vorgehen: SVG-Gruppe der Blöcke klonen, die berechneten Stile (Farben, Schrift) direkt an jedes Element
  * schreiben (damit das Bild ohne die Stylesheets der Seite gleich aussieht), Bilder in Blöcken als data:-Adresse
@@ -25,6 +26,15 @@ const STYLE_PROPS = [
 
 const ID_WORKSPACE = "gsg_save_image_workspace";
 const ID_BLOCK = "gsg_save_image_block";
+const ID_COPY_WORKSPACE = "gsg_copy_image_workspace";
+const ID_COPY_BLOCK = "gsg_copy_image_block";
+
+/** Kann der Browser Bilder in die Zwischenablage legen? (nur über https bzw. localhost) */
+export function canCopyImage(): boolean {
+    return typeof ClipboardItem !== "undefined" && !!navigator.clipboard?.write && window.isSecureContext;
+}
+
+const isProgram = (b: Blockly.BlockSvg) => !b.previousConnection && !b.outputConnection;
 
 /** Kontextmenüs einmal anmelden; fileName liefert den Namen der geöffneten Datei (für den Dateinamen) */
 export function registerBlockImageMenu(fileName: () => string | undefined) {
@@ -43,13 +53,56 @@ export function registerBlockImageMenu(fileName: () => string | undefined) {
         registry.register({
             id: ID_BLOCK,
             scopeType: Blockly.ContextMenuRegistry.ScopeType.BLOCK,
-            displayText: (scope) => (scope.block && !scope.block.previousConnection && !scope.block.outputConnection
+            displayText: (scope) => (scope.block && isProgram(scope.block)
                 ? "Programm als Bild speichern (PNG)" : "Als Bild speichern (PNG, mit allem darunter)"),
             preconditionFn: (scope) => (scope.block && !scope.block.isInFlyout ? "enabled" : "hidden"),
             callback: (scope) => { if (scope.block) void saveAsPng(scope.block.workspace as Blockly.WorkspaceSvg, scope.block, fileName()); },
             weight: 100,
         });
     }
+    if (!registry.getItem(ID_COPY_WORKSPACE)) {
+        registry.register({
+            id: ID_COPY_WORKSPACE,
+            scopeType: Blockly.ContextMenuRegistry.ScopeType.WORKSPACE,
+            displayText: "Alle Blöcke als Bild kopieren",
+            preconditionFn: (scope) => (canCopyImage() && scope.workspace && !scope.workspace.isFlyout && scope.workspace.getTopBlocks(false).length > 0 ? "enabled" : "hidden"),
+            callback: (scope) => { if (scope.workspace) void copyPng(scope.workspace, null); },
+            weight: 101,
+        });
+    }
+    if (!registry.getItem(ID_COPY_BLOCK)) {
+        registry.register({
+            id: ID_COPY_BLOCK,
+            scopeType: Blockly.ContextMenuRegistry.ScopeType.BLOCK,
+            displayText: (scope) => (scope.block && isProgram(scope.block) ? "Programm als Bild kopieren" : "Als Bild kopieren (mit allem darunter)"),
+            preconditionFn: (scope) => (canCopyImage() && scope.block && !scope.block.isInFlyout ? "enabled" : "hidden"),
+            callback: (scope) => { if (scope.block) void copyPng(scope.block.workspace as Blockly.WorkspaceSvg, scope.block); },
+            weight: 101,
+        });
+    }
+}
+
+/** Bild in die Zwischenablage legen (ClipboardItem mit Promise: Safari verlangt den Aufruf direkt beim Klick) */
+async function copyPng(ws: Blockly.WorkspaceSvg, block: Blockly.BlockSvg | null) {
+    try {
+        await navigator.clipboard.write([new ClipboardItem({ "image/png": blocksToPng(ws, block) })]);
+        showNote("Bild in die Zwischenablage kopiert – mit Strg+V einfügen.");
+    } catch (e) {
+        console.error(e);
+        alert("Das Bild konnte nicht in die Zwischenablage gelegt werden: " + (e instanceof Error ? e.message : String(e))
+            + "\nBitte stattdessen „Als Bild speichern“ verwenden.");
+    }
+}
+
+/** kurze Meldung unten in der Mitte, verschwindet von selbst */
+function showNote(text: string) {
+    document.querySelector(".gsg-block-note")?.remove();
+    const note = document.createElement("div");
+    note.className = "gsg-block-note";
+    note.setAttribute("role", "status");
+    note.textContent = text;
+    document.body.append(note);
+    setTimeout(() => note.remove(), 2500);
 }
 
 async function saveAsPng(ws: Blockly.WorkspaceSvg, block: Blockly.BlockSvg | null, fileName: string | undefined) {

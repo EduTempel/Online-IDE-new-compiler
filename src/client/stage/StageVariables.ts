@@ -1,12 +1,12 @@
 import type { MainBase } from "../main/MainBase";
-import { captureCurrentFrame } from "../objects/HeapCapture";
-import { render, snapshot } from "../trace/TraceData";
+import { StageVariableTracker } from "./StageVariableTracker";
 import "/assets/css/gsg-stage.css";
 
 /**
- * Variablen auf der Bühne (wie die Variablenanzeigen in Scratch): Kästchen „name: wert“ über dem
- * Grafikfenster bzw. der Ausgabe, die sich während des Programmlaufs aktualisieren.
- *  - Knopf „Variablen“ oben rechts in der Ausgabe schaltet die Anzeige ein und aus
+ * Variablen auf der Bühne (wie die Variablenanzeigen in Scratch): Kästchen „name: wert“ in einer Leiste
+ * unter dem Grafikfenster (über der Textausgabe), die sich während des Programmlaufs aktualisieren –
+ * so wird auf der Bühne nichts verdeckt. Ohne Bühne (Programm ohne Grafik) gibt es die Leiste nicht.
+ *  - Knopf „Variablen“ rechts in der Leiste schaltet die Anzeige ein und aus
  *  - „Auswahl“ in der Anzeige: einzelne Variablen ab- und anhaken
  * Gezeigt werden die Variablen des Hauptprogramms (auch während eine Operation läuft).
  * Einstellungen bleiben im Browser (localStorage).
@@ -15,9 +15,6 @@ import "/assets/css/gsg-stage.css";
 const KEY_ON = "gsg-stage-variables";
 const KEY_HIDDEN = "gsg-stage-variables-hidden";
 const INTERVAL_MS = 200;
-const MAX_TEXT = 80;
-
-type Monitor = { name: string; text: string };
 
 function load<T>(key: string, fallback: T): T {
     try {
@@ -39,20 +36,9 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: 
     return e;
 }
 
-/** Wert für die Anzeige: Kommazahlen mit Nachkommastelle, lange Texte gekürzt */
-export function monitorText(value: unknown, type?: string): string {
-    const float = type === "double" || type === "float" || type === "Double";
-    let v = snapshot(value);
-    // char wird als Zahl (Zeichencode) gespeichert
-    if ((type === "char" || type === "Character") && typeof v === "number") v = String.fromCharCode(v);
-    const text = render(v, float);
-    return text.length > MAX_TEXT ? text.slice(0, MAX_TEXT - 1) + "…" : text;
-}
-
 export function addStageVariables(main: MainBase, outputBody: HTMLElement) {
     let on = load<boolean>(KEY_ON, false);
     const hidden = new Set<string>(load<string[]>(KEY_HIDDEN, []));
-    let monitors: Monitor[] = [];
     let known: string[] = [];
     let chooserOpen = false;
 
@@ -66,9 +52,16 @@ export function addStageVariables(main: MainBase, outputBody: HTMLElement) {
     chooseButton.title = "Variablen ab- oder anhaken";
     const chooser = el("div", "gsg-stage-chooser");
     panel.append(list, chooseButton, chooser);
-    outputBody.append(toggle);
-    // über Grafikfenster und Ausgabe
-    (outputBody.querySelector(".jo_run-inner") ?? outputBody).append(panel);
+    const bar = el("div", "gsg-stage-bar");
+    bar.append(panel, toggle);
+    // zwischen Grafikfenster und Textausgabe
+    const graphics = outputBody.querySelector<HTMLElement>(".jo_graphics");
+    if (!graphics) return;   // ohne Grafikfenster keine Bühne
+    graphics.after(bar);
+    // nur, wenn es eine Bühne gibt (Grafikfenster ohne Grafik hat die Höhe 0)
+    const showBar = () => { bar.hidden = graphics.getBoundingClientRect().height < 1; };
+    new ResizeObserver(showBar).observe(graphics);
+    showBar();
 
     function renderChooser() {
         chooser.replaceChildren();
@@ -94,6 +87,7 @@ export function addStageVariables(main: MainBase, outputBody: HTMLElement) {
     }
 
     function renderList() {
+        const monitors = tracker.monitors;
         const shown = monitors.filter((m) => !hidden.has(m.name));
         list.replaceChildren(...shown.map((m) => {
             const box = el("div", "gsg-stage-monitor");
@@ -103,34 +97,34 @@ export function addStageVariables(main: MainBase, outputBody: HTMLElement) {
         if (shown.length === 0) list.append(el("div", "gsg-stage-empty", monitors.length ? "Alle Variablen abgewählt." : "Variablen erscheinen beim Programmlauf."));
     }
 
-    function update() {
-        panel.hidden = !on;
-        toggle.classList.toggle("active", on);
+    // neue Werte: Liste neu zeichnen, bei neuen Namen auch die Auswahl
+    const tracker = new StageVariableTracker(() => {
         if (!on) return;
-        const interpreter = main.getInterpreter?.();
-        let capture;
-        try {
-            capture = interpreter ? captureCurrentFrame(interpreter, "main") : undefined;
-        } catch {
-            capture = undefined;   // während des Übersetzens / Startens
-        }
-        if (!capture) return;   // Programm beendet: letzte Werte stehen lassen
-        const next = capture.roots.filter((r) => r.name !== "this").map((r) => ({ name: r.name, text: monitorText(r.value, r.type) }));
-        const changed = next.length !== monitors.length || next.some((m, i) => m.name !== monitors[i].name || m.text !== monitors[i].text);
-        if (!changed) return;
-        monitors = next;
-        const names = next.map((m) => m.name);
-        if (names.join("\n") !== known.join("\n")) {
+        const names = tracker.monitors.map((m) => m.name);
+        // Auswahl behält die Namen des letzten Laufs, bis neue kommen
+        if (names.length && names.join("|") !== known.join("|")) {
             known = names;
             renderChooser();
         }
         renderList();
+    }, () => (main as { getCurrentWorkspace?: () => { getCurrentlyEditedModule?: () => unknown } | undefined }).getCurrentWorkspace?.()?.getCurrentlyEditedModule?.());
+
+    function update() {
+        panel.hidden = !on;
+        toggle.classList.toggle("active", on);
+        const interpreter = main.getInterpreter?.();
+        if (!interpreter) return;
+        tracker.attach(interpreter);   // Start und Ende des Programms bekommt die Anzeige als Ereignis mit
+        if (on) tracker.poll(interpreter);
     }
 
     toggle.addEventListener("click", () => {
         on = !on;
         store(KEY_ON, on);
         update();
+        known = tracker.monitors.length ? tracker.monitors.map((m) => m.name) : known;
+        renderChooser();
+        renderList();
     });
     chooseButton.addEventListener("click", () => {
         chooserOpen = !chooserOpen;

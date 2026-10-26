@@ -14,6 +14,7 @@ import { MainEmbedded } from '../../embedded/MainEmbedded.js';
 import { MemoryTab } from '../../../compiler/assembly/debugger/MemoryTab.js';
 import { addStructogramTab } from '../../structogram/StructogramTab.js';
 import { addTaskTab } from '../../task/TaskTab.js';
+import { addHandbookTab } from '../../handbook/HandbookTab.js';
 import { addTraceTab } from '../../trace/TraceTab.js';
 import { addObjectsTab } from '../../objects/ObjectsTab.js';
 import { addStageVariables } from '../../stage/StageVariables.js';
@@ -182,6 +183,7 @@ export class RightDiv {
             try {
                 addStructogramTab(this.main, this.tabManager);
                 addTaskTab(this.main, this.tabManager);   // GSG: Aufgabenstellung mit Hilfen
+                addHandbookTab(this.main, this.tabManager); // GSG: Handbuch (Beispiele zu Blöcken und Java)
                 addTraceTab(this.main, this.tabManager);  // GSG: Tracetabelle
                 addObjectsTab(this.main, this.tabManager); // GSG: Objektdiagramm, Zurückblättern, Zeitlupe
             } catch (e) {

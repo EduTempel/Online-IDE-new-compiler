@@ -11,14 +11,49 @@ import type { RootVariable } from "./HeapSnapshot";
  * Debuggers: lokale Variablen und Parameter der aktuellen Operation, this, Variablen des Hauptprogramms.
  */
 
-type Pos = { lineNumber: number; column: number };
+export type Pos = { lineNumber: number; column: number };
 
 function declaredBefore(range: { endLineNumber: number; endColumn: number } | undefined, pos: Pos): boolean {
     if (!range) return true;
     return range.endLineNumber < pos.lineNumber || (range.endLineNumber === pos.lineNumber && range.endColumn < pos.column);
 }
 
-export type Capture = { roots: RootVariable[]; position?: ProgramPointerPositionInfo; method: string; line?: number };
+/** mainClass/pos: Hauptklasse und Stelle, falls der Rahmen zum Hauptprogramm gehört (für die Bühnenanzeige) */
+export type Capture = { roots: RootVariable[]; position?: ProgramPointerPositionInfo; method: string; line?: number; mainClass?: unknown; pos?: Pos };
+
+type MainClass = { identifier: string; getFields(): any[] };
+
+/** Variablen des Hauptprogramms = statische Attribute der Hauptklasse; mit pos nur die bis dorthin deklarierten */
+function addMainClassFields(interpreter: Interpreter, cls: MainClass, pos: Pos | undefined, add: (name: string, value: unknown, type: unknown) => void) {
+    const klass = interpreter.scheduler.classObjectRegistry[cls.identifier];
+    for (const field of cls.getFields()) {
+        if (!field.isStatic?.() || field.hiddenWhenDebugging) continue;
+        if (pos && !declaredBefore(field.identifierRange, pos)) continue;
+        add(field.identifier, klass?.[field.getInternalName()], field.type);
+    }
+}
+
+/**
+ * Variablen des Hauptprogramms auch dann, wenn es nicht mehr läuft (Programmende, Ausnahme) oder
+ * nur noch Figuren/Timer laufen: Werte stehen in den statischen Attributen der Hauptklasse.
+ */
+export function captureMainClassFields(interpreter: Interpreter, mainClass: unknown, pos?: Pos): RootVariable[] {
+    const roots: RootVariable[] = [];
+    addMainClassFields(interpreter, mainClass as MainClass, pos,
+        (name, value, type) => roots.push({ name, value, type: (type as { identifier?: string } | undefined)?.identifier }));
+    return roots;
+}
+
+/** läuft das Hauptprogramm noch (sein Thread existiert, evtl. wartend)? Sonst laufen höchstens Figuren/Timer. */
+export function mainProgramRunning(interpreter: Interpreter): boolean {
+    return interpreter.scheduler.getAllThreads().some((t) => /main/i.test(t.name) && t.programStack.some((p) => !p.program?.isReplProgram));
+}
+
+/** Hauptklasse des Moduls, das beim Start ausgeführt wird */
+export function startedMainClass(interpreter: Interpreter, suggestedModule?: unknown): unknown {
+    const module = interpreter.executable?.findStartableModule(suggestedModule as never) as { mainClass?: { resolvedType?: unknown } } | null | undefined;
+    return module?.mainClass?.resolvedType;
+}
 
 /**
  * frame "top": aktuelle Operation (Objektdiagramm beim Anhalten);
@@ -49,6 +84,7 @@ export function captureCurrentFrame(interpreter: Interpreter, frame: "top" | "ma
 
     const roots: RootVariable[] = [];
     const seen = new Set<string>();
+    let mainClass: unknown;
     const add = (name: string, value: unknown, type: unknown) => {
         const i = roots.findIndex((r) => r.name === name);
         const t = (type as { identifier?: string } | undefined)?.identifier;
@@ -62,12 +98,8 @@ export function captureCurrentFrame(interpreter: Interpreter, frame: "top" | "ma
         if (table instanceof JavaSymbolTable) {
             const cls = table.classContext instanceof StaticNonPrimitiveType ? table.classContext.nonPrimitiveType : table.classContext;
             if (cls && (cls as { isMainClass?: boolean }).isMainClass && table.classContext !== table.parent?.classContext) {
-                const klass = interpreter.scheduler.classObjectRegistry[(cls as { identifier: string }).identifier];
-                for (const field of (cls as { getFields(): any[] }).getFields()) {
-                    if (!field.isStatic?.() || field.hiddenWhenDebugging) continue;
-                    if (!declaredBefore(field.identifierRange, pos)) continue;
-                    add(field.identifier, klass?.[field.getInternalName()], field.type);
-                }
+                mainClass = cls;
+                addMainClassFields(interpreter, cls as MainClass, pos, add);
             }
         }
         for (const symbol of table.getSymbolsOnStackframeForDebugger()) {
@@ -83,5 +115,5 @@ export function captureCurrentFrame(interpreter: Interpreter, frame: "top" | "ma
         .replace(/\d*\./g, ".").replaceAll("$", "").replace(/^\./, "")
         .replace(/^MainClass\./, "");   // Operationen des Hauptprogramms ohne Klassennamen
     if (method === "main" || method === "") method = "Hauptprogramm";
-    return { roots, position: interpreter.scheduler.getNextStepPosition(thread), method, line: range?.startLineNumber };
+    return { roots, position: interpreter.scheduler.getNextStepPosition(thread), method, line: range?.startLineNumber, mainClass, pos };
 }

@@ -129,6 +129,24 @@ export class BlockModeController {
         editor.show(file, !!workspace?.readonly && !this.main.user?.is_teacher);
     }
 
+    /** aktuelle Ansicht (für das Handbuch: Blöcke oder Java zuerst zeigen) */
+    getMode(): Mode {
+        return this.mode;
+    }
+
+    /** darf die Java-Ansicht nicht geöffnet werden? (dann zeigt das Handbuch nur die Blöcke) */
+    isJavaLocked(): boolean {
+        return this.javaLocked();
+    }
+
+    /** Ansicht für eine Datei festlegen (Handbuch „Ausprobieren“: Beispiel so zeigen, wie es im Handbuch stand) */
+    useMode(file: GUIFile, mode: Mode) {
+        if (mode === "java" && this.javaLocked()) return;
+        this.chosenMode.set(file, mode);
+        // die neue Datei ist beim Öffnen evtl. noch nicht erkannt worden: Ansicht neu bestimmen
+        this.refresh();
+    }
+
     /** Neue Datei im Editor (oder Einstellungen geändert): passende Ansicht wählen */
     refresh() {
         const structFile = this.currentStructogramFile();

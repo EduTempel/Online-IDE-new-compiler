@@ -18,6 +18,8 @@ import { JavaBlockGenerator } from "./JavaBlockGenerator";
 import { JavaBlockParser, type LineRange } from "./JavaBlockParser";
 import { Constants } from "../Constants";
 import { registerBlockImageMenu } from "./BlockImage";
+import { registerBlockHelpMenu } from "./BlockHelp";
+import { ensureLibraries } from "../structogram/ProjectFiles";
 
 /**
  * Blockansicht einer Java-Datei: links die Blöcke (Blockly), rechts der daraus erzeugte
@@ -65,6 +67,7 @@ export class BlockView {
         defineBlocks();
         registerRenderer();
         registerBlockImageMenu(() => this.file?.name);   // Rechtsklick: Blöcke als Bild speichern
+        registerBlockHelpMenu();                         // Rechtsklick: Hilfe (Handbuch)
 
         host.innerHTML = "";
         const area = document.createElement("div");
@@ -198,6 +201,9 @@ export class BlockView {
         this.wsReadOnly = readOnly;
         this.wsDark = dark;
         this.wsHidden = this.hiddenCategories().join(",");
+        // Rechtsklick-Menüs, Auswahllisten und Tooltips an die Seite hängen statt in die Blockfläche:
+        // sonst schneidet die Fläche sie an ihrem Rand ab (schmale Fenster). Muss vor dem ersten inject stehen.
+        if (Blockly.common.getParentContainer() !== document.body) Blockly.common.setParentContainer(document.body);
         this.ws = Blockly.inject(this.blocklyDiv, {
             toolbox: readOnly ? undefined : toolbox(this.hiddenCategories()),
             readOnly,
@@ -457,17 +463,7 @@ export class BlockView {
      * Niedersachsen" für die dynamische Reihung (DynArray).
      */
     private ensureLibrary(id: string) {
-        const workspace = this.main.getCurrentWorkspace();
-        if (!workspace) return;
-        const libraries = workspace.settings.libraries ?? (workspace.settings.libraries = []);
-        if (libraries.includes(id)) return;
-        libraries.push(id);
-        workspace.saved = false;
-        const compiler = this.main.getCompiler();
-        workspace.getFiles().forEach((f) => compiler.setFileDirty(f));
-        workspace.setLibraries(compiler);
-        compiler.triggerCompile();
-        this.main.networkManager.sendUpdatesAsync(true);
+        ensureLibraries(this.main, [id]);
     }
 
     // ------------------------------------------------------------------ Java-Vorschau

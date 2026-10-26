@@ -1,4 +1,5 @@
 import { Main } from "../Main.js";
+import { openHandbook } from "../../handbook/Handbook.js";
 import { UserData, type GetSingleUseSessionTokenResponse } from "../../communication/Data.js";
 import { PasswordChanger } from "./UserMenu.js";
 import { ajaxAsync, csrfToken, SINGLEUSETOKEN } from "../../communication/AjaxHelper.js";
@@ -231,6 +232,8 @@ export class MainMenu {
                         ]
                     }
                 },
+                // GSG: Handbuch mit Beispielen zu Blöcken und Java (Reiter rechts)
+                { identifier: "Handbuch", action: () => { openHandbook(); } },
                 {
                     identifier: GuiMessages.Help(), subMenu:
                     {
