@@ -19,6 +19,11 @@ describe("Struktogramm -> Java", () => {
         expect(javaType("stat. Reihung vom Inhaltstyp Zeichenkette")).toBe("String[]");
         expect(javaType("Liste vom Inhaltstyp Ganzzahl")).toBe("ArrayList<Integer>");
         expect(javaType("dynamische Reihung vom Inhaltstyp Pixel")).toBe("DynArray");
+        expect(javaType("statische Reihung vom Inhaltstyp Hund")).toBe("Hund[]");
+        expect(javaType("statische zweidimensionale Reihung vom Inhaltstyp Zeichen")).toBe("char[][]");
+        expect(javaType("Stapel vom Inhaltstyp Objekt")).toBe("Stack");
+        expect(ex("statische Reihung der Länge 5 vom Inhaltstyp Fließkommazahl")).toBe("new double[5]");
+        expect(ex("statische zweidimensionale Reihung mit 2 Zeilen und 3 Spalten vom Inhaltstyp Ganzzahl")).toBe("new int[2][3]");
         expect(parseSignature("minimum(a, b: Fließkommazahl): Fließkommazahl"))
             .toEqual({ kind: "method", name: "minimum", params: [{ name: "a", type: "double" }, { name: "b", type: "double" }], ret: "double" });
         expect(parseSignature("Hauptprogramm")).toEqual({ kind: "main" });

@@ -29,34 +29,113 @@ export type Diagram = { title: string; group?: string; body: SNode[] };
 
 // ------------------------------------------------------------------ Datentypen
 
+// Typnamen der Ergänzenden Hinweise (Abschnitte 4–6): Ganzzahl, Fließkommazahl, Zeichenkette, Wahrheitswert …
 const TYPE_DE: Record<string, string> = {
-    int: "Ganzzahl", double: "Fließkommazahl", String: "Zeichenkette", boolean: "Wahrheitswert", char: "Zeichen",
-    Integer: "Ganzzahl", Double: "Fließkommazahl", Boolean: "Wahrheitswert", Character: "Zeichen", Object: "Objekt",
+    int: "Ganzzahl", long: "Ganzzahl", short: "Ganzzahl", byte: "Ganzzahl",
+    double: "Fließkommazahl", float: "Fließkommazahl",
+    String: "Zeichenkette", boolean: "Wahrheitswert", char: "Zeichen",
+    Integer: "Ganzzahl", Long: "Ganzzahl", Short: "Ganzzahl", Byte: "Ganzzahl",
+    Double: "Fließkommazahl", Float: "Fließkommazahl", Boolean: "Wahrheitswert", Character: "Zeichen", Object: "Objekt",
 };
 
-/** Datentyp in der Schreibweise der Hinweise: Ganzzahl, stat. Reihung vom Inhaltstyp Zeichenkette … */
-export function typeDe(t: string): string {
+/** Abiturklassen Niedersachsen: dynamische Reihung, Stapel, Schlange, Binärbaum */
+const ADT_DE: Record<string, string> = { DynArray: "dynamische Reihung", Stack: "Stapel", Queue: "Schlange", BinTree: "Binärbaum" };
+
+/** Anlegen einer leeren dynamischen Reihung, eines Stapels, einer Schlange (ohne Inhaltstyp) */
+const ADT_NEW: Record<string, string> = { DynArray: "leere dynamische Reihung", Stack: "leerer Stapel", Queue: "leere Schlange" };
+
+/**
+ * Datentyp in der Schreibweise der Hinweise: Ganzzahl, statische Reihung vom Inhaltstyp Zeichenkette,
+ * dynamische Reihung vom Inhaltstyp Ganzzahl … Inhaltstypen können einfache Typen oder Klassen sein.
+ * content: Inhaltstyp bei dynamischer Reihung, Stapel, Schlange, Binärbaum – in Java ohne Typangabe,
+ * daher aus der Verwendung abgeleitet; unbekannt = Objekt.
+ */
+export function typeDe(t: string, content?: string): string {
     const info = typeInfo(t);
     const elem = TYPE_DE[info.elem] ?? info.elem;
     switch (info.kind) {
-        case "array": return `stat. Reihung vom Inhaltstyp ${elem}`;
-        case "array2d": return `zweidim. stat. Reihung vom Inhaltstyp ${elem}`;
+        case "array": return `statische Reihung vom Inhaltstyp ${elem}`;
+        case "array2d": return `statische zweidimensionale Reihung vom Inhaltstyp ${elem}`;
         case "list": return `Liste vom Inhaltstyp ${elem}`;
-        case "dyn": return "dynamische Reihung";
     }
+    const adt = ADT_DE[t.trim()];
+    if (adt) return `${adt} vom Inhaltstyp ${typeDe(content ?? "Object")}`;
     return TYPE_DE[t] ?? t;
 }
 
-/** Signatur: name(a, b: Ganzzahl, s: Zeichenkette): Wahrheitswert (gleiche Typen zusammengefasst) */
-export function signature(name: string, params: { name: string; type: string }[], ret?: string): string {
+/**
+ * Signatur: name(a, b: Ganzzahl, s: Zeichenkette): Wahrheitswert (gleiche Typen zusammengefasst).
+ * contents: Inhaltstypen von dynamischen Reihungen, Stapeln … je Name; "" = Rückgabe.
+ */
+export function signature(name: string, params: { name: string; type: string }[], ret?: string, contents?: Map<string, string>): string {
     const groups: { names: string[]; type: string }[] = [];
     for (const p of params) {
+        const type = typeDe(p.type, contents?.get(p.name));
         const last = groups[groups.length - 1];
-        if (last && last.type === p.type) last.names.push(p.name);
-        else groups.push({ names: [p.name], type: p.type });
+        if (last && last.type === type) last.names.push(p.name);
+        else groups.push({ names: [p.name], type });
     }
-    const list = groups.map((g) => `${g.names.join(", ")}: ${typeDe(g.type)}`).join(", ");
-    return `${name}(${list})${ret && ret !== "void" ? ": " + typeDe(ret) : ""}`;
+    const list = groups.map((g) => `${g.names.join(", ")}: ${g.type}`).join(", ");
+    return `${name}(${list})${ret && ret !== "void" ? ": " + typeDe(ret, contents?.get("")) : ""}`;
+}
+
+const ADT_READS = new Set<string>([B.dynGet, B.stackGet, B.queueGet, B.treeItem]);
+const ADT_WRITES = new Set<string>([B.dynAppend, B.dynInsert, B.dynSet, B.stackPush, B.queueEnqueue, B.treeSetItem, B.treeNew]);
+
+/**
+ * Inhaltstypen von dynamischen Reihungen, Stapeln, Schlangen und Binärbäumen (in Java ohne Typangabe)
+ * aus ihrer Verwendung: Typumwandlung beim Lesen ((int) d.getItem(0)), sonst die Werte beim Einfügen.
+ * Nur eindeutige Ergebnisse. Schlüssel "" = Inhaltstyp der Rückgabe (gib d zurück; outer: z. B. Attribute).
+ */
+export function contentTypes(roots: (BlockState | undefined)[], declared: { name: string; type: string }[] = [],
+                             outer?: Map<string, string>): Map<string, string> {
+    const types = new Map<string, string>(declared.map((d) => [d.name, d.type]));
+    const reads = new Map<string, Set<string>>(), writes = new Map<string, Set<string>>();
+    const returned = new Set<string>();
+    const note = (m: Map<string, Set<string>>, name: string | undefined, t: string | undefined) => {
+        if (!name || !t || t === "Object") return;
+        if (!m.has(name)) m.set(name, new Set());
+        m.get(name)!.add(t);
+    };
+    const each = (b: BlockState | undefined, f: (b: BlockState) => void) => {
+        for (; b; b = b.next?.block) {
+            f(b);
+            for (const i of Object.values(b.inputs ?? {})) each(i?.block, f);
+        }
+    };
+    // Variablen mit Typ (für Werte wie d.append(x))
+    for (const r of roots) each(r, (b) => {
+        if (b.type === B.varDeclare && b.fields?.NAME) types.set(b.fields.NAME, b.fields.TYPE ?? "int");
+        if (b.type === B.for && b.fields?.VAR) types.set(b.fields.VAR, "int");
+    });
+    const valueType = (v: BlockState | undefined): string | undefined => {
+        if (!v) return undefined;
+        const f = v.fields ?? {};
+        switch (v.type) {
+            case B.number: return /[.eE]/.test(f.NUM ?? "") ? "double" : "int";
+            case B.text: return "String";
+            case B.char: return "char";
+            case B.bool: return "boolean";
+            case B.varGet: return types.get(f.NAME ?? "");
+            case B.objNew: return f.CLASS;
+        }
+        return ADT_READS.has(v.type) ? f.TYPE : undefined;
+    };
+    for (const r of roots) each(r, (b) => {
+        const name = b.fields?.NAME;
+        if (ADT_READS.has(b.type)) note(reads, name, b.fields?.TYPE);
+        if (ADT_WRITES.has(b.type)) note(writes, name, valueType(b.inputs?.V?.block));
+        if (b.type === B.return && b.inputs?.VALUE?.block?.type === B.varGet) returned.add(b.inputs.VALUE.block.fields?.NAME ?? "");
+    });
+    const result = new Map<string, string>();
+    for (const name of new Set([...reads.keys(), ...writes.keys()])) {
+        const r = reads.get(name), w = writes.get(name);
+        const t = r?.size === 1 ? [...r][0] : !r && w?.size === 1 ? [...w][0] : undefined;
+        if (t) result.set(name, t);
+    }
+    const ret = new Set([...returned].map((n) => result.get(n) ?? outer?.get(n)).filter((t): t is string => !!t));
+    if (ret.size === 1) result.set("", [...ret][0]);
+    return result;
 }
 
 // ------------------------------------------------------------------ Ausdrücke
@@ -203,7 +282,14 @@ class Expr {
             case B.treeTest: return [`${name} ist ein Blatt`, P.EQ];
             case B.thisValue: return ["this", P.ATOM];
             case B.thisAttrGet: return [`this.${name}`, P.ATOM];
-            case B.objNew: return [`erzeuge ${f.CLASS}${this.args(b)}`, P.NONE];
+            case B.objNew: {
+                // Abiturklassen mit den Wendungen der Hinweise (auch bei Zuweisungen an Attribute)
+                const n = b.extraState?.args ?? 0;
+                const adt = ({ DynArray: "leere dynamische Reihung", Stack: "leerer Stapel", Queue: "leere Schlange", BinTree: "neuer Binärbaum" } as Record<string, string>)[f.CLASS ?? ""];
+                if (adt && n === 0) return [adt, P.NONE];
+                if (f.CLASS === "BinTree" && n === 1) return [`neuer Binärbaum mit Inhalt ${this.input(b, "ARG0", P.ATOM)}`, P.NONE];
+                return [`erzeuge ${f.CLASS}${this.args(b)}`, P.NONE];
+            }
             case B.objCallExpr: return [`${this.input(b, "OBJ", P.ATOM)}.${f.METHOD}${this.args(b)}`, P.ATOM];
             case B.objAttrGet: return [`${this.input(b, "OBJ", P.ATOM)}.${f.ATTR}`, P.ATOM];
             case B.superMethodCallExpr: return [`super.${f.METHOD}${this.args(b)}`, P.ATOM];
@@ -227,8 +313,20 @@ class Converter {
     private types = new Map<string, string>();
     private e = new Expr(this.types);
 
-    constructor(params: { name: string; type: string }[] = [], attributes: { name: string; type: string }[] = []) {
+    constructor(params: { name: string; type: string }[] = [], attributes: { name: string; type: string }[] = [],
+                private contents = new Map<string, string>()) {
         for (const p of [...attributes, ...params]) this.types.set(p.name, p.type);
+    }
+
+    /** " vom Inhaltstyp …" für dynamische Reihung, Stapel, Schlange (unbekannt: Objekt) */
+    private content(name: string): string {
+        return ` vom Inhaltstyp ${typeDe(this.contents.get(name) ?? "Object")}`;
+    }
+
+    /** Wert einer Zuweisung; new DynArray() usw. als „leere dynamische Reihung vom Inhaltstyp …“ */
+    private assigned(name: string, value: BlockState | undefined): string {
+        const cls = value?.type === B.objNew && !value.extraState?.args ? value.fields?.CLASS ?? "" : "";
+        return ADT_NEW[cls] ? ADT_NEW[cls] + this.content(name) : this.e.text(value);
     }
 
     seq(first: BlockState | undefined): SNode[] {
@@ -253,10 +351,10 @@ class Converter {
             case B.varDeclare: {
                 this.types.set(name, f.TYPE ?? "int");
                 const value = b.inputs?.VALUE?.block;
-                return this.stmt(value ? `${name} ← ${e.text(value)}` : `${name}: ${typeDe(f.TYPE ?? "int")}`);
+                return this.stmt(value ? `${name} ← ${this.assigned(name, value)}` : `${name}: ${typeDe(f.TYPE ?? "int", this.contents.get(name))}`);
             }
-            case B.varSet: return this.stmt(`${name} ← ${v("VALUE")}`);
-            case B.varChange: return this.stmt(`erhöhe ${name} um ${v("VALUE")}`);
+            case B.varSet: return this.stmt(`${name} ← ${this.assigned(name, b.inputs?.VALUE?.block)}`);
+            case B.varChange: return this.stmt(`${f.OP === "-" ? "verringere" : "erhöhe"} ${name} um ${v("VALUE")}`);
             case B.varSub: return this.stmt(`verringere ${name} um ${v("VALUE")}`);
             case B.varInc: return this.stmt(`erhöhe ${name} um 1`);
             case B.varDec: return this.stmt(`verringere ${name} um 1`);
@@ -314,18 +412,18 @@ class Converter {
             case B.call: return this.stmt(`${name}${e.args(b)}`);
             // Reihungen, Listen, dynamische Reihungen
             case B.arrayNew:
-                return this.stmt(`${name} ← stat. Reihung der Länge ${v("LEN")} vom Inhaltstyp ${typeDe(f.TYPE ?? "int")}`);
+                return this.stmt(`${name} ← statische Reihung der Länge ${v("LEN")} vom Inhaltstyp ${typeDe(f.TYPE ?? "int")}`);
             case B.arrayValues: {
                 const n = Math.max(1, b.extraState?.items ?? 1);
                 const values: string[] = [];
                 for (let i = 0; i < n; i++) values.push(v("V" + i));
-                return this.stmt(`${name} ← stat. Reihung mit den Elementen ${values.join(", ")}`);
+                return this.stmt(`${name} ← statische Reihung mit den Elementen ${values.join(", ")}`);
             }
-            case B.array2dNew: return this.stmt(`${name} ← stat. Reihung mit ${v("R")} Zeilen und ${v("C")} Spalten vom Inhaltstyp ${typeDe(f.TYPE ?? "int")}`);
+            case B.array2dNew: return this.stmt(`${name} ← statische zweidimensionale Reihung mit ${v("R")} Zeilen und ${v("C")} Spalten vom Inhaltstyp ${typeDe(f.TYPE ?? "int")}`);
             case B.arraySet: return this.stmt(`${name}[${v("I")}] ← ${v("V")}`);
             case B.array2dSet: return this.stmt(`${name}[${v("R")}][${v("C")}] ← ${v("V")}`);
             case B.listNew: return this.stmt(`${name} ← leere Liste vom Inhaltstyp ${typeDe(f.TYPE ?? "int")}`);
-            case B.dynNew: return this.stmt(`${name} ← leere dynamische Reihung`);
+            case B.dynNew: return this.stmt(`${name} ← leere dynamische Reihung${this.content(name)}`);
             case B.listAdd: case B.dynAppend: return this.stmt(`füge ${v("V")} zu ${name} hinzu`);
             case B.listInsert: case B.dynInsert: return this.stmt(`füge ${v("V")} an Position ${v("I")} in ${name} ein`);
             case B.listRemove: case B.dynDelete: return this.stmt(`lösche Element an Position ${v("I")} von ${name}`);
@@ -334,12 +432,12 @@ class Converter {
             case B.attribute: case B.ctor: case B.classMethod: return undefined;
             case B.superCall: return this.stmt(`Konstruktor der Oberklasse${e.args(b)}`);
             case B.superMethodCall: return this.stmt(`super.${f.METHOD}${e.args(b)}`);
-            case B.thisAttrSet: return this.stmt(`this.${name} ← ${v("V")}`);
+            case B.thisAttrSet: return this.stmt(`this.${name} ← ${this.assigned(name, b.inputs?.V?.block)}`);
             case B.objCall: return this.stmt(`${e.receiver(b)}.${f.METHOD}${e.args(b)}`);
             case B.objAttrSet: return this.stmt(`${e.receiver(b)}.${f.ATTR} ← ${v("V")}`);
             // Stapel, Schlange, Binärbaum
-            case B.stackNew: return this.stmt(`${name} ← leerer Stapel`);
-            case B.queueNew: return this.stmt(`${name} ← leere Schlange`);
+            case B.stackNew: return this.stmt(`${name} ← leerer Stapel${this.content(name)}`);
+            case B.queueNew: return this.stmt(`${name} ← leere Schlange${this.content(name)}`);
             case B.treeNew: return this.stmt(b.inputs?.V?.block ? `${name} ← neuer Binärbaum mit Inhalt ${v("V")}` : `${name} ← neuer Binärbaum`);
             case B.stackPush: return this.stmt(`lege ${v("V")} auf ${name}`);
             case B.queueEnqueue: return this.stmt(`füge ${v("V")} zu ${name} hinzu`);
@@ -384,7 +482,7 @@ export function diagramsFromJava(code: string, classes: ClassInfo[] = []): Diagr
     const result: Diagram[] = [];
     const top = state.blocks.blocks;
     const start = top.find((b) => b.type === B.start);
-    const mainBody = new Converter().seq(start?.inputs?.BODY?.block);
+    const mainBody = new Converter([], [], contentTypes([start?.inputs?.BODY?.block])).seq(start?.inputs?.BODY?.block);
     const others = top.filter((b) => b.type !== B.start).sort((a, b) => (a.y ?? 0) - (b.y ?? 0));
     // Hauptprogramm nur, wenn es mehr als Kommentare enthält (oder es sonst nichts gibt)
     const onlyComments = mainBody.every((n) => n.kind === "stmt" && n.text.startsWith("//"));
@@ -392,7 +490,8 @@ export function diagramsFromJava(code: string, classes: ClassInfo[] = []): Diagr
     for (const h of others) {
         if (h.type === B.method) {
             const params = methodParams(h);
-            result.push({ title: signature(h.fields?.NAME ?? "", params, h.fields?.RETURN), body: new Converter(params).seq(h.inputs?.BODY?.block) });
+            const contents = contentTypes([h.inputs?.BODY?.block], params);
+            result.push({ title: signature(h.fields?.NAME ?? "", params, h.fields?.RETURN, contents), body: new Converter(params, [], contents).seq(h.inputs?.BODY?.block) });
         } else if (h.type === B.class) {
             const cls = h.fields?.NAME ?? "";
             const group = `Klasse ${cls}${h.fields?.SUPER ? " (erbt von " + h.fields.SUPER + ")" : ""}`;
@@ -400,11 +499,22 @@ export function diagramsFromJava(code: string, classes: ClassInfo[] = []): Diagr
             for (let m = h.inputs?.MEMBERS?.block; m; m = m.next?.block) {
                 if (m.type === B.attribute) attributes.push({ name: m.fields?.NAME ?? "", type: m.fields?.TYPE ?? "int" });
             }
+            // Inhaltstypen der Attribute aus allen Operationen der Klasse
+            const bodies: (BlockState | undefined)[] = [];
+            const declared = [...attributes];
+            for (let m = h.inputs?.MEMBERS?.block; m; m = m.next?.block) {
+                bodies.push(m.inputs?.BODY?.block);
+                declared.push(...methodParams(m));
+            }
+            const classContents = contentTypes(bodies, declared);
+            classContents.delete("");
             for (let m = h.inputs?.MEMBERS?.block; m; m = m.next?.block) {
                 const params = methodParams(m);
-                const body = () => new Converter(params, attributes).seq(m!.inputs?.BODY?.block);
-                if (m.type === B.ctor) result.push({ group, title: "Konstruktor " + signature(cls, params), body: body() });
-                if (m.type === B.classMethod) result.push({ group, title: signature(m.fields?.NAME ?? "", params, m.fields?.RETURN), body: body() });
+                const contents = new Map(classContents);
+                for (const [k, t] of contentTypes([m.inputs?.BODY?.block], [...attributes, ...params], classContents)) contents.set(k, t);
+                const body = () => new Converter(params, attributes, contents).seq(m!.inputs?.BODY?.block);
+                if (m.type === B.ctor) result.push({ group, title: "Konstruktor " + signature(cls, params, undefined, contents), body: body() });
+                if (m.type === B.classMethod) result.push({ group, title: signature(m.fields?.NAME ?? "", params, m.fields?.RETURN, contents), body: body() });
             }
         }
     }

@@ -14,10 +14,11 @@ const TYPE_JAVA: Record<string, string> = {
 };
 const WRAP: Record<string, string> = { int: "Integer", double: "Double", boolean: "Boolean", char: "Character" };
 
-/** deutscher Datentyp -> Java (Ganzzahl -> int, stat. Reihung vom Inhaltstyp Zeichenkette -> String[] …) */
+/** deutscher Datentyp -> Java (Ganzzahl -> int, statische Reihung vom Inhaltstyp Zeichenkette -> String[] …) */
 export function javaType(de: string): string {
     const s = de.trim().replace(/\s+/g, " ");
-    let m = /^(?:zweidim\.|zweidimensionale) (?:stat\. |statische )?Reihung vom Inhaltstyp (.+)$/i.exec(s);
+    // statische zweidimensionale Reihung (auch die älteren Schreibweisen zweidim. / stat.)
+    let m = /^(?:(?:stat\.|statische) )?(?:zweidim\.|zweidimensionale) (?:(?:stat\.|statische) )?Reihung vom Inhaltstyp (.+)$/i.exec(s);
     if (m) return javaType(m[1]) + "[][]";
     m = /^(?:stat\. |statische )?Reihung vom Inhaltstyp (.+)$/i.exec(s);
     if (m) return javaType(m[1]) + "[]";
@@ -408,6 +409,10 @@ class ExprParser {
         }
         if (this.take("stat") || this.take("statische")) {
             if (this.isOp(".")) this.pos++;
+            // statische zweidimensionale Reihung mit … Zeilen und … Spalten
+            if (this.take("zweidimensionale") || this.take("zweidim")) {
+                if (this.isOp(".")) this.pos++;
+            }
             this.expectWord("Reihung");
             if (this.take("der", "Länge")) {
                 const n = this.sum(); this.expectWord("vom"); this.expectWord("Inhaltstyp");

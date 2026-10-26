@@ -124,7 +124,7 @@ describe("Struktogramme (Stil der Ergänzenden Hinweise Niedersachsen)", () => {
             "}",
         ));
         expect(dump(main.body)).toEqual([
-            "zahlen ← stat. Reihung der Länge 10 vom Inhaltstyp Ganzzahl",
+            "zahlen ← statische Reihung der Länge 10 vom Inhaltstyp Ganzzahl",
             "[für i von 0 bis (Länge von zahlen) - 1]",
             "  zahlen[i] ← i · 2 mod 3",
             "[für k von 0 bis 9, Schrittweite 2]",
@@ -147,8 +147,37 @@ describe("Struktogramme (Stil der Ergänzenden Hinweise Niedersachsen)", () => {
     test("Signaturen: gleiche Typen zusammengefasst, Reihungen, ohne Rückgabe", () => {
         expect(signature("minimum", [{ name: "a", type: "double" }, { name: "b", type: "double" }], "double"))
             .toBe("minimum(a, b: Fließkommazahl): Fließkommazahl");
-        expect(signature("sortiere", [{ name: "a", type: "String[]" }], "void")).toBe("sortiere(a: stat. Reihung vom Inhaltstyp Zeichenkette)");
-        expect(signature("f", [], "DynArray")).toBe("f(): dynamische Reihung");
+        expect(signature("sortiere", [{ name: "a", type: "String[]" }], "void")).toBe("sortiere(a: statische Reihung vom Inhaltstyp Zeichenkette)");
+        expect(signature("f", [], "DynArray")).toBe("f(): dynamische Reihung vom Inhaltstyp Objekt");
+        expect(signature("g", [{ name: "a", type: "float" }, { name: "b", type: "long" }, { name: "m", type: "char[][]" }]))
+            .toBe("g(a: Fließkommazahl, b: Ganzzahl, m: statische zweidimensionale Reihung vom Inhaltstyp Zeichen)");
+    });
+
+    test("Abiturklassen: deutsche Namen und Inhaltstyp aus der Verwendung", () => {
+        const diagrams = diagramsFromJava(lines(
+            "Stack s = new Stack();",
+            "s.push(3);",
+            "void sortiere(DynArray a) {",
+            "    String x = (String) a.getItem(0);",
+            "}",
+            "int zaehle(Stack s, Queue q, BinTree t) {",
+            "    char c = (char) s.pop();",
+            "    Hund h = (Hund) q.head();",
+            "    return 0;",
+            "}",
+            "class Kurs {",
+            "    private DynArray namen;",
+            "    Kurs() { namen = new DynArray(); }",
+            "    void neu(String n) { namen.append(n); }",
+            "    DynArray alle() { return namen; }",
+            "}",
+        ));
+        const titles = diagrams.map((d) => d.title);
+        expect(dump(diagrams[0].body)).toEqual(["s ← leerer Stapel vom Inhaltstyp Ganzzahl", "lege 3 auf s"]);
+        expect(titles).toContain("sortiere(a: dynamische Reihung vom Inhaltstyp Zeichenkette)");
+        expect(titles).toContain("zaehle(s: Stapel vom Inhaltstyp Zeichen, q: Schlange vom Inhaltstyp Hund, t: Binärbaum vom Inhaltstyp Objekt): Ganzzahl");
+        expect(titles).toContain("alle(): dynamische Reihung vom Inhaltstyp Zeichenkette");
+        expect(dump(diagrams.find((d) => d.title === "Konstruktor Kurs()")!.body)).toEqual(["namen ← leere dynamische Reihung vom Inhaltstyp Zeichenkette"]);
     });
 
     test("Java-Text wird lesbar gemacht", () => {

@@ -59,7 +59,8 @@ export class JavaBlockParser {
     /** Klasse, deren Inhalt gerade gelesen wird */
     private currentClass: string | undefined;
     /** für Struktogramme: auch switch und do-while erkennen (dafür gibt es keine Blöcke) */
-    private extended = false;
+    /** Struktogramm: zusätzliche Formen (switch, do-while, Umwandlung in Klassen beim Lesen aus Abiturklassen) */
+    extended = false;
 
     constructor(private src: string) {
         const lineStarts = [0];
@@ -1505,7 +1506,7 @@ class ExpressionParser {
             const ct = String(castType?.value);
             const dynGetFollows = this.isDynGetAt(start + 3);
             if (castType?.tt === TokenType.identifier && castClose?.tt === TokenType.rightBracket && start + 3 < this.to
-                && (["int", "double", "char"].includes(ct) || (dynGetFollows && (VAR_TYPES as readonly string[]).includes(ct)))) {
+                && (["int", "double", "char"].includes(ct) || (dynGetFollows && ((VAR_TYPES as readonly string[]).includes(ct) || this.p.extended)))) {
                 this.pos = start + 3;
                 const inner = this.unary();
                 // (int) d.getItem(i), (int) s.top() …: Element als Ganzzahl
