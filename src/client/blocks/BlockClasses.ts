@@ -1,7 +1,7 @@
 import * as Blockly from "blockly/core";
 import { B } from "./BlockTypes";
 import { FieldButton, hintLabel, mutate, type Mutable } from "./BlockMutators";
-import { defineArgsBlock, defineMethodBlock } from "./BlockOperations";
+import { defineArgsBlock, defineMethodBlock, resizeCall } from "./BlockOperations";
 import { FieldType, identifier, VISIBILITY_OPTIONS } from "./BlockFields";
 import { classInfos, collectVariables, defaultLiteral, enclosingClass, receiverClass, type JType } from "./BlockTypeSystem";
 import { attributesOf, methodsOf } from "./ClassModel";
@@ -55,6 +55,71 @@ class FieldNameChoice extends Blockly.FieldDropdown {
     override getValue(): string | null {
         const v = super.getValue();
         return this.allowEmpty && v === "-" ? "" : v;
+    }
+}
+
+/**
+ * Auswahl des Konstruktors bei „neues Objekt der Klasse …“ (nur sichtbar, wenn die Klasse mehrere hat).
+ * Wert = Anzahl der Werte; wird nicht gespeichert, sondern aus dem Block abgeleitet (Java bestimmt den Konstruktor).
+ */
+class FieldConstructorChoice extends Blockly.FieldDropdown {
+    override SERIALIZABLE = false;
+    syncing = false;
+
+    constructor() {
+        super(function (this: FieldConstructorChoice) { return this.ctorOptions(); } as unknown as Blockly.MenuGenerator);
+    }
+
+    static labels(block: Blockly.Block): Map<number, string> {
+        const cls = String(block.getFieldValue("CLASS") ?? "");
+        const result = new Map<number, string>();
+        for (const c of classInfos(block.workspace).get(cls)?.constructors ?? []) {
+            if (!result.has(c.params.length)) result.set(c.params.length, c.params.length === 0 ? "ohne Werte" : "mit " + c.params.map((p) => p.name).join(", "));
+        }
+        return result;
+    }
+
+    private ctorOptions(): Blockly.MenuOption[] {
+        const block = this.getSourceBlock();
+        const labels = block ? FieldConstructorChoice.labels(block) : new Map<number, string>();
+        const current = Number(this.getValue?.() ?? 0);
+        if (!labels.has(current)) labels.set(current, current === 0 ? "ohne Werte" : `mit ${current} Werten`);
+        return [...labels.entries()].sort((a, b) => a[0] - b[0]).map(([n, label]) => [label, String(n)]);
+    }
+
+    protected override doClassValidation_(newValue?: unknown): string | null {
+        return /^\d+$/.test(String(newValue)) ? String(newValue) : null;
+    }
+
+    protected override doValueUpdate_(newValue: string) {
+        super.doValueUpdate_(newValue);
+        const block = this.getSourceBlock();
+        if (this.syncing || !block || !block.workspace || block.isInFlyout) return;
+        // gewählter Konstruktor: Werte anpassen (Typen der Parameter für die Startwerte)
+        const n = Number(newValue);
+        const ctor = (classInfos(block.workspace).get(String(block.getFieldValue("CLASS") ?? ""))?.constructors ?? []).find((c) => c.params.length === n);
+        if (ctor) resizeCall(block, ctor.params.map((p) => p.type));
+    }
+}
+
+/** Auswahl des Konstruktors an den Block anpassen: Wert = Anzahl der Werte, sichtbar ab zwei Konstruktoren */
+function syncConstructorChoice(block: Blockly.Block & { state?: { args?: number } }) {
+    const field = block.getField("CTOR") as FieldConstructorChoice | null;
+    if (!field || !block.workspace) return;
+    const visible = FieldConstructorChoice.labels(block).size > 1;
+    Blockly.Events.disable();
+    try {
+        field.syncing = true;
+        const want = String(block.state?.args ?? 0);
+        if (field.getValue() !== want) field.setValue(want);
+    } finally {
+        field.syncing = false;
+        Blockly.Events.enable();
+    }
+    if (field.isVisible() !== visible) {
+        field.setVisible(visible);
+        const svg = block as Blockly.BlockSvg;
+        if (svg.rendered && typeof svg.queueRender === "function") svg.queueRender();
     }
 }
 
@@ -198,8 +263,18 @@ export function defineClassBlocks(defineJson: (json: object[]) => void) {
         head: (b) => {
             b.appendDummyInput("HEAD").appendField("neues Objekt der Klasse")
                 .appendField(new FieldNameChoice("MeineKlasse", classNames, "MeineKlasse"), "CLASS");
+            const choice = new FieldConstructorChoice();
+            b.appendDummyInput("CTOR_ROW").appendField(choice, "CTOR");
+            choice.setVisible(false);
         },
     });
+    // Konstruktor-Auswahl mit den Beschriftungen aktualisieren (Klasse gewechselt, Konstruktor hinzugekommen …)
+    const objNew = Blockly.Blocks[B.objNew] as { updateLabels(this: Blockly.Block): void };
+    const updateLabels = objNew.updateLabels;
+    objNew.updateLabels = function (this: Blockly.Block) {
+        updateLabels.call(this);
+        syncConstructorChoice(this);
+    };
     const objHead = (asValue: boolean) => (b: Blockly.Block) => {
         b.appendValueInput("OBJ").appendField(asValue ? "Ergebnis von" : "führe aus");
         b.appendDummyInput("HEAD").appendField(".").appendField(new FieldNameChoice("operation", receiverMethods, "operation"), "METHOD");

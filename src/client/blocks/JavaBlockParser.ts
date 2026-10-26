@@ -647,8 +647,10 @@ export class JavaBlockParser {
                 }
                 const cond = this.condition();
                 const body = this.body();
-                const b = this.block(B.while, begin, this.pos);
-                b.inputs = { COND: { block: cond } };
+                // while (!(…)) ist „wiederhole bis …“
+                const until = cond?.type === B.not && !!cond.inputs?.VALUE?.block;
+                const b = this.block(B.while, begin, this.pos, { fields: { MODE: until ? "until" : "while" } });
+                b.inputs = { COND: { block: until ? cond!.inputs!.VALUE!.block : cond } };
                 if (body) b.inputs.DO = { block: body };
                 return b;
             }
@@ -959,7 +961,9 @@ export class JavaBlockParser {
         if (second.tt === TokenType.plusPlus || second.tt === TokenType.minusMinus) {
             this.pos += 2;
             this.expect(TokenType.semicolon);
-            return this.block(second.tt === TokenType.plusPlus ? B.varInc : B.varDec, begin, this.pos, { fields: { NAME: name } });
+            const b = this.block(B.varChange, begin, this.pos, { fields: { OP: second.tt === TokenType.plusPlus ? "+" : "-", NAME: name } });
+            b.inputs = { VALUE: { block: this.valueBlock(B.number, { fields: { NUM: "1" } }) } };
+            return b;
         }
         if (second.tt === TokenType.assignment || second.tt === TokenType.plusAssignment || second.tt === TokenType.minusAssignment) {
             this.pos += 2;
@@ -967,8 +971,10 @@ export class JavaBlockParser {
             const end = this.findAtDepth0(TokenType.semicolon, valueStart);
             if (end === valueStart) throw new Fail();
             this.pos = end + 1;
-            const type = second.tt === TokenType.assignment ? B.varSet : second.tt === TokenType.plusAssignment ? B.varChange : B.varSub;
-            const b = this.block(type, begin, this.pos, { fields: { NAME: name } });
+            const type = second.tt === TokenType.assignment ? B.varSet : B.varChange;
+            const fields: Record<string, string> = { NAME: name };
+            if (type === B.varChange) fields.OP = second.tt === TokenType.minusAssignment ? "-" : "+";
+            const b = this.block(type, begin, this.pos, { fields });
             b.inputs = { VALUE: { block: this.expression(valueStart, end) } };
             return b;
         }

@@ -45,7 +45,7 @@ describe("Java -> Blöcke -> Java", () => {
         ].join("\n");
         expect(roundTrip(code)).toBe(code);
         expect(body(code).map((b) => b.type)).toEqual([
-            B.comment, B.varDeclare, B.varDeclare, B.while, B.for, B.varDeclare, B.varDeclare, B.varInc, B.varDec,
+            B.comment, B.varDeclare, B.varDeclare, B.while, B.for, B.varDeclare, B.varDeclare, B.varChange, B.varChange,
         ]);
         // keine Java-Text-Blöcke nötig
         expect(JSON.stringify(toBlocks(code).state)).not.toContain(B.javaExpression);

@@ -163,3 +163,55 @@ describe("Paket 6 mit Blockly", () => {
         expect(warning(print)).toContain("Operation oder einen Konstruktor");
     });
 });
+
+describe("Mehrere Konstruktoren", () => {
+    const KONTO = lines(
+        "Konto a = new Konto();",
+        "println(a.getStand());",
+        "",
+        "class Konto {",
+        "    private String name;",
+        "    private int stand;",
+        "",
+        "    public Konto() {",
+        "        name = \"?\";",
+        "        stand = 0;",
+        "    }",
+        "",
+        "    public Konto(String n, int s) {",
+        "        name = n;",
+        "        stand = s;",
+        "    }",
+        "",
+        "    public int getStand() {",
+        "        return stand;",
+        "    }",
+        "}");
+
+    test("„neues Objekt“ zeigt die Auswahl des Konstruktors; Wechsel passt die Werte an", async () => {
+        const ws = load(KONTO);
+        syncCalls(ws);
+        const obj = blocksOf(ws, B.objNew)[0];
+        const field = obj.getField("CTOR")!;
+        expect(field.isVisible()).toBe(true);
+        expect(field.getValue()).toBe("0");
+        expect((field as Blockly.FieldDropdown).getOptions(false).map((o) => o[0])).toEqual(["ohne Werte", "mit n, s"]);
+
+        field.setValue("2");
+        expect(obj.getInput("ARG1")).toBeTruthy();
+        expect(generate(ws)).toContain('Konto a = new Konto("", 0);');
+        expect((await runJava(generate(ws))).output).toContain("0");
+
+        // nach dem Umbau ist das Auswahlfeld neu angelegt
+        expect(obj.getField("CTOR")!.getValue()).toBe("2");
+        obj.getField("CTOR")!.setValue("0");
+        expect(obj.getInput("ARG0")).toBeNull();
+        expect(generate(ws)).toContain("Konto a = new Konto();");
+    });
+
+    test("nur ein Konstruktor: keine Auswahl", () => {
+        const ws = load(lines("Tier t = new Tier(\"Rex\");", "", "class Tier {", "    private String name;", "", "    public Tier(String n) {", "        name = n;", "    }", "}"));
+        syncCalls(ws);
+        expect(blocksOf(ws, B.objNew)[0].getField("CTOR")!.isVisible()).toBe(false);
+    });
+});

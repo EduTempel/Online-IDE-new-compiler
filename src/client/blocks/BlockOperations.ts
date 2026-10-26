@@ -249,17 +249,21 @@ export function syncCalls(ws: Blockly.Workspace) {
         if (!isCall(b)) continue;
         const call = b as CallBlock;
         const sig = callTarget(b);
-        if (sig && sig.params.length !== call.state.args) {
-            const n = sig.params.length, before = call.state.args;
-            mutate(call, { args: n }, (name) => {
-                const m = /^ARG(\d+)$/.exec(name);
-                return m && Number(m[1]) >= n ? null : name;
-            }, true);
-            // neue Werte mit einem passenden Startwert füllen (0, "", false …)
-            for (let i = before; i < n; i++) fillArgument(call, i, sig.params[i].type);
-        }
+        if (sig && sig.params.length !== call.state.args) resizeCall(call, sig.params.map((p) => p.type));
         call.updateLabels();
     }
+}
+
+/** Anzahl der Werte eines Aufrufs anpassen; neue Werte bekommen einen passenden Startwert (0, "", false …) */
+export function resizeCall(block: Blockly.Block, types: JType[]) {
+    const call = block as CallBlock;
+    const n = types.length, before = call.state.args;
+    if (n === before) return;
+    mutate(call, { args: n }, (name) => {
+        const m = /^ARG(\d+)$/.exec(name);
+        return m && Number(m[1]) >= n ? null : name;
+    }, true);
+    for (let i = before; i < n; i++) fillArgument(call, i, types[i]);
 }
 
 function fillArgument(call: Blockly.Block, index: number, type: JType) {

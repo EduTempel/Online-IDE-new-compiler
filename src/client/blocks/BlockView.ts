@@ -17,6 +17,7 @@ import { B, type WorkspaceState } from "./BlockTypes";
 import { JavaBlockGenerator } from "./JavaBlockGenerator";
 import { JavaBlockParser, type LineRange } from "./JavaBlockParser";
 import { Constants } from "../Constants";
+import { registerBlockImageMenu } from "./BlockImage";
 
 /**
  * Blockansicht einer Java-Datei: links die Blöcke (Blockly), rechts der daraus erzeugte
@@ -63,6 +64,7 @@ export class BlockView {
         Blockly.setLocale(De as unknown as { [key: string]: string });
         defineBlocks();
         registerRenderer();
+        registerBlockImageMenu(() => this.file?.name);   // Rechtsklick: Blöcke als Bild speichern
 
         host.innerHTML = "";
         const area = document.createElement("div");
@@ -218,6 +220,14 @@ export class BlockView {
         setSpriteSource(createSpriteSource(this.main));   // Bilder für den Sprite-Block
         this.ws.registerToolboxCategoryCallback(CLASSES_CATEGORY, (w) => classesFlyout(w));
         this.ws.registerToolboxCategoryCallback(OBJECTS_CATEGORY, (w) => objectsFlyout(w));
+
+        // „Variablen“ hat Unterkategorien (Reihungen, Listen, ADT) und kann deshalb keine dynamische Kategorie sein:
+        // die eigenen Variablen werden beim Öffnen eingesetzt (nur wenn die Kategorie eigene Blöcke zeigt)
+        const variables = (this.ws.getToolbox() as Blockly.Toolbox | null)?.getToolboxItemById("variablen") as unknown as { getContents(): unknown[] } | null;
+        if (variables && Array.isArray(variables.getContents()) && variables.getContents().length > 0) {
+            const ws = this.ws;
+            variables.getContents = () => variablesFlyout(ws) as unknown[];
+        }
     }
 
     private previewCollapsedByUser: boolean | null = null;

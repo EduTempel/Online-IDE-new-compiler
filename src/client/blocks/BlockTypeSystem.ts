@@ -536,7 +536,9 @@ export function inputType(b: Blockly.Block, input: string, vars: Map<string, JTy
         }
         case B.varChange: {
             const v = varType("NAME");
-            return v === "int" || v === "double" ? [...NUMERIC] : v === "char" ? ["int", "char"] : null;   // Text += beliebig
+            if (v === "int" || v === "double") return [...NUMERIC];
+            if (v === "char") return ["int", "char"];
+            return String(b.getFieldValue("OP")) === "-" ? [...NUMERIC] : null;   // Text: „erhöhe“ hängt beliebiges an
         }
         case B.print: return null;
         case B.if: case B.while: return ["boolean"];

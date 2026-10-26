@@ -123,10 +123,11 @@ export function defineBlocks() {
         {
             type: B.varDeclare, message0: "erstelle neue Variable %1 vom Datentyp %2 mit Wert %3",
             args0: [{ type: "field_input", name: "NAME", text: "zahl" },
-                { type: "field_gsg_type", name: "TYPE", text: "int", mode: "full" }, { type: "input_value", name: "VALUE" }],
+                { type: "field_gsg_type", name: "TYPE", text: "int", mode: "simple" }, { type: "input_value", name: "VALUE" }],
             inputsInline: true, ...statement, colour: COLOURS.variables, extensions: ["gsg_identifier"],
             tooltip: "Legt eine neue Variable an und gibt ihr einen Startwert, z. B. int zahl = 5; "
-                + "Beim Wechsel des Datentyps wird der Startwert passend umgestellt.",
+                + "Beim Wechsel des Datentyps wird der Startwert passend umgestellt. "
+                + "Reihungen, Listen und ADT legen die Blöcke in ihren eigenen Kategorien (unter Variablen) an.",
         },
         {
             type: B.varSet, message0: "setze %1 auf %2 %3",
@@ -135,10 +136,13 @@ export function defineBlocks() {
             tooltip: "Gibt der Variablen einen neuen Wert, z. B. zahl = 7;",
         },
         {
-            type: B.varChange, message0: "erhöhe %1 um %2 %3",
-            args0: [{ type: "field_gsg_variable", name: "NAME", text: "zahl" }, { type: "input_value", name: "VALUE" }, hint("+=")],
+            // erhöhe/verringere in einem Block (Java: zahl += 2, zahl -= 2, um 1: zahl++ bzw. zahl--)
+            type: B.varChange, message0: "%1 %2 um %3",
+            args0: [{ type: "field_dropdown", name: "OP", options: [["erhöhe", "+"], ["verringere", "-"]] },
+                { type: "field_gsg_variable", name: "NAME", text: "zahl" }, { type: "input_value", name: "VALUE" }],
             inputsInline: true, ...statement, colour: COLOURS.variables,
-            tooltip: "Zählt etwas zur Variablen dazu, z. B. zahl += 2; Bei Texten wird angehängt.",
+            tooltip: "Erhöht bzw. verringert die Variable um den Wert. Java: zahl += 2; bzw. zahl -= 2; (um 1: zahl++; bzw. zahl--;). "
+                + "Bei Texten hängt „erhöhe“ den Wert an.",
         },
         {
             type: B.varSub, message0: "verringere %1 um %2 %3",
@@ -166,12 +170,12 @@ export function defineBlocks() {
         {
             type: B.input, message0: "Eingabe %1 Frage %2",
             args0: [{
-                type: "field_dropdown", name: "METHOD", options: [["Ganzzahl (Input.readInt)", "readInt"],
-                    ["Kommazahl (Input.readDouble)", "readDouble"], ["Text (Input.readString)", "readString"],
-                    ["Wahrheitswert (Input.readBoolean)", "readBoolean"], ["Zeichen (Input.readChar)", "readChar"]],
+                type: "field_dropdown", name: "METHOD", options: [["Ganzzahl", "readInt"],
+                    ["Kommazahl", "readDouble"], ["Text", "readString"],
+                    ["Wahrheitswert", "readBoolean"], ["Zeichen", "readChar"]],
             }, { type: "input_value", name: "PROMPT" }],
             inputsInline: true, output: null, colour: COLOURS.output,
-            tooltip: "Fragt beim Programmlauf nach einer Eingabe.",
+            tooltip: "Fragt beim Programmlauf nach einer Eingabe. Java: Input.readInt(\"Frage\") (bzw. readDouble, readString, readBoolean, readChar).",
         },
         {
             type: B.trace, message0: "trage in die Tracetabelle ein (Bemerkung: %1) %2",
@@ -183,10 +187,12 @@ export function defineBlocks() {
 
         // ------------------------------------------------------------ Steuerung
         {
-            type: B.while, message0: "wiederhole solange %1 %2", args0: [{ type: "input_value", name: "COND" }, hint("while")],
+            type: B.while, message0: "wiederhole %1 %2",
+            args0: [{ type: "field_dropdown", name: "MODE", options: [["solange", "while"], ["bis", "until"]] }, { type: "input_value", name: "COND" }],
             message1: "%1", args1: [{ type: "input_statement", name: "DO" }],
             ...statement, colour: COLOURS.control,
-            tooltip: "Wiederholt die Blöcke, solange die Bedingung wahr ist.",
+            tooltip: "solange: wiederholt die Blöcke, solange die Bedingung wahr ist (Java: while (Bedingung)). "
+                + "bis: wiederholt die Blöcke, bis die Bedingung wahr ist (Java: while (!(Bedingung))). Die Bedingung wird jeweils vor dem Durchlauf geprüft.",
         },
         {
             type: B.forever, message0: "wiederhole fortlaufend %1", args0: [hint("while (true)")],
@@ -201,16 +207,17 @@ export function defineBlocks() {
             tooltip: "Wiederholt die Blöcke so oft wie angegeben. In Java: for (int durchlauf = 1; durchlauf <= 10; durchlauf++)",
         },
         {
-            type: B.for, message0: "zähle %1 %2 von %3 %4 %5 mit Schrittweite %6 %7",
+            type: B.for, message0: "wiederhole für %1 von %2 %3 %4 %5 mit Schrittweite %6",
             args0: [{ type: "field_input", name: "VAR", text: "i" },
-                { type: "field_dropdown", name: "DIR", options: [["aufsteigend", "up"], ["absteigend", "down"]] },
                 { type: "input_value", name: "FROM" },
                 { type: "field_dropdown", name: "CMP", options: [["bis", "incl"], ["bis vor", "excl"]] },
-                { type: "input_value", name: "TO" }, { type: "input_value", name: "STEP" }, hint("for")],
+                { type: "input_value", name: "TO" },
+                { type: "field_dropdown", name: "DIR", options: [["aufsteigend", "up"], ["absteigend", "down"]] },
+                { type: "input_value", name: "STEP" }],
             message1: "%1", args1: [{ type: "input_statement", name: "DO" }],
             inputsInline: true, ...statement, colour: COLOURS.control, extensions: ["gsg_identifier"],
             tooltip: "Die Zählvariable läuft vom Start- bis zum Endwert (\"bis\": einschließlich, \"bis vor\": ohne den Endwert), "
-                + "z. B. for (int i = 1; i <= 10; i++).",
+                + "aufsteigend oder absteigend. Java: for (int i = 1; i <= 10; i++)",
         },
         {
             type: B.wait, message0: "warte %1 Millisekunden %2", args0: [{ type: "input_value", name: "MS" }, hint("Thread.sleep")],
@@ -276,28 +283,29 @@ export function defineBlocks() {
         {
             type: B.math, message0: "%1 %2",
             args0: [{
-                type: "field_dropdown", name: "FUNC", options: [["runde (Math.round)", "round"],
-                    ["Wurzel aus (Math.sqrt)", "sqrt"], ["Betrag von (Math.abs)", "abs"]],
+                type: "field_dropdown", name: "FUNC", options: [["runde", "round"],
+                    ["Wurzel aus", "sqrt"], ["Betrag von", "abs"]],
             }, { type: "input_value", name: "VALUE" }],
             inputsInline: true, output: null, colour: COLOURS.values,
-            tooltip: "runde: auf eine ganze Zahl runden (2.5 ergibt 3).",
+            tooltip: "runde: auf eine ganze Zahl runden (2.5 ergibt 3). Java: Math.round, Math.sqrt, Math.abs",
         },
         {
             type: B.minMax, message0: "%1 von %2 und %3",
-            args0: [{ type: "field_dropdown", name: "FUNC", options: [["kleinste (Math.min)", "min"], ["größte (Math.max)", "max"]] },
+            args0: [{ type: "field_dropdown", name: "FUNC", options: [["kleinste", "min"], ["größte", "max"]] },
                 { type: "input_value", name: "A" }, { type: "input_value", name: "B" }],
             inputsInline: true, output: null, colour: COLOURS.values,
-            tooltip: "Die kleinere bzw. größere der beiden Zahlen.",
+            tooltip: "Die kleinere bzw. größere der beiden Zahlen. Java: Math.min, Math.max",
         },
         {
             type: B.cast, message0: "%1 %2",
             args0: [{
-                type: "field_dropdown", name: "TYPE", options: [["als Ganzzahl / ASCII-Code von (int)", "int"],
-                    ["als Kommazahl (double)", "double"], ["als Zeichen / Zeichen mit ASCII-Code (char)", "char"]],
+                type: "field_dropdown", name: "TYPE", options: [["Ganzzahl / ASCII-Code von", "int"],
+                    ["Kommazahl von", "double"], ["Zeichen mit ASCII-Code", "char"]],
             }, { type: "input_value", name: "VALUE" }],
             inputsInline: true, output: null, colour: COLOURS.values,
             tooltip: "Wandelt einen Wert um: Kommazahl -> Ganzzahl schneidet die Nachkommastellen ab; "
-                + "ein Zeichen als Ganzzahl ist sein ASCII-Code ('A' -> 65), eine Ganzzahl als Zeichen das Zeichen dazu (65 -> 'A').",
+                + "ein Zeichen als Ganzzahl ist sein ASCII-Code ('A' -> 65), eine Ganzzahl als Zeichen das Zeichen dazu (65 -> 'A'). "
+                + "Java: (int), (double), (char)",
         },
 
         // ------------------------------------------------------------ Text (Abitur: Umgang mit Zeichenketten)
@@ -345,7 +353,7 @@ export function defineBlocks() {
             tooltip: "Wahr, wenn der zweite Text im ersten vorkommt.",
         },
         {
-            type: B.strCompare, message0: "vergleiche %1 alphabetisch mit %2 %3",
+            type: B.strCompare, message0: "vergleiche %1 lexikografisch mit %2 %3",
             args0: [{ type: "input_value", name: "A" }, { type: "input_value", name: "B" }, hint(".compareTo")],
             inputsInline: true, output: null, colour: COLOURS.text,
             tooltip: "Lexikographischer Vergleich: negativ, wenn der erste Text vorher kommt, 0 bei Gleichheit, positiv, wenn er danach kommt.",
@@ -353,8 +361,9 @@ export function defineBlocks() {
         {
             type: B.strCase, message0: "%1 in %2",
             args0: [{ type: "input_value", name: "TEXT" },
-                { type: "field_dropdown", name: "CASE", options: [["Großbuchstaben (.toUpperCase)", "upper"], ["Kleinbuchstaben (.toLowerCase)", "lower"]] }],
+                { type: "field_dropdown", name: "CASE", options: [["Großbuchstaben", "upper"], ["Kleinbuchstaben", "lower"]] }],
             inputsInline: true, output: null, colour: COLOURS.text,
+            tooltip: "Der Text in Groß- bzw. Kleinbuchstaben. Java: .toUpperCase(), .toLowerCase()",
         },
 
         // ------------------------------------------------------------ Java und Kommentare
@@ -422,10 +431,7 @@ export function variablesFlyout(ws: Blockly.WorkspaceSvg): Blockly.utils.toolbox
         items.push({ kind: "block", type: B.varSet, fields: { NAME: vars[0][0] } });
         const numeric = vars.find(([, t]) => t === "int" || t === "double");
         if (numeric) {
-            items.push({ kind: "block", type: B.varChange, fields: { NAME: numeric[0] }, inputs: { VALUE: num("1") } });
-            items.push({ kind: "block", type: B.varSub, fields: { NAME: numeric[0] }, inputs: { VALUE: num("1") } });
-            items.push({ kind: "block", type: B.varInc, fields: { NAME: numeric[0] } });
-            items.push({ kind: "block", type: B.varDec, fields: { NAME: numeric[0] } });
+            items.push({ kind: "block", type: B.varChange, fields: { OP: "+", NAME: numeric[0] }, inputs: { VALUE: num("1") } });
         }
     }
     return items as Blockly.utils.toolbox.FlyoutItemInfoArray;
@@ -435,8 +441,8 @@ export function variablesFlyout(ws: Blockly.WorkspaceSvg): Blockly.utils.toolbox
  * Kennungen der Kategorien (Reihenfolge der Werkzeugleiste). Lehrkräfte können je Lerngruppe einzelne
  * ausblenden – gleiche Liste wie BLOCK_CATEGORIES in backend/src/repo/apps.ts.
  */
-export const BLOCK_CATEGORY_IDS = ["steuerung", "ausgabe", "variablen", "bedingungen", "rechnen", "text", "figuren", "tasten",
-    "reihungen", "listen", "adt", "operationen", "klassen", "objekte", "java"] as const;
+export const BLOCK_CATEGORY_IDS = ["steuerung", "ausgabe", "variablen", "reihungen", "listen", "adt", "bedingungen", "rechnen", "text",
+    "figuren", "tasten", "operationen", "klassen", "objekte", "java"] as const;
 
 /**
  * Werkzeugkasten mit Kategorien; Blöcke mit sinnvollen Startwerten.
@@ -444,8 +450,34 @@ export const BLOCK_CATEGORY_IDS = ["steuerung", "ausgabe", "variablen", "bedingu
  */
 export function toolbox(hidden: readonly string[] = []): Blockly.utils.toolbox.ToolboxDefinition {
     const all = fullToolbox();
-    const contents = all.contents.filter((c) => !hidden.includes((c as { toolboxitemid?: string }).toolboxitemid ?? ""));
+    const contents = filterCategories(all.contents, hidden);
     return { ...all, contents: contents.length ? contents : all.contents } as Blockly.utils.toolbox.ToolboxDefinition;
+}
+
+type ToolboxItem = { kind: string; toolboxitemid?: string; contents?: ToolboxItem[] };
+
+/**
+ * Ausgeblendete Kategorien entfernen – auch Unterkategorien (Reihungen, Listen, ADT unter Variablen).
+ * Ist eine Oberkategorie ausgeblendet, eine Unterkategorie aber nicht, bleibt die Oberkategorie als Ordner
+ * ohne eigene Blöcke stehen.
+ */
+function filterCategories(items: object[], hidden: readonly string[]): object[] {
+    return (items as ToolboxItem[]).flatMap((c): object[] => {
+        if (c.kind !== "category") return [c];
+        const off = hidden.includes(c.toolboxitemid ?? "");
+        if (!Array.isArray(c.contents)) return off ? [] : [c];
+        const sub = filterCategories(c.contents, hidden) as ToolboxItem[];
+        const subCategories = sub.filter((x) => x.kind === "category");
+        if (off) return subCategories.length ? [{ ...c, contents: subCategories }] : [];
+        return [{ ...c, contents: sub }];
+    });
+}
+
+/** Kennungen aller Kategorien der Werkzeugleiste, auch der Unterkategorien (Reihenfolge wie angezeigt) */
+export function categoryIds(t: Blockly.utils.toolbox.ToolboxDefinition): string[] {
+    const walk = (items: ToolboxItem[]): string[] => items.flatMap((c) => c.kind === "category"
+        ? [c.toolboxitemid ?? "", ...(Array.isArray(c.contents) ? walk(c.contents) : [])] : []);
+    return walk((t as { contents: ToolboxItem[] }).contents);
 }
 
 function fullToolbox(): { kind: string; contents: object[] } {
@@ -465,7 +497,7 @@ function fullToolbox(): { kind: string; contents: object[] } {
                     blk(B.if, { extraState: { elseIfs: 1, hasElse: false } }),
                     blk(B.forever),
                     blk(B.repeat, { inputs: { TIMES: num("10") } }),
-                    blk(B.while, { inputs: { COND: { block: { type: B.compare, fields: { OP: "<" }, inputs: { A: v("zahl"), B: num("10") } } } } }),
+                    blk(B.while),
                     blk(B.for, { inputs: { FROM: num("1"), TO: num("10"), STEP: num("1") } }),
                     blk(B.wait, { inputs: { MS: num("1000") } }),
                 ],
@@ -480,7 +512,15 @@ function fullToolbox(): { kind: string; contents: object[] } {
                     blk(B.trace),
                 ],
             },
-            { kind: "category", toolboxitemid: "variablen", name: "Variablen", colour: COLOURS.variables, custom: VARIABLES_CATEGORY },
+            // Variablen mit Unterkategorien; die Blöcke der eigenen Variablen setzt BlockView beim Öffnen ein (variablesFlyout)
+            {
+                kind: "category", toolboxitemid: "variablen", name: "Variablen", colour: COLOURS.variables, contents: [
+                    { kind: "label", text: "Variablen" },
+                    { kind: "category", toolboxitemid: "reihungen", name: "Reihungen", colour: ARRAYS_COLOUR, custom: ARRAYS_CATEGORY },
+                    { kind: "category", toolboxitemid: "listen", name: "Listen", colour: LISTS_COLOUR, custom: LISTS_CATEGORY },
+                    { kind: "category", toolboxitemid: "adt", name: "ADT", colour: ADT_COLOUR, custom: ADT_CATEGORY },
+                ],
+            },
             {
                 kind: "category", toolboxitemid: "bedingungen", name: "Bedingungen", colour: COLOURS.conditions, contents: [
                     { kind: "label", text: "Bedingungen passen in die sechseckigen Löcher." },
@@ -492,17 +532,14 @@ function fullToolbox(): { kind: string; contents: object[] } {
             },
             {
                 kind: "category", toolboxitemid: "rechnen", name: "Rechnen & Werte", colour: COLOURS.values, contents: [
-                    { kind: "label", text: "Zwei Ganzzahlen: 7 / 2 ergibt 3, 7 mod 2 ergibt 1." },
+                    { kind: "label", text: "Rechenzeichen in der Auswahl. Zwei Ganzzahlen: 7 / 2 ergibt 3, 7 mod 2 ergibt 1." },
                     blk(B.number),
                     blk(B.arith, { inputs: { A: num("1"), B: num("1") } }),
-                    blk(B.arith, { fields: { OP: "/" }, inputs: { A: num("7"), B: num("2") } }),
-                    blk(B.arith, { fields: { OP: "%" }, inputs: { A: num("7"), B: num("2") } }),
                     blk(B.random, { inputs: { FROM: num("1"), TO: num("6") } }),
                     blk(B.randomDouble),
                     blk(B.math, { inputs: { VALUE: num("2.5") } }),
                     blk(B.minMax, { inputs: { A: num("3"), B: num("7") } }),
                     blk(B.cast, { inputs: { VALUE: num("2.7") } }),
-                    blk(B.cast, { fields: { TYPE: "double" }, inputs: { VALUE: num("7") } }),
                 ],
             },
             {
@@ -525,9 +562,6 @@ function fullToolbox(): { kind: string; contents: object[] } {
             },
             { kind: "category", toolboxitemid: "figuren", name: "Figuren", colour: FIGURES_COLOUR, custom: FIGURES_CATEGORY },
             { kind: "category", toolboxitemid: "tasten", name: "Tasten & Maus", colour: INPUT_COLOUR, custom: INPUT_CATEGORY },
-            { kind: "category", toolboxitemid: "reihungen", name: "Reihungen", colour: ARRAYS_COLOUR, custom: ARRAYS_CATEGORY },
-            { kind: "category", toolboxitemid: "listen", name: "Listen", colour: LISTS_COLOUR, custom: LISTS_CATEGORY },
-            { kind: "category", toolboxitemid: "adt", name: "ADT", colour: ADT_COLOUR, custom: ADT_CATEGORY },
             { kind: "category", toolboxitemid: "operationen", name: "Operationen", colour: OPERATIONS_COLOUR, custom: OPERATIONS_CATEGORY },
             { kind: "category", toolboxitemid: "klassen", name: "Klassen", colour: CLASSES_COLOUR, custom: CLASSES_CATEGORY },
             { kind: "category", toolboxitemid: "objekte", name: "Objekte", colour: OBJECTS_COLOUR, custom: OBJECTS_CATEGORY },

@@ -20,9 +20,21 @@ function declaredBefore(range: { endLineNumber: number; endColumn: number } | un
 
 export type Capture = { roots: RootVariable[]; position?: ProgramPointerPositionInfo; method: string; line?: number };
 
-export function captureCurrentFrame(interpreter: Interpreter): Capture | undefined {
-    const thread = interpreter.scheduler.getCurrentThread();
-    const programState = thread?.programStack[thread.programStack.length - 1];
+/**
+ * frame "top": aktuelle Operation (Objektdiagramm beim Anhalten);
+ * frame "main": Hauptprogramm, auch wenn gerade eine Operation läuft (Variablenanzeige auf der Bühne)
+ */
+export function captureCurrentFrame(interpreter: Interpreter, frame: "top" | "main" = "top"): Capture | undefined {
+    // Hauptprogramm: auch wenn sein Thread gerade wartet (warte …, Eingabe) – dann ist er nicht der aktuelle
+    const hasProgram = (t: { programStack: { program?: { isReplProgram?: boolean } }[] }) => t.programStack.some((p) => !p.program?.isReplProgram);
+    const thread = frame === "main"
+        ? (() => {
+            const all = interpreter.scheduler.getAllThreads().filter(hasProgram);
+            return all.find((t) => /main/i.test(t.name)) ?? all[0] ?? interpreter.scheduler.getCurrentThread();
+        })()
+        : interpreter.scheduler.getCurrentThread();
+    const stack = thread?.programStack ?? [];
+    const programState = frame === "main" ? stack.find((p) => !p.program?.isReplProgram) : stack[stack.length - 1];
     if (!thread || !programState || programState.program?.isReplProgram) return undefined;
     const entry = new DebuggerCallstackEntry(programState);
     if (!entry.symbolTable) return undefined;

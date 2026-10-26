@@ -1,0 +1,94 @@
+/* Variablen auf der Bühne (StageVariables.ts) – Kästchen wie die Variablenanzeigen in Scratch */
+
+.gsg-stage-toggle {
+    position: absolute;
+    top: 4px;
+    right: 6px;
+    z-index: 30;
+    font: 12px/1.2 system-ui, "Segoe UI", sans-serif;
+    padding: 3px 9px;
+    border-radius: 999px;
+    border: 1px solid rgba(128, 128, 128, .5);
+    background: rgba(40, 40, 40, .75);
+    color: #e7e7e7;
+    cursor: pointer;
+}
+.gsg-stage-toggle:hover { border-color: var(--brand-accent, #45B82F); }
+.gsg-stage-toggle.active { background: var(--brand-accent, #45B82F); color: var(--brand-on-accent, #0b1d2e); border-color: transparent; }
+
+.gsg-stage-panel {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    z-index: 25;
+    max-width: calc(100% - 110px);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 6px;
+    pointer-events: none;   /* Mausklicks gehen an das Grafikfenster – außer an den Knöpfen */
+    font: 13px/1.2 system-ui, "Segoe UI", sans-serif;
+}
+.gsg-stage-panel[hidden] { display: none; }
+
+.gsg-stage-list { display: flex; flex-direction: column; gap: 4px; }
+
+.gsg-stage-monitor {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255, 255, 255, .92);
+    color: #1f2937;
+    border: 1px solid rgba(0, 0, 0, .18);
+    border-radius: 6px;
+    padding: 2px 3px 2px 7px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .2);
+    max-width: 100%;
+}
+.gsg-stage-name { font-weight: 600; white-space: nowrap; }
+.gsg-stage-value {
+    background: #ff8c1a;
+    color: #fff;
+    font-weight: 600;
+    border-radius: 4px;
+    padding: 1px 7px;
+    min-width: 1.6em;
+    text-align: center;
+    overflow-wrap: anywhere;
+}
+
+.gsg-stage-empty {
+    background: rgba(40, 40, 40, .75);
+    color: #e7e7e7;
+    border-radius: 6px;
+    padding: 3px 8px;
+}
+
+.gsg-stage-choose {
+    pointer-events: auto;
+    font: inherit;
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 6px;
+    border: 1px solid rgba(128, 128, 128, .5);
+    background: rgba(40, 40, 40, .75);
+    color: #e7e7e7;
+    cursor: pointer;
+}
+
+.gsg-stage-chooser {
+    pointer-events: auto;
+    flex-basis: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    background: rgba(30, 30, 30, .92);
+    color: #e7e7e7;
+    border-radius: 6px;
+    padding: 6px 10px;
+    max-height: 14em;
+    overflow: auto;
+    width: max-content;
+}
+.gsg-stage-chooser[hidden] { display: none; }
+.gsg-stage-chooser label { cursor: pointer; white-space: nowrap; }

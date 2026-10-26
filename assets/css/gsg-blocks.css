@@ -41,6 +41,9 @@
     position: relative;
     flex: 1 1 auto;
     min-width: 0;
+    /* eigene Stapel-Ebene: Werkzeugleiste und Flyout von Blockly (z-index 70) liegen nicht mehr über den
+       Menüs der IDE (z. B. „Sprites“); Kontextmenüs und Auswahllisten von Blockly hängen am body und bleiben oben */
+    isolation: isolate;
 }
 
 .gsg-blockly {

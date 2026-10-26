@@ -241,7 +241,7 @@ export function definePrintBlock(colour: string) {
             const tail = this.appendDummyInput("TAIL");
             if (this.state.items > 1) tail.appendField(new FieldButton("◂", (b) => setItems(b as Mutable<PrintState>, -1), "Letzten Wert entfernen"));
             tail.appendField(new FieldButton("▸", (b) => setItems(b as Mutable<PrintState>, +1), "Weiteren Wert hinzufügen"));
-            tail.appendField(new Blockly.FieldDropdown([["mit Zeilenumbruch (println)", "println"], ["ohne Zeilenumbruch (print)", "print"]]), "MODE");
+            tail.appendField(new Blockly.FieldDropdown([["mit Zeilenumbruch", "println"], ["ohne Zeilenumbruch", "print"]]), "MODE");
         },
 
         saveExtraState(this: Mutable<PrintState>): PrintState | null {

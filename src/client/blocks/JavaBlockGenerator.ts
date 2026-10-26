@@ -184,9 +184,14 @@ export class JavaBlockGenerator {
             case B.varSet:
                 this.emit(`${indent}${f.NAME} = ${this.input(b, "VALUE", Order.NONE)};`);
                 break;
-            case B.varChange:
-                this.emit(`${indent}${f.NAME} += ${this.input(b, "VALUE", Order.NONE)};`);
+            case B.varChange: {
+                // um 1: zahl++ / zahl--, sonst zahl += … / zahl -= …
+                const minus = f.OP === "-";
+                const v = b.inputs?.VALUE?.block;
+                if (v?.type === B.number && String(v.fields?.NUM ?? "").trim() === "1") this.emit(`${indent}${f.NAME}${minus ? "--" : "++"};`);
+                else this.emit(`${indent}${f.NAME} ${minus ? "-=" : "+="} ${this.input(b, "VALUE", Order.NONE)};`);
                 break;
+            }
             case B.varSub:
                 this.emit(`${indent}${f.NAME} -= ${this.input(b, "VALUE", Order.NONE)};`);
                 break;
@@ -236,7 +241,8 @@ export class JavaBlockGenerator {
                 break;
             }
             case B.while:
-                this.emit(`${indent}while (${this.input(b, "COND", Order.NONE)}) {`);
+                // bis: solange die Bedingung NICHT erfüllt ist
+                this.emit(`${indent}while (${f.MODE === "until" ? "!" + this.input(b, "COND", Order.UNARY) : this.input(b, "COND", Order.NONE)}) {`);
                 this.statements(b.inputs?.DO?.block, indent + INDENT);
                 this.emit(`${indent}}`);
                 break;

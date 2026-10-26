@@ -101,7 +101,17 @@ describe("Paket 1: Ausgabe und Variablen", () => {
     test("erhöhe/verringere", () => {
         const code = lines("x++;", "x--;", "x += 3;", "x -= 3;");
         expect(roundTrip(code)).toBe(code);
-        expect(body(code).map((b) => b.type)).toEqual([B.varInc, B.varDec, B.varChange, B.varSub]);
+        // ein Block „erhöhe/verringere … um …“ mit Auswahl; um 1 wird wieder ++ bzw. --
+        expect(body(code).map((b) => [b.type, b.fields?.OP])).toEqual([[B.varChange, "+"], [B.varChange, "-"], [B.varChange, "+"], [B.varChange, "-"]]);
+        expect(roundTrip(lines("x += 1;"))).toBe(lines("x++;"));
+    });
+
+    test("wiederhole solange/bis (bis = while (!…))", () => {
+        const code = lines("while (x < 10) {", "    x++;", "}", "while (!(x > 20)) {", "    x++;", "}", "while (!fertig) {", "    x++;", "}");
+        expect(roundTrip(code)).toBe(code);
+        const loops = body(code);
+        expect(loops.map((b) => b.fields?.MODE)).toEqual(["while", "until", "until"]);
+        expect(loops[1].inputs?.COND?.block?.type).toBe(B.compare);
     });
 });
 

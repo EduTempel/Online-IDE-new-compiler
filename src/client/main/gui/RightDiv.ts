@@ -16,6 +16,7 @@ import { addStructogramTab } from '../../structogram/StructogramTab.js';
 import { addTaskTab } from '../../task/TaskTab.js';
 import { addTraceTab } from '../../trace/TraceTab.js';
 import { addObjectsTab } from '../../objects/ObjectsTab.js';
+import { addStageVariables } from '../../stage/StageVariables.js';
 
 
 export class RightDiv {
@@ -158,6 +159,13 @@ export class RightDiv {
             </div>
             `);
         this.outputTab.bodyDiv.appendChild($runInnerDiv[0]);
+
+        // GSG: Variablen auf der Bühne (wie Scratch); darf den Start der IDE nie verhindern
+        try {
+            addStageVariables(this.main, this.outputTab.bodyDiv);
+        } catch (e) {
+            console.error(e);
+        }
 
         if (this.withClassDiagram) {
             this.tabManager.addTab(this.classDiagramTab = new Tab('Class Diagram',RightDivMessages.classDiagram(), ['jo_classdiagram']));

@@ -9,7 +9,8 @@ import { classInfos, typeLabel } from "./BlockTypeSystem";
  * Liste stehen – z. B. aus dem Java-Code übernommen.
  */
 
-export type TypeMode = "full" | "return" | "element";
+/** simple: nur einfache Typen und Klassen (erstelle neue Variable – Reihungen, Listen, ADT haben eigene Blöcke) */
+export type TypeMode = "full" | "return" | "element" | "simple";
 
 /** Java-Bezeichner: nur Buchstaben, Ziffern, _ und $; nicht mit Ziffer beginnen */
 export function identifier(v: string): string | null {
@@ -34,7 +35,7 @@ export class FieldType extends Blockly.FieldDropdown {
         const classes = block ? [...classInfos(block.workspace).keys()].sort((a, b) => a.localeCompare(b, "de")) : [];
         const scalars: string[] = [...VAR_TYPES];
         const groups: string[][] = [[...(mode === "return" ? ["void"] : []), ...scalars, ...classes]];
-        if (mode !== "element") {
+        if (mode !== "element" && mode !== "simple") {
             groups.push([...scalars, ...classes].map((t) => t + "[]"));
             groups.push(scalars.map((t) => t + "[][]"));
             groups.push([...scalars, ...classes].map((t) => `ArrayList<${({ int: "Integer", double: "Double", boolean: "Boolean", char: "Character" } as Record<string, string>)[t] ?? t}>`));
