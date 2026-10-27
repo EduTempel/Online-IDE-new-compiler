@@ -80,6 +80,10 @@
 .gsg-hb-blocks { margin: 6px 0; font-size: 12px; opacity: .9; overflow-x: auto; }
 .gsg-hb-blocks img { display: block; height: auto; max-width: none; }
 
+/* Struktogramm: schwarz auf weiß wie gedruckt (auch im dunklen Design) */
+.gsg-hb-structogram { margin: 6px 0; overflow-x: auto; }
+.gsg-hb-structogram img { display: block; height: auto; max-width: none; border-radius: 4px; }
+
 .gsg-hb-java {
     margin: 6px 0;
     padding: 8px 10px;

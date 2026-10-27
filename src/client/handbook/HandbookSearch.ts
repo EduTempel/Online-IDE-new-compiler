@@ -9,9 +9,14 @@ export function definedTypes(code: string): string[] {
 }
 
 /** Dateiname für ein Beispiel: Titel ohne Sonderzeichen */
-export function exampleFileName(title: string): string {
+export function exampleFileName(title: string, ext = ".java"): string {
     const base = title.replace(/[„“"'‚‘…/\\:*?<>|()]/g, " ").replace(/\s+/g, " ").trim().slice(0, 40).trim();
-    return (base || "Beispiel") + ".java";
+    return (base || "Beispiel") + ext;
+}
+
+/** Struktogramm ohne Kennungen (zum Vergleichen: Beispiel schon als Datei im Projekt?) */
+export function structogramShape(doc: { title: string; body: unknown[] }): string {
+    return JSON.stringify({ title: doc.title, body: doc.body }, (k, v) => (k === "id" ? undefined : v));
 }
 
 const typesCache = new Map<string, Set<string>>();

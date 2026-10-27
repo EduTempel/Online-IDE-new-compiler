@@ -8,6 +8,8 @@ import { B, type BlockState } from "../blocks/BlockTypes";
 import { compileJava, runJava } from "../blocks/RunJava";
 import { BLOCK_HANDBOOK } from "./HandbookBlocks";
 import { JAVA_HANDBOOK } from "./HandbookJava";
+import { STRUCTOGRAM_HANDBOOK } from "./HandbookStructogram";
+import { docToJava } from "../structogram/PseudoJava";
 import { definedTypes, exampleFileName, findBlockEntry } from "./HandbookSearch";
 import * as Blockly from "blockly/core";
 import { categoryOfColour, registerBlockHelpMenu } from "../blocks/BlockHelp";
@@ -69,6 +71,27 @@ describe("Handbuch: Java", () => {
             expect(r.errors).toEqual([]);
             expect(r.output).not.toMatch(/Exception|Fehler/);
         } else expect(await compileJava(e.code, e.libs)).toEqual([]);
+    });
+});
+
+const structogramEntries = STRUCTOGRAM_HANDBOOK.flatMap((s) => s.entries.map((e) => ({ section: s.id, ...e })));
+
+describe("Handbuch: Struktogramme", () => {
+    test("Kennungen und Titel sind eindeutig", () => {
+        expect(new Set(STRUCTOGRAM_HANDBOOK.map((s) => s.id)).size).toBe(STRUCTOGRAM_HANDBOOK.length);
+        expect(new Set(structogramEntries.map((e) => e.title)).size).toBe(structogramEntries.length);
+    });
+
+    test.each(structogramEntries.map((e) => [`${e.section}: ${e.title}`, e] as const))("%s: vollständig in Java umwandelbar, übersetzbar, ggf. lauffähig", async (_, e) => {
+        expect(e.structogram).toBeDefined();
+        expect(docToJava(e.structogram!).todos, e.code).toBe(0);
+        // Operationen: im Test mit einem Aufruf davor (wie Hauptprogramm + Operation in einer Datei)
+        const program = (e.call ? e.call + "\n\n" : "") + e.code;
+        if (e.runs) {
+            const r = await runJava(program, e.libs);
+            expect(r.errors, program).toEqual([]);
+            expect(r.output).not.toMatch(/Exception|Fehler/);
+        } else expect(await compileJava(program, e.libs), program).toEqual([]);
     });
 });
 

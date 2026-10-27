@@ -3,7 +3,7 @@ import { TokenType } from "../../compiler/java/TokenType";
 import { B, type BlockState } from "../blocks/BlockTypes";
 import { JavaBlockParser } from "../blocks/JavaBlockParser";
 import { methodParams, typeInfo, type ClassInfo } from "../blocks/ClassModel";
-import { colourLabel, FIGURE_ACTIONS, FIGURE_PROPS, keyLabel } from "../blocks/FigureSpec";
+import { colourLabel, FIGURE_ACTIONS, FIGURE_PROPS, keyLabel, targetLabel } from "../blocks/FigureSpec";
 import { ADT_GETS } from "../blocks/AdtSpec";
 
 /**
@@ -298,6 +298,7 @@ class Expr {
             case B.figProp: return [`${FIGURE_PROPS.find(([, v]) => v === f.PROP)?.[0] ?? "x-Position"} von ${name}`, P.NONE];
             case B.figTouches: return [`${name} berührt ${f.OTHER ?? "…"}`, P.EQ];
             case B.figOutside: return [`${name} ist außerhalb des Fensters`, P.EQ];
+            case B.figDistance: return [`Abstand von ${name} zu ${targetLabel(f.OTHER)}`, P.NONE];
             case B.keyDown: return [`Taste „${keyLabel(f.KEY ?? "")}“ gedrückt`, P.EQ];
             case B.mouseDown: return [f.WHAT === "clicked" ? "Maus wurde geklickt" : "Maustaste gedrückt", P.EQ];
             case B.mouseOver: return [f.WHAT === "clicked" ? `Mausklick auf ${name}` : `Maus ist über ${name}`, P.EQ];
@@ -456,6 +457,7 @@ class Converter {
             case B.figMoveTo: return this.stmt(`setze ${name} auf Position (${v("X")} | ${v("Y")})`);
             case B.figRotate: return this.stmt(`drehe ${name} um ${v("A")} Grad`);
             case B.figForward: return this.stmt(`gehe mit ${name} ${v("D")} Schritte in Blickrichtung`);
+            case B.figTurnTo: return this.stmt(`drehe ${name} in Richtung ${targetLabel(f.OTHER)}`);
             case B.figScale: return this.stmt(`vergrößere ${name} um Faktor ${v("F")}`);
             case B.figColor: return this.stmt(`färbe ${name} ${colourLabel(f.COLOR ?? "red")}`);
             case B.figSetText: return this.stmt(`setze Inhalt von ${name} auf ${v("TEXT")}`);

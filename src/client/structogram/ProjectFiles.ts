@@ -43,6 +43,9 @@ export async function createFile(main: Main, name: string, text: string, folderI
     const icon = FileTypeManager.filenameToFileType(name, main.getCurrentProgrammingLanguage()).iconclass;
     main.projectExplorer.fileTreeview.addNode(false, name, icon, file, folderId ?? undefined);
     main.projectExplorer.setFileActive(file);
+    // Übersetzen anstoßen: Sonst übersetzt die IDE erst beim nächsten Tippen – bis dahin fehlt der Datei
+    // der Start-Knopf, und „Starten“ startet ein anderes Hauptprogramm des Projekts.
+    main.getCompiler()?.triggerCompile();
     return file;
 }
 
@@ -70,5 +73,6 @@ export function ensureLibraries(main: Main, ids: readonly string[]): boolean {
 export function replaceText(main: Main, file: GUIFile, text: string) {
     file.setText(text);
     file.setSaved(false);
+    main.getCompiler()?.triggerCompile();   // die Datei ist oft nicht die im Editor geöffnete (siehe createFile)
     main.networkManager.sendUpdatesAsync(true);
 }

@@ -13,6 +13,8 @@
     gap: 6px;
     padding: 4px 8px;
     white-space: nowrap;
+    flex-wrap: wrap;   /* schmale Spalte: Knöpfe in die nächste Zeile statt aus dem Bild */
+    row-gap: 4px;
     border-bottom: 1px solid var(--slider, #555);
     font: 12px Roboto, "Segoe UI", sans-serif;
     color: var(--fontColorNormal, #ccc);

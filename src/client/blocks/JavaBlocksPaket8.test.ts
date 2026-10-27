@@ -115,3 +115,65 @@ describe("Paket 8 im Struktogramm", () => {
         }
     });
 });
+
+describe("Abstand und in Richtung drehen (wie in Scratch)", () => {
+    const CODE = lines(
+        "Sprite figur = new Sprite(100, 300, SpriteLibrary.Ship_1, 0);",
+        "Circle ziel = new Circle(600, 300, 30);",
+        "while (true) {",
+        "    figur.turnTowards(Mouse.getX(), Mouse.getY());",
+        "    if (figur.distanceTo(Mouse.getX(), Mouse.getY()) > 50) {",
+        "        figur.forward(3);",
+        "    }",
+        "    if (figur.distanceTo(ziel) < 40) {",
+        "        figur.turnTowards(ziel);",
+        "    }",
+        "    Thread.sleep(20);",
+        "}",
+    );
+
+    test("wird zu Blöcken (Mauszeiger oder Figur) und wieder zu demselben Java", async () => {
+        noJavaText(CODE);
+        expect(roundTrip(CODE)).toBe(CODE);
+        const t = types(CODE);
+        expect(t.has(B.figTurnTo) && t.has(B.figDistance)).toBe(true);
+        const state = JSON.stringify(JavaBlockParser.parse(CODE).state);
+        expect(state).toContain('"OTHER":"@maus"');
+        expect(state).toContain('"OTHER":"ziel"');
+        expect(await compileJava(CODE)).toEqual([]);
+    });
+
+    test("Struktogramm", async () => {
+        const { diagramsFromJava } = await import("../structogram/StructogramModel");
+        const text = JSON.stringify(diagramsFromJava(CODE));
+        for (const phrase of ["drehe figur in Richtung Mauszeiger", "(Abstand von figur zu Mauszeiger) > 50", "drehe figur in Richtung ziel", "(Abstand von figur zu ziel) < 40"]) {
+            expect(text, phrase).toContain(phrase);
+        }
+    });
+
+    test("turnTowards dreht auf kürzestem Weg, Abstand der Mittelpunkte", async () => {
+        const { ShapeClass } = await import("../../compiler/java/runtime/graphics/ShapeClass");
+        const fake = (x: number, y: number, dirDeg: number) => {
+            const f = {
+                x, y, directionRad: dirDeg / 180 * Math.PI, turned: 0,
+                _getCenterX: () => f.x, _getCenterY: () => f.y,
+                _rotate(a: number) { f.turned += a; f.directionRad += a / 180 * Math.PI; return f; },
+            };
+            return f;
+        };
+        const turn = (f: ReturnType<typeof fake>, x: number, y: number) => ShapeClass.prototype._turnTowards.call(f as never, x, y);
+        let f = fake(100, 100, 0);
+        turn(f, 100, 0);                       // Ziel oben: y nach unten → 90° gegen den Uhrzeigersinn
+        expect(f.turned).toBeCloseTo(90);
+        f = fake(100, 100, 0);
+        turn(f, 100, 200);                     // unten
+        expect(f.turned).toBeCloseTo(-90);
+        f = fake(100, 100, 170);
+        turn(f, 0, 110);                       // links etwas tiefer (≈ 185,7°): 15,7° weiter statt fast ganz herum
+        expect(f.turned).toBeCloseTo(10 + Math.atan2(10, 100) * 180 / Math.PI, 5);
+        f = fake(100, 100, 30);
+        turn(f, 100, 100);                     // auf dem Punkt selbst: nichts
+        expect(f.turned).toBe(0);
+        expect(ShapeClass.prototype._distanceTo.call(fake(0, 0, 0) as never, 3, 4)).toBe(5);
+    });
+});

@@ -49,6 +49,13 @@ describe("Struktogramm -> Java", () => {
         expect(javaType("Stapel vom Inhaltstyp Zeichen")).toBe("Stack");
     });
 
+    test("Ausgabe mehrerer Werte: Summen bleiben Summen", async () => {
+        const d = doc("Hauptprogramm", [stmt("alter ← 15"), stmt("gib \"Nächstes Jahr bist du\", alter + 1 aus")]);
+        const code = docToJava(d).code;
+        expect(code).toContain('println("Nächstes Jahr bist du" + " " + (alter + 1));');
+        expect((await runJava(code)).output).toBe("Nächstes Jahr bist du 16\n");
+    });
+
     test("Beispiel 2 der Hinweise: Stapel, ASCII-Wert, Kommentar in der Bedingung", () => {
         const d = doc("anzahlZeichen(s: Stapel vom Inhaltstyp Zeichen): stat. Reihung vom Inhaltstyp Ganzzahl", [
             stmt("anzahl ← stat. Reihung der Länge 27 vom Inhaltstyp Ganzzahl"),

@@ -3,17 +3,25 @@
  * Kategorien der Werkzeugleiste) und eins für Java. Jedes Beispiel ist Java-Code: im Blöcke-Handbuch wird
  * er als Blöcke gezeigt, im Java-Handbuch als Text. „Ausprobieren“ legt ihn als neue Datei an.
  * Idee nach dem Handbuch der Python-IDE von Marc Franke (nur das Konzept, eigene Umsetzung und Inhalte).
+ * Dazu ein Handbuch für Struktogramme (Beispiele als Struktogramm, „Ausprobieren“ legt eine
+ * Struktogramm-Datei an).
  */
 
-export type HandbookKind = "blocks" | "java";
+import type { StructogramDoc } from "../structogram/StructogramDoc";
+
+export type HandbookKind = "blocks" | "java" | "struktogramm";
 
 export type HandbookEntry = {
     /** Überschrift des Beispiels */
     title: string;
     /** kurze Erklärung (Markdown wie bei Aufgaben: **fett**, `Code`, Listen) */
     text: string;
-    /** Beispielprogramm (Java) */
+    /** Beispielprogramm (Java; bei Struktogrammen daraus erzeugt) */
     code: string;
+    /** Struktogramm-Handbuch: das Beispiel als Struktogramm */
+    structogram?: StructogramDoc;
+    /** Struktogramm einer Operation: Java-Anweisungen, die sie im Test aufrufen */
+    call?: string;
     /** Bibliotheken, die das Beispiel braucht (z. B. Abiturklassen „niedersachsen“) */
     libs?: string[];
     /** läuft im Test ohne Eingabe, Grafik und Endlosschleife (dann wird es dort auch ausgeführt) */

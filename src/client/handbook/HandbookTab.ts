@@ -8,14 +8,17 @@ import { createFile, ensureLibraries, freeName } from "../structogram/ProjectFil
 import { setHandbookOpener, type HandbookEntry, type HandbookKind, type HandbookSection, type OpenOptions } from "./Handbook";
 import { BLOCK_HANDBOOK } from "./HandbookBlocks";
 import { JAVA_HANDBOOK } from "./HandbookJava";
-import { definedTypes, exampleFileName, findBlockEntry } from "./HandbookSearch";
+import { STRUCTOGRAM_HANDBOOK } from "./HandbookStructogram";
+import { definedTypes, exampleFileName, findBlockEntry, structogramShape } from "./HandbookSearch";
+import { diagramOfDoc, parseDoc, serializeDoc, withNewIds, type StructogramDoc } from "../structogram/StructogramDoc";
+import { renderSvg, STYLE } from "../structogram/StructogramSvg";
 import "/assets/css/gsg-handbook.css";
 
 /**
  * Reiter „Handbuch“ (GSG): kleine Beispielprogramme mit kurzen Erklärungen – für die Blöcke
- * (gegliedert wie die Werkzeugleiste, Beispiele als Blockbild) und für Java (als Text).
- * „Ausprobieren“ legt das Beispiel als neue Datei im Projekt an. Geöffnet über das Menü „Handbuch“
- * oder per Rechtsklick „Hilfe“ auf einem Block.
+ * (gegliedert wie die Werkzeugleiste, Beispiele als Blockbild), für Struktogramme (als Struktogramm)
+ * und für Java (als Text). „Ausprobieren“ legt das Beispiel als neue Datei im Projekt an. Geöffnet
+ * über das Menü „Handbuch“, per Rechtsklick „Hilfe“ auf einem Block oder „? Hilfe“ im Struktogramm-Editor.
  */
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string): HTMLElementTagNameMap[K] {
@@ -38,13 +41,34 @@ export function addHandbookTab(base: MainBase, tabManager: TabManager) {
     let renderedKey = "";
 
     const dark = () => main.themeManager?.currentTheme?.name !== "light";
-    const javaAvailable = () => !(Constants.isBlocksApp && main.blockModeController?.isJavaLocked());
+    const javaAvailable = () => {
+        if (Constants.isBlocksApp) return !main.blockModeController?.isJavaLocked();
+        if (Constants.isStructogramApp) {
+            // wie „In Java umwandeln“: nur mit Java-Freigabe der Lerngruppe (Lehrkräfte immer)
+            const u = main.user as { is_teacher?: boolean; is_admin?: boolean; is_schooladmin?: boolean; gsgFreigaben?: { java?: boolean } } | undefined;
+            return !u || !!(u.is_teacher || u.is_admin || u.is_schooladmin || u.gsgFreigaben?.java);
+        }
+        return true;
+    };
     const blocksAvailable = () => !Constants.isStructogramApp;
+    /** Handbücher, zwischen denen umgeschaltet werden kann */
+    const kinds = (): HandbookKind[] => [
+        ...(blocksAvailable() ? ["blocks" as const] : []),
+        "struktogramm" as const,
+        ...(javaAvailable() ? ["java" as const] : []),
+    ];
+    const editingStructogram = () => {
+        try {
+            return /\.struktogramm$/i.test(main.getMainEditor?.()?.getModel()?.uri.path.replace(/ \(\d+\)$/, "") ?? "");
+        } catch {
+            return false;   // beim Start der IDE gibt es den Editor noch nicht
+        }
+    };
     const kind = (): HandbookKind => {
-        const wanted = chosenKind ?? (Constants.isBlocksApp || main.blockModeController?.getMode() === "blocks" ? "blocks" : "java");
-        if (wanted === "java" && !javaAvailable()) return "blocks";
-        if (wanted === "blocks" && !blocksAvailable()) return "java";
-        return wanted;
+        const wanted = chosenKind ?? (Constants.isStructogramApp || editingStructogram() ? "struktogramm"
+            : Constants.isBlocksApp || main.blockModeController?.getMode() === "blocks" ? "blocks" : "java");
+        const available = kinds();
+        return available.includes(wanted) ? wanted : available[0];
     };
     const hiddenCategories = (): string[] => {
         if (!Constants.isBlocksApp) return [];
@@ -53,11 +77,13 @@ export function addHandbookTab(base: MainBase, tabManager: TabManager) {
     };
     const sections = (k: HandbookKind): HandbookSection[] => {
         if (k === "java") return JAVA_HANDBOOK;
+        if (k === "struktogramm") return STRUCTOGRAM_HANDBOOK;
         const hidden = hiddenCategories();
         return BLOCK_HANDBOOK.filter((s) => !hidden.includes(s.id) && !(s.parent && hidden.includes(s.parent)));
     };
 
-    const matches = (e: HandbookEntry, q: string) => (e.title + " " + e.text + " " + e.code).toLowerCase().includes(q);
+    const matches = (e: HandbookEntry, q: string) =>
+        (e.title + " " + e.text + " " + e.code + " " + (e.structogram ? structogramShape(e.structogram) : "")).toLowerCase().includes(q);
 
     // ------------------------------------------------------------------ Darstellung
 
@@ -88,10 +114,13 @@ export function addHandbookTab(base: MainBase, tabManager: TabManager) {
 
     const header = (k: HandbookKind): HTMLElement => {
         const head = el("div", "gsg-hb-head");
-        if (javaAvailable() && blocksAvailable()) {
+        const available = kinds();
+        if (available.length > 1) {
             const sw = el("div", "gsg-hb-switch");
             sw.setAttribute("role", "group");
-            for (const [value, label] of [["blocks", "Blöcke"], ["java", "Java"]] as const) {
+            const labels: Record<HandbookKind, string> = { blocks: "Blöcke", struktogramm: "Struktogramm", java: "Java" };
+            for (const value of available) {
+                const label = labels[value];
                 const b = el("button", value === k ? "active" : "", label);
                 b.type = "button";
                 b.setAttribute("aria-pressed", String(value === k));
@@ -100,7 +129,7 @@ export function addHandbookTab(base: MainBase, tabManager: TabManager) {
             }
             head.append(sw);
         } else {
-            head.append(el("span", "gsg-hb-title", k === "blocks" ? "Handbuch Blöcke" : "Handbuch Java"));
+            head.append(el("span", "gsg-hb-title", k === "blocks" ? "Handbuch Blöcke" : k === "struktogramm" ? "Handbuch Struktogramme" : "Handbuch Java"));
         }
         const search = el("input", "gsg-hb-search");
         search.type = "search";
@@ -126,7 +155,9 @@ export function addHandbookTab(base: MainBase, tabManager: TabManager) {
         const p = el("p", "gsg-hb-intro");
         p.innerHTML = k === "blocks"
             ? "Zu jeder Kategorie der Werkzeugleiste gibt es kleine Beispielprogramme. Mit <b>▶ Ausprobieren</b> wird ein Beispiel als neue Datei in deinem Projekt angelegt. Tipp: Rechtsklick auf einen Block → <b>Hilfe</b> führt direkt zum passenden Beispiel."
-            : "Kleine Beispielprogramme von der ersten Ausgabe bis zur Vererbung. Mit <b>▶ Ausprobieren</b> wird ein Beispiel als neue Datei in deinem Projekt angelegt.";
+            : k === "struktogramm"
+                ? "Struktogramme in der Schreibweise der Ergänzenden Hinweise für das Abitur. Mit <b>▶ Ausprobieren</b> wird ein Beispiel als Struktogramm-Datei in deinem Projekt angelegt. Im Editor: Element anklicken, Text oben ändern, mit den Knöpfen unter „Einfügen“ neue Elemente dahinter einfügen. Ein Fragezeichen am Text heißt: Diese Formulierung kennt die Umwandlung in Java noch nicht."
+                : "Kleine Beispielprogramme von der ersten Ausgabe bis zur Vererbung. Mit <b>▶ Ausprobieren</b> wird ein Beispiel als neue Datei in deinem Projekt angelegt.";
         return p;
     };
 
@@ -163,18 +194,14 @@ export function addHandbookTab(base: MainBase, tabManager: TabManager) {
         const text = el("div", "gsg-hb-text");
         text.innerHTML = markdownToHtml(e.text);
         box.append(text);
-        if (k === "blocks") {
+        if (k === "struktogramm" && e.structogram) {
+            box.append(drawStructogram(e.structogram));
+            if (javaAvailable()) box.append(javaDetails(e.code));
+        } else if (k === "blocks") {
             const pic = el("div", "gsg-hb-blocks", "Blöcke werden gezeichnet …");
             box.append(pic);
             drawBlocks(pic, e.code);
-            if (javaAvailable()) {
-                const det = el("details", "gsg-hb-javadetails");
-                det.append(el("summary", undefined, "Java-Code"));
-                const pre = el("pre", "gsg-hb-java");
-                det.append(pre);
-                det.addEventListener("toggle", () => { if (det.open && !pre.childElementCount) colorize(pre, e.code); }, { once: false });
-                box.append(det);
-            }
+            if (javaAvailable()) box.append(javaDetails(e.code));
         } else {
             const pre = el("pre", "gsg-hb-java");
             box.append(pre);
@@ -183,11 +210,40 @@ export function addHandbookTab(base: MainBase, tabManager: TabManager) {
         const actions = el("div", "gsg-hb-actions");
         const tryIt = el("button", "gsg-hb-button gsg-hb-primary", "▶ Ausprobieren");
         tryIt.type = "button";
-        tryIt.title = "Beispiel als neue Datei in deinem Projekt anlegen und öffnen";
+        tryIt.title = k === "struktogramm" ? "Beispiel als Struktogramm-Datei in deinem Projekt anlegen und öffnen" : "Beispiel als neue Datei in deinem Projekt anlegen und öffnen";
         tryIt.addEventListener("click", () => tryExample(k, e));
         actions.append(tryIt);
         box.append(actions);
         return box;
+    };
+
+    /** Java-Code zum Aufklappen (Blöcke, Struktogramme) */
+    const javaDetails = (code: string): HTMLElement => {
+        const det = el("details", "gsg-hb-javadetails");
+        det.append(el("summary", undefined, "Java-Code"));
+        const pre = el("pre", "gsg-hb-java");
+        det.append(pre);
+        det.addEventListener("toggle", () => { if (det.open && !pre.childElementCount) colorize(pre, code); });
+        return det;
+    };
+
+    const measureCtx = document.createElement("canvas").getContext("2d");
+    const measure = (text: string, bold?: boolean) => {
+        if (!measureCtx) return [...text].length * (bold ? 7.6 : 7.1);
+        measureCtx.font = `${bold ? "bold " : ""}${STYLE.font}px Arial, Helvetica, sans-serif`;
+        return measureCtx.measureText(text).width;
+    };
+
+    /** Struktogramm wie im Editor (schwarz auf weiß, wie gedruckt) */
+    const drawStructogram = (doc: StructogramDoc): HTMLElement => {
+        const pic = el("div", "gsg-hb-structogram");
+        const { svg, width } = renderSvg([diagramOfDoc(doc)], measure);
+        const img = el("img");
+        img.alt = "Beispiel als Struktogramm";
+        img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+        img.style.width = `clamp(${Math.round(width * 0.7)}px, 100%, ${width}px)`;
+        pic.append(img);
+        return pic;
     };
 
     const colorize = async (pre: HTMLElement, code: string) => {
@@ -230,6 +286,18 @@ export function addHandbookTab(base: MainBase, tabManager: TabManager) {
             return;
         }
         const files = workspace.getFiles().filter((f) => !f.isFolder);
+        if (k === "struktogramm" && e.structogram) {
+            // schon als Datei da? Dann diese öffnen
+            const shape = structogramShape(e.structogram);
+            const existing = files.find((f) => /\.struktogramm$/i.test(f.name) && structogramShape(parseDoc(f.getText())) === shape);
+            if (existing) {
+                main.projectExplorer.setFileActive(existing);
+                return;
+            }
+            const doc: StructogramDoc = { ...e.structogram, body: e.structogram.body.map(withNewIds) };
+            await createFile(main, freeName(main, exampleFileName(e.title, ".struktogramm")), serializeDoc(doc));
+            return;
+        }
         const same = files.find((f) => f.getText().replace(/\r\n/g, "\n") === e.code);
         if (same) {
             main.projectExplorer.setFileActive(same);

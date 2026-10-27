@@ -58,6 +58,11 @@ export class ShapeClass extends ActorClass {
         { type: "method", signature: "final This tint(Color color)", native: ShapeClass.prototype._setTintColor, comment: JRC.shapeTintComment },
 
         { type: "method", signature: "final Direction directionRelativeTo(Shape otherShape)", native: ShapeClass.prototype._directionRelativeTo, comment: JRC.shapeDirectionRelativeToComment },
+        // GSG (Blockmodus): Abstand und Drehen in Richtung – wie „Entfernung von …“ und „drehe dich zu …“ in Scratch
+        { type: "method", signature: "final double distanceTo(Shape otherShape)", native: ShapeClass.prototype._distanceToShape, comment: "Abstand zwischen den Mittelpunkten dieser und der anderen Figur (in Pixeln)." },
+        { type: "method", signature: "final double distanceTo(double x, double y)", native: ShapeClass.prototype._distanceTo, comment: "Abstand vom Mittelpunkt der Figur zum Punkt (x|y), z. B. distanceTo(Mouse.getX(), Mouse.getY())." },
+        { type: "method", signature: "final This turnTowards(Shape otherShape)", native: ShapeClass.prototype._turnTowardsShape, comment: "Dreht die Figur so, dass ihre Blickrichtung (forward) zur anderen Figur zeigt." },
+        { type: "method", signature: "final This turnTowards(double x, double y)", native: ShapeClass.prototype._turnTowards, comment: "Dreht die Figur so, dass ihre Blickrichtung (forward) zum Punkt (x|y) zeigt, z. B. turnTowards(Mouse.getX(), Mouse.getY())." },
         { type: "method", signature: "final This moveBackFrom(Shape otherShape, boolean keepColliding)", native: ShapeClass.prototype._moveBackFrom, comment: JRC.shapeMoveBackFromComment },
 
         { type: "method", signature: "static void setDefaultVisibility(boolean isVisible)", native: ShapeClass._setDefaultVisibility, comment: JRC.shapeSetDefaultVisibilityComment },
@@ -389,6 +394,32 @@ export class ShapeClass extends ActorClass {
 
         this.setWorldTransformAndHitPolygonDirty();
 
+    }
+
+    /** GSG: Abstand der Mittelpunkte */
+    _distanceTo(x: number, y: number): number {
+        return Math.hypot(x - this._getCenterX(), y - this._getCenterY());
+    }
+
+    _distanceToShape(otherShape: ShapeClass): number {
+        if (otherShape == null) throw new RuntimeExceptionClass("distanceTo: Die andere Figur gibt es (noch) nicht (null).");
+        return this._distanceTo(otherShape._getCenterX(), otherShape._getCenterY());
+    }
+
+    /** GSG: Blickrichtung (und Bild) zum Punkt drehen; auf dem Punkt selbst bleibt alles, wie es ist */
+    _turnTowards(x: number, y: number) {
+        const dx = x - this._getCenterX(), dy = y - this._getCenterY();
+        if (Math.abs(dx) < 1e-9 && Math.abs(dy) < 1e-9) return this;
+        const target = Math.atan2(-dy, dx) / Math.PI * 180;   // y zeigt nach unten, Winkel gegen den Uhrzeigersinn
+        let delta = target - this.directionRad / Math.PI * 180;
+        delta = ((delta % 360) + 540) % 360 - 180;            // kürzester Weg: -180 … 180
+        if (Math.abs(delta) > 1e-9) this._rotate(delta);
+        return this;
+    }
+
+    _turnTowardsShape(otherShape: ShapeClass) {
+        if (otherShape == null) throw new RuntimeExceptionClass("turnTowards: Die andere Figur gibt es (noch) nicht (null).");
+        return this._turnTowards(otherShape._getCenterX(), otherShape._getCenterY());
     }
 
     _forward(distance: number) {

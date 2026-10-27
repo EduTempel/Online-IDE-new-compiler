@@ -2,7 +2,7 @@ import { Lexer } from "../../compiler/java/lexer/Lexer";
 import { TokenType } from "../../compiler/java/TokenType";
 import { B, COLLECTION_CALLS, elementJavaType, INPUT_METHODS, MATH_FUNCTIONS, VAR_TYPES, type BlockState, type CollKind, type Param, type WorkspaceState } from "./BlockTypes";
 import { attributesOf, collectionOfType, collectionType, findMethod, isClassType, methodsOf, typeInfo, unwrap, type ClassInfo, type ClassMap } from "./ClassModel";
-import { FIGURE_ACTIONS, FIGURE_CALLS, FIGURE_CREATIONS, FIGURE_PROPS, FILLED, isFigureClass, type FigureClass } from "./FigureSpec";
+import { FIGURE_ACTIONS, FIGURE_CALLS, FIGURE_CREATIONS, FIGURE_PROPS, FILLED, isFigureClass, MOUSE_TARGET, type FigureClass } from "./FigureSpec";
 import { ADT_CALLS, ADT_CREATIONS, ADT_GET_TYPES, getOp, isAdtClass, TREE_DELETES, TREE_SIDES, TREE_TESTS, type AdtClass } from "./AdtSpec";
 
 /**
@@ -1094,6 +1094,10 @@ export class JavaBlockParser {
             const colour = this.colourArg(args[0][0], args[0][1]);
             return colour === undefined ? undefined : done(B.figColor, { COLOR: colour });
         }
+        if (method === "turnTowards") {
+            const target = figureTarget(this.text(open + 1, close));
+            return target === undefined ? undefined : done(B.figTurnTo, { OTHER: target });
+        }
         const callText = `${method}(${this.text(open + 1, close).trim()})`;
         const action = FIGURE_ACTIONS.find(([, , java]) => java === callText);
         if (action) return done(B.figAction, { ACTION: action[1] });
@@ -1802,6 +1806,10 @@ class ExpressionParser {
         else if (method === "collidesWith" && close === openIndex + 2 && this.p.tok(openIndex + 1)?.tt === TokenType.identifier) {
             result = this.p.value(B.figTouches, { fields: { NAME: name, OTHER: String(this.p.tok(openIndex + 1)!.value) } });
         }
+        else if (method === "distanceTo") {
+            const target = figureTarget(this.p.sourceText(openIndex + 1, close));
+            if (target !== undefined) result = this.p.value(B.figDistance, { fields: { NAME: name, OTHER: target } });
+        }
         if (result) this.pos = close + 1;
         return result;
     }
@@ -1876,4 +1884,11 @@ function splitPrintValues(value: BlockState): BlockState[] {
         if (i % 2 === 1 ? !isSpace(terms[i]) : isSpace(terms[i])) return [value];
     }
     return terms.filter((_, i) => i % 2 === 0);
+}
+
+/** Ziel von turnTowards/distanceTo: eine Figur (Name) oder die Position des Mauszeigers */
+function figureTarget(argText: string): string | undefined {
+    const t = argText.replace(/\s+/g, "");
+    if (t === "Mouse.getX(),Mouse.getY()") return MOUSE_TARGET;
+    return /^[\p{L}_$][\p{L}\p{N}_$]*$/u.test(t) ? t : undefined;
 }

@@ -2,7 +2,7 @@ import * as Blockly from "blockly/core";
 import { B } from "./BlockTypes";
 import { variablesFor, collectVariables } from "./BlockTypeSystem";
 import {
-    COLOURS, DEFAULT_FIGURE_NAME, FIGURE_ACTIONS, FIGURE_CLASSES, FIGURE_NAMES_DE, FIGURE_PROPS, FILLED, isFigureClass, KEYS,
+    COLOURS, DEFAULT_FIGURE_NAME, FIGURE_ACTIONS, FIGURE_CLASSES, FIGURE_NAMES_DE, FIGURE_PROPS, FILLED, isFigureClass, KEYS, MOUSE_TARGET,
     type FigureClass,
 } from "./FigureSpec";
 
@@ -70,14 +70,14 @@ export class FieldOpenDropdown extends Blockly.FieldDropdown {
     }
 }
 
-/** Auswahl einer Figur (Variable vom Typ Circle, Rectangle, Text oder Sprite) */
+/** Auswahl einer Figur (Variable vom Typ Circle, Rectangle, Text oder Sprite); mit mouse: auch „Mauszeiger“ */
 export class FieldFigureName extends Blockly.FieldDropdown {
     static override fromJson(options: Blockly.FieldDropdownFromJsonConfig) {
-        const o = options as { text?: string; kinds?: FigureClass[] };
-        return new FieldFigureName(String(o.text ?? "ball"), o.kinds ?? [...FIGURE_CLASSES]);
+        const o = options as { text?: string; kinds?: FigureClass[]; mouse?: boolean };
+        return new FieldFigureName(String(o.text ?? "ball"), o.kinds ?? [...FIGURE_CLASSES], !!o.mouse);
     }
 
-    constructor(value: string, private kinds: FigureClass[]) {
+    constructor(value: string, private kinds: FigureClass[], private mouse = false) {
         super(function (this: FieldFigureName) { return this.figureOptions(); } as unknown as Blockly.MenuGenerator);
         this.setValue(value);
     }
@@ -89,11 +89,14 @@ export class FieldFigureName extends Blockly.FieldDropdown {
         if (block) for (const [name, type] of variablesFor(block)) if (isFigureClass(type) && kinds.includes(type)) names.add(name);
         const current = this.getValue();
         if (typeof current === "string" && current) names.add(current);
+        names.delete(MOUSE_TARGET);
         if (names.size === 0) names.add(DEFAULT_FIGURE_NAME[kinds[0]]);
-        return [...names].sort((a, b) => a.localeCompare(b, "de")).map((n) => [n, n]);
+        const options: [string, string][] = [...names].sort((a, b) => a.localeCompare(b, "de")).map((n) => [n, n]);
+        return this.mouse ? [["Mauszeiger", MOUSE_TARGET], ...options] : options;
     }
 
     protected override doClassValidation_(newValue?: unknown): string | null {
+        if (this.mouse && newValue === MOUSE_TARGET) return newValue;
         return typeof newValue === "string" && /^[\p{L}_$][\p{L}\p{N}_$]*$/u.test(newValue) ? newValue : null;
     }
 
@@ -140,6 +143,8 @@ const value = (name: string) => ({ type: "input_value", name });
 const statement = { previousStatement: null, nextStatement: null };
 const figure = (kinds: FigureClass[] = [...FIGURE_CLASSES], name = "NAME") =>
     ({ type: "field_gsg_figure", name, text: DEFAULT_FIGURE_NAME[kinds[0]], kinds });
+/** andere Figur oder Mauszeiger */
+const target = () => ({ type: "field_gsg_figure", name: "OTHER", text: MOUSE_TARGET, kinds: [...FIGURE_CLASSES], mouse: true });
 const colour = (name = "COLOR", initial = "red") => ({ type: "field_gsg_open_dropdown", name, choices: COLOURS, value: initial });
 
 export function defineFigureBlocks(defineJson: (json: object[]) => void) {
@@ -205,6 +210,12 @@ export function defineFigureBlocks(defineJson: (json: object[]) => void) {
             ...statement, ...fig, tooltip: "Bewegt die Figur in die Richtung, in die sie gedreht ist (am Anfang: nach rechts).",
         },
         {
+            type: B.figTurnTo, message0: "drehe %1 in Richtung %2 %3", args0: [figure(), target(), hint(".turnTowards")],
+            ...statement, ...fig,
+            tooltip: "Dreht die Figur so, dass sie zum Mauszeiger (oder zu einer anderen Figur) schaut. "
+                + "Danach bewegt „gehe … Schritte in Blickrichtung“ sie genau dorthin.",
+        },
+        {
             type: B.figScale, message0: "vergrößere %1 um Faktor %2 %3", args0: [figure(), value("F"), hint(".scale")],
             ...statement, ...fig, tooltip: "Streckt die Figur: 2 macht sie doppelt so groß, 0.5 halb so groß.",
         },
@@ -240,6 +251,11 @@ export function defineFigureBlocks(defineJson: (json: object[]) => void) {
         {
             type: B.figOutside, message0: "%1 ist außerhalb des Fensters %2", args0: [figure(), hint(".isOutsideView()")],
             output: null, ...fig, tooltip: "Wahr, wenn die Figur ganz aus dem Grafikfenster heraus ist.",
+        },
+        {
+            type: B.figDistance, message0: "Abstand von %1 zu %2 %3", args0: [figure(), target(), hint(".distanceTo")],
+            output: null, ...fig,
+            tooltip: "Abstand zwischen den Mittelpunkten der Figur und einer anderen Figur (oder dem Mauszeiger) in Pixeln (Kommazahl).",
         },
 
         // ------------------------------------------------------------ Tasten und Maus
@@ -324,6 +340,7 @@ export function figuresFlyout(ws: Blockly.WorkspaceSvg): Blockly.utils.toolbox.F
         { kind: "block", type: B.figMoveTo, fields: { NAME: any }, inputs: { X: num("400"), Y: num("300") } },
         { kind: "block", type: B.figRotate, fields: { NAME: any }, inputs: { A: num("15") } },
         { kind: "block", type: B.figForward, fields: { NAME: any }, inputs: { D: num("5") } },
+        { kind: "block", type: B.figTurnTo, fields: { NAME: any, OTHER: MOUSE_TARGET } },
         { kind: "block", type: B.figScale, fields: { NAME: any }, inputs: { F: num("1.5") } },
         { kind: "block", type: B.figColor, fields: { NAME: filled, COLOR: "red" } },
         { kind: "block", type: B.figAction, fields: { ACTION: "hide", NAME: any } },
@@ -333,6 +350,7 @@ export function figuresFlyout(ws: Blockly.WorkspaceSvg): Blockly.utils.toolbox.F
         { kind: "block", type: B.figProp, fields: { PROP: "x", NAME: any } },
         { kind: "block", type: B.figTouches, fields: { NAME: any, OTHER: other } },
         { kind: "block", type: B.figOutside, fields: { NAME: any } },
+        { kind: "block", type: B.figDistance, fields: { NAME: any, OTHER: other } },
     ];
     return items as Blockly.utils.toolbox.FlyoutItemInfoArray;
 }
@@ -369,6 +387,8 @@ export function inputFlyout(ws: Blockly.WorkspaceSvg): Blockly.utils.toolbox.Fly
         { kind: "block", type: B.mouseOver, fields: { WHAT: "over", NAME: any } },
         { kind: "block", type: B.mouseXY, fields: { AXIS: "x" } },
         { kind: "block", type: B.mouseXY, fields: { AXIS: "y" } },
+        { kind: "block", type: B.figTurnTo, fields: { NAME: any, OTHER: MOUSE_TARGET } },
+        { kind: "block", type: B.figDistance, fields: { NAME: any, OTHER: MOUSE_TARGET } },
     ];
     return items as Blockly.utils.toolbox.FlyoutItemInfoArray;
 }

@@ -1,6 +1,11 @@
 /* Variablen auf der Bühne (StageVariables.ts) – Kästchen wie die Variablenanzeigen in Scratch */
 
-/* Leiste unter dem Grafikfenster (über der Textausgabe): verdeckt nichts auf der Bühne */
+/* Ausgabe übereinander: oben Grafikfenster und Textausgabe (füllen den Rest), unten die Leiste.
+   Das Grafikfenster misst den oberen Bereich – so bleibt der Leiste ihr Platz. */
+.jo_run.gsg-has-stage-bar { flex-direction: column; }
+.jo_run.gsg-has-stage-bar > .jo_run-inner { flex: 1 1 0; min-height: 0; height: auto; }
+
+/* Leiste unter dem Grafikfenster: verdeckt nichts auf der Bühne */
 .gsg-stage-bar {
     flex: none;
     position: relative;

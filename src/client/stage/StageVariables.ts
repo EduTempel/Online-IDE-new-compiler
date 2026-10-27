@@ -4,7 +4,7 @@ import "/assets/css/gsg-stage.css";
 
 /**
  * Variablen auf der Bühne (wie die Variablenanzeigen in Scratch): Kästchen „name: wert“ in einer Leiste
- * unter dem Grafikfenster (über der Textausgabe), die sich während des Programmlaufs aktualisieren –
+ * unter dem Grafikfenster (und der Textausgabe), die sich während des Programmlaufs aktualisieren –
  * so wird auf der Bühne nichts verdeckt. Ohne Bühne (Programm ohne Grafik) gibt es die Leiste nicht.
  *  - Knopf „Variablen“ rechts in der Leiste schaltet die Anzeige ein und aus
  *  - „Auswahl“ in der Anzeige: einzelne Variablen ab- und anhaken
@@ -54,10 +54,13 @@ export function addStageVariables(main: MainBase, outputBody: HTMLElement) {
     panel.append(list, chooseButton, chooser);
     const bar = el("div", "gsg-stage-bar");
     bar.append(panel, toggle);
-    // zwischen Grafikfenster und Textausgabe
     const graphics = outputBody.querySelector<HTMLElement>(".jo_graphics");
-    if (!graphics) return;   // ohne Grafikfenster keine Bühne
-    graphics.after(bar);
+    const runInner = outputBody.querySelector<HTMLElement>(".jo_run-inner");
+    if (!graphics || !runInner) return;   // ohne Grafikfenster keine Bühne
+    // unter dem Bereich mit Grafikfenster und Textausgabe: das Grafikfenster richtet seine Größe nach
+    // diesem Bereich und lässt der Leiste so ihren Platz (sonst schiebt es sie über den unteren Teil)
+    runInner.after(bar);
+    outputBody.classList.add("gsg-has-stage-bar");
     // nur, wenn es eine Bühne gibt (Grafikfenster ohne Grafik hat die Höhe 0)
     const showBar = () => { bar.hidden = graphics.getBoundingClientRect().height < 1; };
     new ResizeObserver(showBar).observe(graphics);

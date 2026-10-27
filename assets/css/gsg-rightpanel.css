@@ -8,6 +8,9 @@
 
 .gsg-right-top {
     position: relative;
+    /* eigene Ebene: was oben übersteht (Grafikfenster z-index 3, Variablenleiste 4), liegt unter
+       Trennlinie und unterem Teil – die Trennlinie bleibt immer greifbar */
+    isolation: isolate;
     flex: 1 1 0;
     min-height: 0;
     display: flex;
@@ -33,6 +36,7 @@
 .gsg-right-bottom > .jo_tabheadings { margin-bottom: 2px; padding-right: 30px; box-sizing: border-box; }
 
 .gsg-right-splitter {
+    position: relative;
     flex: none;
     height: 5px;
     cursor: row-resize;

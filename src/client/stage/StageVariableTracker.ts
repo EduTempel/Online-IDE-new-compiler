@@ -33,6 +33,8 @@ export class StageVariableTracker {
     private mainClass?: unknown;
     /** zuletzt gesehene Stelle im Hauptprogramm (bei einer Ausnahme: nur bis dorthin deklarierte Variablen) */
     private lastPos?: Pos;
+    /** übersetztes Programm des letzten Laufs */
+    private runExecutable?: unknown;
     private attached = new WeakSet<Interpreter>();
 
     constructor(private onChange: () => void, private suggestedModule: () => unknown = () => undefined) { }
@@ -49,6 +51,7 @@ export class StageVariableTracker {
     private started(interpreter: Interpreter) {
         this.lastPos = undefined;
         this.mainClass = undefined;
+        this.runExecutable = interpreter.executable;
         try {
             this.mainClass = captureCurrentFrame(interpreter, "main")?.mainClass ?? startedMainClass(interpreter, this.suggestedModule());
         } catch { /* noch nichts zu sehen */ }
@@ -72,6 +75,9 @@ export class StageVariableTracker {
     /** Programmende (normal, mit Ausnahme oder angehalten) */
     private finished(interpreter: Interpreter) {
         if (!this.mainClass) return;
+        // neu übersetzt (jede Änderung im Editor oder an den Blöcken meldet "gestoppt"): die Variablen des
+        // neuen Programms sind noch leer – die Endwerte des letzten Laufs stehen lassen
+        if (interpreter.executable !== this.runExecutable) return;
         const capture = this.capture(interpreter);
         if (capture?.mainClass) {
             // angehalten: das Hauptprogramm steht noch auf dem Stapel

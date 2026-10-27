@@ -85,6 +85,23 @@ int b = 3;
         expect(show(tracker.monitors)).toEqual(["x: 7"]);
     });
 
+    test("neu übersetzen nach dem Lauf (z. B. Block verschoben): Endwerte bleiben stehen", async () => {
+        const code = `ArrayList<Integer> liste = new ArrayList<Integer>();
+liste.add(5);
+int zahl = 3;
+`;
+        const { interpreter, tracker } = await setup(code);
+        interpreter.runMainProgramSynchronously();
+        expect(show(tracker.monitors)).toEqual(["liste: [5]", "zahl: 3"]);
+        // die IDE übersetzt bei jeder Änderung neu; das meldet dem Interpreter "gestoppt"
+        const file = new CompilerFile();
+        file.setText(code + "\n");
+        const compiler = new JavaCompiler();
+        compiler.setFiles([<any>file]);
+        interpreter.setExecutable((await compiler.compileIfDirty())!);
+        expect(show(tracker.monitors)).toEqual(["liste: [5]", "zahl: 3"]);
+    });
+
     test("Ausnahme: nur die Variablen bis zur Stelle des Fehlers", async () => {
         const { interpreter, tracker } = await setup(`int a = 1;
 int[] zahlen = new int[2];

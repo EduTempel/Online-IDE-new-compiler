@@ -179,6 +179,12 @@
     padding: 0 4px;
 }
 #gsg-blocks .blocklyToolboxCategoryIcon { width: 0; }
+/* Unterkategorien (Reihungen, Listen, ADT): ganze Zeile samt Farbstreifen einrücken, nicht nur den Namen
+   (Blockly rückt sonst per padding-left nur den Text ein); der Text bleibt an derselben Stelle */
+#gsg-blocks .blocklyToolboxCategoryGroup .blocklyToolboxCategoryGroup .blocklyToolboxCategory {
+    margin-left: 14px;
+    padding-left: 5px !important;
+}
 
 /* Beschriftung in den Blöcken */
 .blocklyText.gsg-java-hint,

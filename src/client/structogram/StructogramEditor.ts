@@ -9,6 +9,7 @@ import { docToJava, isRecognized, parseSignature } from "./PseudoJava";
 import { renderSvg, STYLE, type Measure } from "./StructogramSvg";
 import { createFile, findFile, replaceText } from "./ProjectFiles";
 import { Constants } from "../Constants";
+import { openHandbook } from "../handbook/Handbook";
 import "/assets/css/gsg-structogram.css";
 
 /**
@@ -67,7 +68,8 @@ export class StructogramEditor {
             this.button("java", "⇢ In Java umwandeln", "Java-Datei mit gleichem Namen anlegen bzw. aktualisieren", () => this.toJava()),
             this.button("svg", "⤓ SVG", "Als Vektorbild speichern", () => this.save("svg")),
             this.button("png", "⤓ PNG", "Als Bild speichern", () => this.save("png")),
-            this.button("print", "⎙ Drucken", "Struktogramm drucken", () => this.print()));
+            this.button("print", "⎙ Drucken", "Struktogramm drucken", () => this.print()),
+            this.button("help", "? Hilfe", "Handbuch Struktogramme: Beispiele und Schreibweisen", () => openHandbook({ kind: "struktogramm" })));
 
         this.insertBar = this.div("gsg-sedit-insert");
         const label = document.createElement("span");

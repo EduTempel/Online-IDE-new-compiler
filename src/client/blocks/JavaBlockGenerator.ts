@@ -3,7 +3,7 @@ import { TokenType } from "../../compiler/java/TokenType";
 import { B, COLLECTION_CALLS, COLLECTION_DECLARATIONS, elementJavaType, type BlockState, type Collections, type Param, type WorkspaceState } from "./BlockTypes";
 import { collectionOfType, collectionType, methodParams, wrapperOf } from "./ClassModel";
 import type { LineRange } from "./JavaBlockParser";
-import { colourJava, FIGURE_ACTIONS, FIGURE_CALLS, FIGURE_CREATIONS, FIGURE_PROPS } from "./FigureSpec";
+import { colourJava, FIGURE_ACTIONS, FIGURE_CALLS, FIGURE_CREATIONS, FIGURE_PROPS, targetJava } from "./FigureSpec";
 import { ADT_CALLS, ADT_CREATIONS, ADT_GET_TYPES, TREE_SIDES } from "./AdtSpec";
 
 export { methodParams };
@@ -510,6 +510,7 @@ export class JavaBlockGenerator {
         if (call) return `${f.NAME}.${call.method}(${args(call.inputs)});`;
         switch (b.type) {
             case B.figColor: return `${f.NAME}.setFillColor(${colourJava(f.COLOR ?? "red")});`;
+            case B.figTurnTo: return `${f.NAME}.turnTowards(${targetJava(f.OTHER)});`;
             case B.figAction: {
                 const java = FIGURE_ACTIONS.find(([, v]) => v === f.ACTION)?.[2] ?? "setVisible(true)";
                 return `${f.NAME}.${java};`;
@@ -527,6 +528,7 @@ export class JavaBlockGenerator {
             case B.figProp: return `${f.NAME}.${FIGURE_PROPS.find(([, v]) => v === f.PROP)?.[2] ?? "getCenterX"}()`;
             case B.figTouches: return `${f.NAME}.collidesWith(${f.OTHER})`;
             case B.figOutside: return `${f.NAME}.isOutsideView()`;
+            case B.figDistance: return `${f.NAME}.distanceTo(${targetJava(f.OTHER)})`;
             case B.keyDown: return `Input.isKeyDown(${JSON.stringify(f.KEY ?? "ArrowRight")})`;
             case B.mouseDown: return f.WHAT === "clicked" ? "Mouse.wasClicked()" : "Mouse.isDown()";
             case B.mouseOver: return `Mouse.${f.WHAT === "clicked" ? "wasClicked" : "isOver"}(${f.NAME})`;

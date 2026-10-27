@@ -524,7 +524,7 @@ function fullToolbox(): { kind: string; contents: object[] } {
             {
                 kind: "category", toolboxitemid: "bedingungen", name: "Bedingungen", colour: COLOURS.conditions, contents: [
                     { kind: "label", text: "Bedingungen passen in die sechseckigen Löcher." },
-                    blk(B.compare, { inputs: { A: v("zahl"), B: num("0") } }),
+                    blk(B.compare, { inputs: { B: num("0") } }),
                     blk(B.logic),
                     blk(B.not),
                     blk(B.bool),

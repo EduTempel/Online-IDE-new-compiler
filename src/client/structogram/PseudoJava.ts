@@ -683,7 +683,8 @@ class Translator {
         if ((m = /^gib\s+(.+)\s+aus$/i.exec(s))) {
             const parts = splitTop(m[1]).map((p) => x(p));
             if (parts.some((p) => !p)) return undefined;
-            return `println(${parts.map((p) => (parts.length > 1 ? ExprParser.wrap(p!, P.ADD) : p!.code)).join(' + " " + ')});`;
+            // mehrere Werte: Summen in Klammern, sonst würde "…" + alter + 1 zu "…151"
+            return `println(${parts.map((p) => (parts.length > 1 ? ExprParser.wrap(p!, P.MULT) : p!.code)).join(' + " " + ')});`;
         }
         if (/^gib\s+eine\s+leere\s+Zeile\s+aus$/i.test(s)) return "println(\"\");";
         if ((m = /^gib\s+(.+)\s+zurück$/i.exec(s))) {

@@ -87,9 +87,22 @@ export function keyLabel(value: string): string {
     return KEYS.find(([, v]) => v.toLowerCase() === value.toLowerCase())?.[0] ?? value;
 }
 
+/** Wert des Feldes OTHER für den Mauszeiger (kein gültiger Variablenname) */
+export const MOUSE_TARGET = "@maus";
+
+/** Ziel als Java-Argument: andere Figur oder Position des Mauszeigers */
+export function targetJava(other: string | undefined): string {
+    return !other || other === MOUSE_TARGET ? "Mouse.getX(), Mouse.getY()" : other;
+}
+
+/** Ziel auf Deutsch (Struktogramm) */
+export function targetLabel(other: string | undefined): string {
+    return !other || other === MOUSE_TARGET ? "Mauszeiger" : other;
+}
+
 /** Ergebnistypen der Werte-Blöcke */
 export const FIGURE_OUTPUT_TYPES: Record<string, string> = {
-    [B.figProp]: "double", [B.figTouches]: "boolean", [B.figOutside]: "boolean",
+    [B.figProp]: "double", [B.figTouches]: "boolean", [B.figOutside]: "boolean", [B.figDistance]: "double",
     [B.keyDown]: "boolean", [B.mouseDown]: "boolean", [B.mouseOver]: "boolean", [B.mouseXY]: "double",
 };
 
@@ -104,6 +117,6 @@ export function figureInputType(blockType: string, input: string): string[] | nu
 
 export const FIGURE_BLOCK_TYPES = new Set<string>([
     ...FIGURE_CREATIONS.map((c) => c.block), ...FIGURE_CALLS.map((c) => c.block),
-    B.figColor, B.figAction, B.figProp, B.figTouches, B.figOutside, B.worldNew,
+    B.figColor, B.figAction, B.figProp, B.figTouches, B.figOutside, B.figDistance, B.figTurnTo, B.worldNew,
     B.keyDown, B.mouseDown, B.mouseOver, B.mouseXY,
 ]);
