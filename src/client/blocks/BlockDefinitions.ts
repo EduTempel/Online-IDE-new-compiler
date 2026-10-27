@@ -29,8 +29,8 @@ const hint = (text: string) => ({ type: "field_label", text, class: "gsg-java-hi
 const statement = { previousStatement: null, nextStatement: null };
 
 const VAR_TYPE_OPTIONS = [
-    ["Ganzzahl (int)", "int"], ["Kommazahl (double)", "double"], ["Text (String)", "String"],
-    ["Wahrheitswert (boolean)", "boolean"], ["Zeichen (char)", "char"],
+    ["Ganzzahl", "int"], ["Kommazahl", "double"], ["Text", "String"],
+    ["Wahrheitswert", "boolean"], ["Zeichen", "char"],
 ];
 
 /**
@@ -250,7 +250,7 @@ export function defineBlocks() {
         },
         {
             type: B.bool, message0: "%1",
-            args0: [{ type: "field_dropdown", name: "VALUE", options: [["wahr (true)", "true"], ["falsch (false)", "false"]] }],
+            args0: [{ type: "field_dropdown", name: "VALUE", options: [["wahr", "true"], ["falsch", "false"]] }],
             output: null, colour: COLOURS.conditions,
         },
 
@@ -311,12 +311,12 @@ export function defineBlocks() {
         // ------------------------------------------------------------ Text (Abitur: Umgang mit Zeichenketten)
         {
             type: B.text, message0: "„%1“", args0: [{ type: "field_input", name: "TEXT", text: "" }],
-            output: null, colour: COLOURS.text, tooltip: "Ein Text (String).",
+            output: null, colour: COLOURS.text, tooltip: "Ein Text.",
         },
         {
             type: B.char, message0: "‚%1‘", args0: [{ type: "field_input", name: "CHAR", text: "a" }],
             output: null, colour: COLOURS.text, extensions: ["gsg_char"],
-            tooltip: "Ein einzelnes Zeichen (char), z. B. 'a'.",
+            tooltip: "Ein einzelnes Zeichen, z. B. 'a'.",
         },
         {
             type: B.concat, message0: "verbinde %1 und %2 %3",

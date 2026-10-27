@@ -79,7 +79,7 @@ export function defineCollectionBlocks(defineJson: (json: object[]) => void) {
         {
             type: B.arrayNew, message0: "erstelle neue Reihung %1 vom Datentyp %2 mit Länge %3 %4",
             args0: [nameField, typeField, value("LEN"), hint("new int[]")], ...statement, ...a, extensions: ["gsg_identifier"],
-            tooltip: "Legt eine Reihung (Array) mit fester Länge an, z. B. int[] zahlen = new int[5]; Alle Elemente sind am Anfang 0 (bzw. leer). Positionen: 0 bis Länge - 1.",
+            tooltip: "Legt eine Reihung mit fester Länge an, z. B. int[] zahlen = new int[5]; Alle Elemente sind am Anfang 0 (bzw. leer). Positionen: 0 bis Länge - 1.",
         },
         {
             type: B.arrayGet, message0: "Element an Position %1 von %2 %3", args0: [value("I"), coll(ARRAY), hint("[ ]")],
@@ -186,8 +186,8 @@ export function defineCollectionBlocks(defineJson: (json: object[]) => void) {
         {
             type: B.dynGet, message0: "Element an Position %1 von dynamischer Reihung %2 %3 %4",
             args0: [value("I"), coll(DYN), {
-                type: "field_dropdown", name: "TYPE", options: [["als Ganzzahl (int)", "int"], ["als Kommazahl (double)", "double"],
-                    ["als Text (String)", "String"], ["als Wahrheitswert (boolean)", "boolean"], ["als Zeichen (char)", "char"], ["(beliebiger Wert)", "Object"]],
+                type: "field_dropdown", name: "TYPE", options: [["als Ganzzahl", "int"], ["als Kommazahl", "double"],
+                    ["als Text", "String"], ["als Wahrheitswert", "boolean"], ["als Zeichen", "char"], ["(beliebiger Wert)", "Object"]],
             }, hint(".getItem")],
             output: null, ...d,
             tooltip: "Das Element an einer Position (ab 0 gezählt). Zum Rechnen „als Ganzzahl“ usw. wählen – in Java: (int) reihe.getItem(0)",
@@ -299,7 +299,7 @@ export function arraysFlyout(ws: Blockly.WorkspaceSvg): Blockly.utils.toolbox.Fl
 export function listsFlyout(ws: Blockly.WorkspaceSvg): Blockly.utils.toolbox.FlyoutItemInfoArray {
     const l = existing(ws, "list");
     const items: object[] = [
-        { kind: "label", text: "Liste (ArrayList): wächst beim Anhängen. Positionen ab 0." },
+        { kind: "label", text: "Liste: wächst beim Anhängen. Positionen ab 0." },
         { kind: "block", type: B.listNew, fields: { NAME: "liste", TYPE: "int" } },
         { kind: "block", type: B.listAdd, fields: { NAME: l.name }, inputs: { V: lit(l.elem) } },
         { kind: "block", type: B.listInsert, fields: { NAME: l.name }, inputs: { V: lit(l.elem), I: num("0") } },
@@ -319,7 +319,7 @@ export function adtFlyout(ws: Blockly.WorkspaceSvg): Blockly.utils.toolbox.Flyou
     const d = existing(ws, "dyn");
     const items: object[] = [
         { kind: "label", text: "Abstrakte Datentypen (Abiturklassen Niedersachsen) – die Bibliothek wird im Projekt eingeschaltet." },
-        { kind: "label", text: "Dynamische Reihung (DynArray): Positionen ab 0." },
+        { kind: "label", text: "Dynamische Reihung: Positionen ab 0." },
         { kind: "block", type: B.dynNew, fields: { NAME: "reihe" } },
         { kind: "block", type: B.dynAppend, fields: { NAME: d.name }, inputs: { V: num("1") } },
         { kind: "block", type: B.dynInsert, fields: { NAME: d.name }, inputs: { V: num("1"), I: num("0") } },

@@ -42,9 +42,19 @@
     flex: 1 1 auto;
     min-width: 0;
     /* eigene Stapel-Ebene: Werkzeugleiste und Flyout von Blockly (z-index 70) liegen nicht mehr über den
-       Menüs der IDE (z. B. „Sprites“); Kontextmenüs und Auswahllisten von Blockly hängen am body und bleiben oben */
+       Menüs der IDE (z. B. „Sprites“, z-index 10). Über Fehlerleiste und rechtem Bereich (Bühne bis 4), damit
+       Menüs und Tooltips, die über den Rand der Blockfläche ragen, nicht verdeckt werden. */
     isolation: isolate;
+    z-index: 5;
 }
+
+/* Kontextmenüs, Auswahllisten und Tooltips hängt Blockly in die Blockfläche (BlockView.ts):
+   nicht am Rand der Fläche abschneiden */
+.gsg-blockly > .injectionDiv { overflow: visible; }
+/* … die aufgeklappte Werkzeugleiste aber schon (Breite der Leiste setzt BlockView.ts) */
+.gsg-blockly > .injectionDiv > svg.blocklyToolboxFlyout { max-width: calc(100% - var(--gsg-toolbox-width, 0px)); }
+/* Tooltips in voller Breite statt bis zum Rand der Fläche gequetscht */
+.gsg-blockly .blocklyTooltipDiv { width: max-content; max-width: min(360px, 90vw); }
 
 .gsg-blockly {
     position: absolute;

@@ -201,9 +201,9 @@ export class BlockView {
         this.wsReadOnly = readOnly;
         this.wsDark = dark;
         this.wsHidden = this.hiddenCategories().join(",");
-        // Rechtsklick-Menüs, Auswahllisten und Tooltips an die Seite hängen statt in die Blockfläche:
-        // sonst schneidet die Fläche sie an ihrem Rand ab (schmale Fenster). Muss vor dem ersten inject stehen.
-        if (Blockly.common.getParentContainer() !== document.body) Blockly.common.setParentContainer(document.body);
+        // Rechtsklick-Menüs, Auswahllisten und Tooltips bleiben in der Blockfläche (Blockly-Standard): Blockly 13
+        // schließt eine Auswahlliste sofort wieder, wenn sie außerhalb der Fläche hängt (Fokus verlässt die Fläche),
+        // und der Block klebt dann am Mauszeiger. Damit nichts abgeschnitten wird, gilt overflow: visible (gsg-blocks.css).
         this.ws = Blockly.inject(this.blocklyDiv, {
             toolbox: readOnly ? undefined : toolbox(this.hiddenCategories()),
             readOnly,
@@ -234,7 +234,19 @@ export class BlockView {
             const ws = this.ws;
             variables.getContents = () => variablesFlyout(ws) as unknown[];
         }
+
+        // Breite der Werkzeugleiste für gsg-blocks.css: die aufgeklappte Leiste endet am Rand der Blockfläche
+        // (die Fläche selbst schneidet nichts ab, damit Menüs über den Rand hinausragen dürfen)
+        this.toolboxObserver?.disconnect();
+        const injection = this.ws.getInjectionDiv();
+        const toolboxDiv = injection.querySelector<HTMLElement>(".blocklyToolbox");
+        if (toolboxDiv) {
+            this.toolboxObserver = new ResizeObserver(() => injection.style.setProperty("--gsg-toolbox-width", toolboxDiv.offsetWidth + "px"));
+            this.toolboxObserver.observe(toolboxDiv);
+        }
     }
+
+    private toolboxObserver?: ResizeObserver;
 
     private previewCollapsedByUser: boolean | null = null;
 

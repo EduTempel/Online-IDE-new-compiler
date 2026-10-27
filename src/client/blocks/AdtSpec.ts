@@ -60,8 +60,8 @@ export const TREE_TESTS: [string, string][] = [
 
 /** Typumwandlung beim Lesen (wie bei der dynamischen Reihung) */
 export const READ_TYPES: [string, string][] = [
-    ["als Ganzzahl (int)", "int"], ["als Kommazahl (double)", "double"], ["als Text (String)", "String"],
-    ["als Wahrheitswert (boolean)", "boolean"], ["als Zeichen (char)", "char"], ["(beliebiger Wert)", "Object"],
+    ["als Ganzzahl", "int"], ["als Kommazahl", "double"], ["als Text", "String"],
+    ["als Wahrheitswert", "boolean"], ["als Zeichen", "char"], ["(beliebiger Wert)", "Object"],
 ];
 
 export const ADT_GET_TYPES = new Set<string>(ADT_GETS.map((g) => g.block));

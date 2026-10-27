@@ -25,7 +25,6 @@ function workspace(dark: boolean): Blockly.WorkspaceSvg {
     Blockly.setLocale(De as unknown as { [key: string]: string });
     defineBlocks();
     registerRenderer();
-    if (Blockly.common.getParentContainer() !== document.body) Blockly.common.setParentContainer(document.body);
     if (!host) {
         // sichtbar im Sinne von CSS (für berechnete Stile), aber außerhalb des Fensters
         host = document.createElement("div");
@@ -33,7 +32,11 @@ function workspace(dark: boolean): Blockly.WorkspaceSvg {
         host.style.cssText = "position:fixed;left:-20000px;top:0;width:1600px;height:1200px;pointer-events:none;";
         document.body.append(host);
     }
+    // inject macht die neue Fläche zur Hauptfläche – die Blockfläche der IDE muss es bleiben
+    // (dort hängt Blockly Auswahllisten und Menüs ein)
+    const main = Blockly.getMainWorkspace() as Blockly.WorkspaceSvg | null;
     ws = Blockly.inject(host, { readOnly: true, theme: theme(dark), renderer: "gsg", sounds: false, scrollbars: false, zoom: { startScale: 1 } });
+    if (main && main !== ws && main.rendered && main.getInjectionDiv()?.isConnected) Blockly.common.setMainWorkspace(main);
     wsDark = dark;
     return ws;
 }

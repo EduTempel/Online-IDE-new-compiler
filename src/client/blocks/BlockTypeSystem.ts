@@ -32,7 +32,7 @@ const NUMERIC: JType[] = ["int", "double"];
 const NUMERIC_OR_CHAR: JType[] = ["int", "double", "char"];
 
 export const TYPE_NAMES: Record<string, string> = {
-    int: "Ganzzahl (int)", double: "Kommazahl (double)", String: "Text (String)", boolean: "Wahrheitswert (boolean)", char: "Zeichen (char)",
+    int: "Ganzzahl", double: "Kommazahl", String: "Text", boolean: "Wahrheitswert", char: "Zeichen",
 };
 const PLURAL: Record<string, string> = { int: "Ganzzahlen", double: "Kommazahlen", String: "Texten", boolean: "Wahrheitswerten", char: "Zeichen" };
 
@@ -42,12 +42,12 @@ export function typeLabel(t: string): string {
     const info = typeInfo(t);
     const of = PLURAL[info.elem] ?? info.elem;
     switch (info.kind) {
-        case "array": return `Reihung von ${of} (${t})`;
-        case "array2d": return `zweidim. Reihung von ${of} (${t})`;
-        case "list": return `Liste von ${of} (${t})`;
-        case "dyn": return "dynamische Reihung (DynArray)";
+        case "array": return `Reihung von ${of}`;
+        case "array2d": return `zweidim. Reihung von ${of}`;
+        case "list": return `Liste von ${of}`;
+        case "dyn": return "dynamische Reihung";
     }
-    const adt: Record<string, string> = { Stack: "Stapel (Stack)", Queue: "Schlange (Queue)", BinTree: "Binärbaum (BinTree)" };
+    const adt: Record<string, string> = { Stack: "Stapel", Queue: "Schlange", BinTree: "Binärbaum" };
     return adt[t] ?? t;
 }
 
@@ -79,7 +79,7 @@ export function compatible(a: TypeSet, b: TypeSet): boolean {
 
 function describe(types: TypeSet): string {
     if (!types) return "ein beliebiger Wert";
-    if (types.every((t) => t === "int" || t === "double")) return types.includes("double") ? "eine Zahl" : "eine Ganzzahl (int)";
+    if (types.every((t) => t === "int" || t === "double")) return types.includes("double") ? "eine Zahl" : "eine Ganzzahl";
     return types.map((t) => typeLabel(t)).join(" oder ");
 }
 
@@ -713,7 +713,7 @@ function applyTypesNow(ws: Blockly.Workspace, vars: Map<string, JType>) {
         const root = scopeRoot(b) ?? b.getRootBlock();
         const ret = enclosingReturnType(b);
         if (b.type === B.return && root.type === B.start) note(b, "Das Hauptprogramm hat kein Ergebnis. Zum Beenden „beende die Operation“ nehmen.");
-        else if (b.type === B.return && ret === "void") note(b, "Diese Operation liefert kein Ergebnis (void): oben einen Ergebnistyp wählen oder „beende die Operation“ nehmen.");
+        else if (b.type === B.return && ret === "void") note(b, "Diese Operation liefert kein Ergebnis: oben einen Ergebnistyp wählen oder „beende die Operation“ nehmen.");
         else if (b.type === B.returnVoid && ret && ret !== "void") note(b, "Diese Operation muss ein Ergebnis liefern: „gib zurück“ nehmen.");
     }
     for (const b of blocks) {

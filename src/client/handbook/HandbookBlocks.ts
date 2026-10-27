@@ -169,7 +169,7 @@ export const BLOCK_HANDBOOK: HandbookSection[] = [
     },
     {
         id: "variablen", title: "Variablen", icon: "📦",
-        intro: "Eine **Variable** ist ein Speicherplatz mit Namen. Sie hat einen **Datentyp**: Ganzzahl (int), Kommazahl (double), Text (String), Wahrheitswert (boolean) oder Zeichen (char).",
+        intro: "Eine **Variable** ist ein Speicherplatz mit Namen. Sie hat einen **Datentyp**: Ganzzahl, Kommazahl, Text, Wahrheitswert oder Zeichen.",
         entries: [
             {
                 title: "erstelle neue Variable",

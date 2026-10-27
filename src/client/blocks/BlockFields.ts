@@ -46,7 +46,7 @@ export class FieldType extends Blockly.FieldDropdown {
         const options: Blockly.MenuOption[] = [];
         groups.forEach((g, i) => {
             if (i > 0) options.push(Blockly.FieldDropdown.SEPARATOR as unknown as Blockly.MenuOption);
-            for (const t of g) options.push([t === "void" ? "nichts (void)" : typeLabel(t), t]);
+            for (const t of g) options.push([t === "void" ? "nichts" : typeLabel(t), t]);
         });
         return options;
     }
