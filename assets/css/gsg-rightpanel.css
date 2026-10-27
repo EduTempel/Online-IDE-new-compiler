@@ -1,0 +1,75 @@
+/* Rechter Bereich in zwei Teilen (RightPanel.ts): oben Programm, unten Aufgabe und Handbuch */
+
+#rightdiv-inner.gsg-split {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.gsg-right-top {
+    position: relative;
+    flex: 1 1 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.gsg-right-bottom {
+    position: relative;
+    flex: none;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.gsg-right-top > .jo_tabs,
+.gsg-right-bottom > .jo_tabs {
+    flex: 1 1 0;
+    min-height: 0;
+    height: auto;
+}
+
+.gsg-right-bottom.gsg-collapsed > .jo_tabs { display: none; }
+.gsg-right-bottom > .jo_tabheadings { margin-bottom: 2px; padding-right: 30px; box-sizing: border-box; }
+
+.gsg-right-splitter {
+    flex: none;
+    height: 5px;
+    cursor: row-resize;
+    background: var(--slider, #555);
+    touch-action: none;
+}
+.gsg-right-splitter:hover,
+.gsg-right-splitter.gsg-dragging { background: var(--brand-accent, #45B82F); }
+
+.gsg-right-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 20px;
+    margin-top: -2px;
+    padding: 0;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+}
+.gsg-right-toggle:hover { background: rgba(127, 127, 127, .25); }
+
+/* Reiter mit Symbol und kurzem Namen */
+.gsg-tabheading { white-space: nowrap; }
+.gsg-tab-icon { vertical-align: -3px; margin-right: 4px; flex: none; }
+.gsg-right-toggle .gsg-tab-icon { margin: 0; vertical-align: 0; }
+.gsg-tabheadings.gsg-compact { flex-wrap: nowrap; }
+.gsg-tabheadings.gsg-compact .gsg-tab-label { display: none; }
+.gsg-tabheadings.gsg-compact .gsg-tab-icon { margin-right: 0; }
+/* der aktive Reiter behält seinen Namen (Orientierung) */
+.gsg-tabheadings.gsg-compact .jo_active .gsg-tab-label { display: inline; }
+.gsg-tabheadings.gsg-compact .jo_active .gsg-tab-icon { margin-right: 4px; }
+.gsg-tabheadings.gsg-compact .jo_tabheading { padding: 0 6px; }
+
+/* „Ganzes Fenster“: nur der obere Teil */
+.jo_wholeWindow .gsg-right-splitter,
+.jo_wholeWindow .gsg-right-bottom { display: none; }

@@ -18,6 +18,7 @@ import { addHandbookTab } from '../../handbook/HandbookTab.js';
 import { addTraceTab } from '../../trace/TraceTab.js';
 import { addObjectsTab } from '../../objects/ObjectsTab.js';
 import { addStageVariables } from '../../stage/StageVariables.js';
+import { compactWhenNarrow, decorateTab, splitRightDiv, type RightSplit } from '../../rightpanel/RightPanel.js';
 
 
 export class RightDiv {
@@ -124,7 +125,16 @@ export class RightDiv {
 
     initGUI() {
 
-        this.tabManager = new TabManager(this.rightDivInner);
+        // GSG: rechter Bereich in zwei Teilen – oben das Programm, unten Aufgabe und Handbuch
+        let split: RightSplit | undefined;
+        if (!this.main.isEmbedded()) {
+            try {
+                split = splitRightDiv(this.rightDivInner, () => jQuery('.jo_graphics').trigger('sizeChanged'));
+            } catch (e) {
+                console.error(e);
+            }
+        }
+        this.tabManager = new TabManager(split?.top ?? this.rightDivInner);
 
         this.coordinatesDiv = DOM.makeDiv(undefined, 'jo_coordinates');
         this.tabManager.insertIntoRightDiv(this.coordinatesDiv);
@@ -182,16 +192,28 @@ export class RightDiv {
             // GSG: Struktogramm der Datei im Editor (darf den Start der IDE nie verhindern)
             try {
                 addStructogramTab(this.main, this.tabManager);
-                addTaskTab(this.main, this.tabManager);   // GSG: Aufgabenstellung mit Hilfen
-                addHandbookTab(this.main, this.tabManager); // GSG: Handbuch (Beispiele zu Blöcken und Java)
-                addTraceTab(this.main, this.tabManager);  // GSG: Tracetabelle
                 addObjectsTab(this.main, this.tabManager); // GSG: Objektdiagramm, Zurückblättern, Zeitlupe
+                addTraceTab(this.main, this.tabManager);  // GSG: Tracetabelle
+                // unten (bzw. ohne Teilung mit in der Reiterleiste)
+                addTaskTab(this.main, split?.bottomTabs ?? this.tabManager);   // GSG: Aufgabenstellung mit Hilfen
+                addHandbookTab(this.main, split?.bottomTabs ?? this.tabManager); // GSG: Handbuch (Beispiele zu Blöcken und Java)
             } catch (e) {
                 console.error(e);
             }
         }
 
         this.outputTab.show();
+
+        // GSG: Symbole und kurze Namen in den Reiterleisten
+        if (split) {
+            try {
+                for (const tab of this.tabManager.tabs) decorateTab(tab);
+                compactWhenNarrow(this.tabManager);
+                split.finish();
+            } catch (e) {
+                console.error(e);
+            }
+        }
 
         // GSG: beim Programmstart die Ausgabe (Text und Grafikfenster) zeigen – sonst bleibt z. B. der Reiter
         // "Aufgabe" vorn und das Grafikfenster unsichtbar. Ausnahme: Tracetabelle und Objekte (beim Beobachten).
