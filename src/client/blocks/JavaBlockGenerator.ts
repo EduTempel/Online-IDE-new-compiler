@@ -3,8 +3,9 @@ import { TokenType } from "../../compiler/java/TokenType";
 import { B, COLLECTION_CALLS, COLLECTION_DECLARATIONS, elementJavaType, type BlockState, type Collections, type Param, type WorkspaceState } from "./BlockTypes";
 import { collectionOfType, collectionType, methodParams, wrapperOf } from "./ClassModel";
 import type { LineRange } from "./JavaBlockParser";
-import { colourJava, FIGURE_ACTIONS, FIGURE_CALLS, FIGURE_CREATIONS, FIGURE_PROPS, targetJava } from "./FigureSpec";
+import { colourJava, FIGURE_ACTIONS, FIGURE_CALLS, FIGURE_CREATIONS, FIGURE_PROPS, targetJava, touchesJava } from "./FigureSpec";
 import { ADT_CALLS, ADT_CREATIONS, ADT_GET_TYPES, TREE_SIDES } from "./AdtSpec";
+import { KEY_PART_ANNOTATION } from "../../compiler/common/interpreter/GsgKeyParts";
 
 export { methodParams };
 
@@ -26,6 +27,11 @@ const BINARY_ORDER: { [op: string]: Order } = {
 };
 
 export type GeneratorResult = { code: string; ranges: LineRange[] };
+
+/** Name des Hauptprogramms (Feld NAME, leer: keiner) */
+export function programName(start: BlockState | undefined): string {
+    return String(start?.fields?.NAME ?? "").replace(/[\r\n„“"]/g, "").trim();
+}
 
 export function escapeJavaString(s: string): string {
     return s.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n").replace(/\r/g, "\\r").replace(/\t/g, "\\t");
@@ -76,15 +82,32 @@ export class JavaBlockGenerator {
     run(state: WorkspaceState): GeneratorResult {
         const top = state.blocks?.blocks ?? [];
         const start = top.find((b) => b.type === B.start);
-        this.colls = collectionsInTree(start?.inputs?.BODY?.block);
+        const name = programName(start);
+        if (name) this.emit(`// Hauptprogramm „${name}“`);
+        const mainColls = collectionsInTree(start?.inputs?.BODY?.block);
+        this.colls = mainColls;
         this.statements(start?.inputs?.BODY?.block, "");
-        const hats = top.filter((b) => b.type === B.method || b.type === B.class).sort((a, b) => (a.y ?? 0) - (b.y ?? 0) || (a.x ?? 0) - (b.x ?? 0));
+        const hats = top.filter((b) => b.type === B.method || b.type === B.class || b.type === B.keyStart)
+            .sort((a, b) => (a.y ?? 0) - (b.y ?? 0) || (a.x ?? 0) - (b.x ?? 0));
         for (const h of hats) {
             if (this.lines.length) this.emit("");
             if (h.type === B.class) this.classDeclaration(h);
+            else if (h.type === B.keyStart) this.keyPart(h, mainColls);
             else this.method(h, "");
         }
         return { code: this.lines.length ? this.lines.join("\n") + "\n" : "", ranges: this.ranges };
+    }
+
+    /** Programmteil „wenn Taste … gedrückt“: @WennTaste("a") void name() { … } – mit den Variablen des Hauptprogramms */
+    private keyPart(b: BlockState, mainColls: Collections) {
+        const startLine = this.lines.length + 1;
+        const key = escapeJavaString(String(b.fields?.KEY ?? " "));
+        this.colls = new Map([...mainColls, ...collectionsInTree(b.inputs?.BODY?.block)]);
+        this.emit(`@${KEY_PART_ANNOTATION}("${key}")`);
+        this.emit(`void ${b.fields?.NAME || "tastendruck"}() {`);
+        this.statements(b.inputs?.BODY?.block, INDENT);
+        this.emit("}");
+        if (b.id) this.ranges.push({ id: b.id, startLine, endLine: this.lines.length });
     }
 
     /** Operation (auch in Klassen) bzw. Konstruktor: [Sichtbarkeit] Typ name(Typ a, Typ b) { … } */
@@ -526,7 +549,8 @@ export class JavaBlockGenerator {
         const f = b.fields ?? {};
         switch (b.type) {
             case B.figProp: return `${f.NAME}.${FIGURE_PROPS.find(([, v]) => v === f.PROP)?.[2] ?? "getCenterX"}()`;
-            case B.figTouches: return `${f.NAME}.collidesWith(${f.OTHER})`;
+            case B.figTouches: return touchesJava(f.NAME ?? "", f.OTHER);
+            case B.figTouchesColor: return `${f.NAME}.collidesWithFillColor(${colourJava(f.COLOR ?? "red")})`;
             case B.figOutside: return `${f.NAME}.isOutsideView()`;
             case B.figDistance: return `${f.NAME}.distanceTo(${targetJava(f.OTHER)})`;
             case B.keyDown: return `Input.isKeyDown(${JSON.stringify(f.KEY ?? "ArrowRight")})`;

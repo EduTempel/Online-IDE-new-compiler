@@ -1,0 +1,56 @@
+/* Linke Spalte einklappbar (LeftPanelToggle.ts) */
+
+/* Knopf am rechten Rand der ausgeklappten Spalte */
+.gsg-left-collapse {
+    position: absolute;
+    top: 50%;
+    right: 4px;
+    transform: translateY(-50%);
+    z-index: 6;
+    width: 14px;
+    height: 44px;
+    padding: 0;
+    border: 1px solid var(--slider, #555);
+    border-right: 0;
+    border-radius: 6px 0 0 6px;
+    background: var(--backgroundHeading, #2d2d2d);
+    color: var(--fontColorNormal, #ccc);
+    font: 700 14px/1 Roboto, "Segoe UI", sans-serif;
+    cursor: pointer;
+    opacity: .75;
+}
+.gsg-left-collapse:hover { opacity: 1; color: var(--brand-accent, #45B82F); }
+.gsg-left-collapse:focus-visible { outline: 2px solid var(--brand-accent, #45B82F); opacity: 1; }
+
+/* eingeklappt: schmaler Streifen mit Symbol */
+.gsg-left-strip { display: none; }
+
+#leftpanel.gsg-left-collapsed {
+    width: 26px !important;
+    min-width: 26px;
+    flex: none;
+}
+#leftpanel.gsg-left-collapsed > :not(.gsg-left-strip) { display: none !important; }
+
+#leftpanel.gsg-left-collapsed > .gsg-left-strip {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    height: 100%;
+    padding: 8px 0;
+    border: 0;
+    border-right: 1px solid var(--slider, #444);
+    background: var(--backgroundDark, #1e1e1e);
+    color: var(--fontColorNormal, #ccc);
+    cursor: pointer;
+}
+.gsg-left-strip:hover { color: var(--brand-accent, #45B82F); background: rgba(127, 127, 127, .12); }
+.gsg-left-strip:focus-visible { outline: 2px solid var(--brand-accent, #45B82F); outline-offset: -2px; }
+.gsg-left-strip-label {
+    writing-mode: vertical-rl;
+    font: 600 12px Roboto, "Segoe UI", sans-serif;
+    letter-spacing: .04em;
+}
+.gsg-left-strip-arrow { font: 700 14px/1 Roboto, "Segoe UI", sans-serif; }

@@ -3,7 +3,7 @@ import { TokenType } from "../../compiler/java/TokenType";
 import { B, type BlockState } from "../blocks/BlockTypes";
 import { JavaBlockParser } from "../blocks/JavaBlockParser";
 import { methodParams, typeInfo, type ClassInfo } from "../blocks/ClassModel";
-import { colourLabel, FIGURE_ACTIONS, FIGURE_PROPS, keyLabel, targetLabel } from "../blocks/FigureSpec";
+import { colourLabel, FIGURE_ACTIONS, FIGURE_PROPS, keyLabel, targetLabel, touchesLabel } from "../blocks/FigureSpec";
 import { ADT_GETS } from "../blocks/AdtSpec";
 
 /**
@@ -296,7 +296,8 @@ class Expr {
             case B.javaExpression: return [neutral(f.CODE ?? ""), P.NONE];
             // Figuren, Tasten, Maus (Paket 8)
             case B.figProp: return [`${FIGURE_PROPS.find(([, v]) => v === f.PROP)?.[0] ?? "x-Position"} von ${name}`, P.NONE];
-            case B.figTouches: return [`${name} berührt ${f.OTHER ?? "…"}`, P.EQ];
+            case B.figTouches: return [`${name} berührt ${touchesLabel(f.OTHER)}`, P.EQ];
+            case B.figTouchesColor: return [`${name} berührt Farbe ${colourLabel(f.COLOR ?? "red")}`, P.EQ];
             case B.figOutside: return [`${name} ist außerhalb des Fensters`, P.EQ];
             case B.figDistance: return [`Abstand von ${name} zu ${targetLabel(f.OTHER)}`, P.NONE];
             case B.keyDown: return [`Taste „${keyLabel(f.KEY ?? "")}“ gedrückt`, P.EQ];
@@ -428,6 +429,7 @@ class Converter {
             case B.listAdd: case B.dynAppend: return this.stmt(`füge ${v("V")} zu ${name} hinzu`);
             case B.listInsert: case B.dynInsert: return this.stmt(`füge ${v("V")} an Position ${v("I")} in ${name} ein`);
             case B.listRemove: case B.dynDelete: return this.stmt(`lösche Element an Position ${v("I")} von ${name}`);
+            case B.listClear: return this.stmt(`entferne alle Elemente aus ${name}`);
             case B.listSet: case B.dynSet: return this.stmt(`ersetze Element an Position ${v("I")} von ${name} durch ${v("V")}`);
             // Klassen und Objekte
             case B.attribute: case B.ctor: case B.classMethod: return undefined;
@@ -459,6 +461,7 @@ class Converter {
             case B.figForward: return this.stmt(`gehe mit ${name} ${v("D")} Schritte in Blickrichtung`);
             case B.figTurnTo: return this.stmt(`drehe ${name} in Richtung ${targetLabel(f.OTHER)}`);
             case B.figScale: return this.stmt(`vergrößere ${name} um Faktor ${v("F")}`);
+            case B.figBounce: return this.stmt(`pralle mit ${name} vom Rand ab`);
             case B.figColor: return this.stmt(`färbe ${name} ${colourLabel(f.COLOR ?? "red")}`);
             case B.figSetText: return this.stmt(`setze Inhalt von ${name} auf ${v("TEXT")}`);
             case B.figSetImage: return this.stmt(`setze Bildnummer von ${name} auf ${v("I")}`);
@@ -488,9 +491,14 @@ export function diagramsFromJava(code: string, classes: ClassInfo[] = []): Diagr
     const others = top.filter((b) => b.type !== B.start).sort((a, b) => (a.y ?? 0) - (b.y ?? 0));
     // Hauptprogramm nur, wenn es mehr als Kommentare enthält (oder es sonst nichts gibt)
     const onlyComments = mainBody.every((n) => n.kind === "stmt" && n.text.startsWith("//"));
-    if ((mainBody.length && !onlyComments) || !others.length) result.push({ title: "Hauptprogramm", body: mainBody });
+    const name = String(start?.fields?.NAME ?? "").trim();
+    if ((mainBody.length && !onlyComments) || !others.length) result.push({ title: name ? `Hauptprogramm „${name}“` : "Hauptprogramm", body: mainBody });
     for (const h of others) {
-        if (h.type === B.method) {
+        if (h.type === B.keyStart) {
+            // Programmteil „wenn Taste … gedrückt“: Variablen wie im Hauptprogramm
+            const contents = contentTypes([start?.inputs?.BODY?.block, h.inputs?.BODY?.block]);
+            result.push({ title: `wenn Taste „${keyLabel(h.fields?.KEY ?? "")}“ gedrückt: ${h.fields?.NAME ?? ""}`, body: new Converter([], [], contents).seq(h.inputs?.BODY?.block) });
+        } else if (h.type === B.method) {
             const params = methodParams(h);
             const contents = contentTypes([h.inputs?.BODY?.block], params);
             result.push({ title: signature(h.fields?.NAME ?? "", params, h.fields?.RETURN, contents), body: new Converter(params, [], contents).seq(h.inputs?.BODY?.block) });

@@ -4,13 +4,17 @@ import { Interpreter } from "../../compiler/common/interpreter/Interpreter";
 import { JavaCompiler } from "../../compiler/java/JavaCompiler";
 import { SchedulerState } from "../../compiler/common/interpreter/SchedulerState";
 import { CompilerFile } from "../../compiler/common/module/CompilerFile";
+import { JavaLibraryManager } from "../../compiler/java/runtime/JavaLibraryManager";
 import { StoreOutputPrintManager } from "../../test/StoreOutputPrintManager";
 import { StageVariableTracker, type Monitor } from "./StageVariableTracker";
 
-async function setup(code: string) {
+async function setup(code: string, libraries: string[] = []) {
     const file = new CompilerFile();
     file.setText(code);
     const compiler = new JavaCompiler();
+    const libManager = new JavaLibraryManager();
+    libManager.addLibraries(...libraries);
+    libManager.addLibrariesToCompiler(compiler);
     compiler.setFiles([<any>file]);
     const executable = await compiler.compileIfDirty();
     expect(executable!.getAllErrors().filter((e) => e.level == "error")).toEqual([]);
@@ -111,5 +115,41 @@ int danach = 9;
         runStepwise(interpreter, tracker);
         expect(interpreter.scheduler.state).toBe(SchedulerState.error);
         expect(show(tracker.monitors)).toEqual(["a: 1", "zahlen: [0, 0]"]);
+    });
+});
+
+describe("Listenanzeige: Positionen und Länge", () => {
+    test("Liste, Reihung und dynamische Reihung: Elemente einzeln und Länge; nach clear leer", async () => {
+        const { interpreter, tracker } = await setup(`ArrayList<Double> werte = new ArrayList<Double>();
+werte.add(1.0);
+werte.add(2.5);
+char[] zeichen = {'a', 'b', 'c'};
+DynArray d = new DynArray();
+d.append("Ada");
+ArrayList<String> leer = new ArrayList<String>();
+leer.add("weg");
+leer.clear();
+int zahl = 4;
+`, ["niedersachsen"]);
+        interpreter.runMainProgramSynchronously();
+        const byName = new Map(tracker.monitors.map((m) => [m.name, m]));
+        expect(byName.get("werte")?.list).toEqual({ items: ["1.0", "2.5"], length: 2 });
+        expect(byName.get("zeichen")?.list).toEqual({ items: ["'a'", "'b'", "'c'"], length: 3 });
+        expect(byName.get("d")?.list).toEqual({ items: ['"Ada"'], length: 1 });
+        expect(byName.get("leer")?.list).toEqual({ items: [], length: 0 });
+        expect(byName.get("zahl")?.list).toBeUndefined();
+    });
+
+    test("lange Liste: höchstens 100 Elemente, Länge stimmt", async () => {
+        const { interpreter, tracker } = await setup(`ArrayList<Integer> viele = new ArrayList<Integer>();
+for (int i = 0; i < 150; i++) {
+    viele.add(i);
+}
+`);
+        interpreter.runMainProgramSynchronously();
+        const list = tracker.monitors.find((m) => m.name === "viele")?.list;
+        expect(list?.length).toBe(150);
+        expect(list?.items.length).toBe(100);
+        expect(list?.items[99]).toBe("99");
     });
 });

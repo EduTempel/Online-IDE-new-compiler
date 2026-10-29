@@ -57,6 +57,7 @@ import { ProgrammingLanguageManager } from '../../compiler/common/programminglan
 import { Repl } from '../../compiler/common/repl/Repl.js';
 import { Debugger } from '../../compiler/common/debugger/Debugger.js';
 import { AssemblyLanguageDebugger } from '../../compiler/assembly/debugger/AssemblyLanguageDebugger.js';
+import { initLeftPanelToggle } from './gui/LeftPanelToggle.js';
 
 
 export class Main implements MainBase {
@@ -228,6 +229,19 @@ export class Main implements MainBase {
         window.UZIP = null; // needed by UPNG
 
         this.viewModeController = new ViewModeController(jQuery("#view-mode"), this);
+
+        // GSG: linke Spalte (Dateiliste) einklappbar; darf den Start der IDE nie verhindern
+        try {
+            initLeftPanelToggle(document.getElementById("leftpanel"), {
+                relayout: () => {
+                    try { this.getMainEditor()?.layout(); } catch { /* Editor gibt es beim Start noch nicht */ }
+                    window.dispatchEvent(new Event("resize"));
+                },
+                setKnobVisible: (visible) => { void this.viewModeController.getSliders().then((s) => s.sliderKnobLeft?.toggleVisibility(visible)); },
+            });
+        } catch (e) {
+            console.error(e);
+        }
 
         this.editor = new Editor(this, true, false);
         this.editor.initGUI(jQuery('#editor'));

@@ -29,6 +29,7 @@ import { ArrayClassSimulator } from "../../java/runtime/system/javalang/ArrayCla
 import { JavaExecutable } from "../../java/JavaExecutable.ts";
 import { Debugger } from "../debugger/Debugger.ts";
 import type { IThrowable } from "./ThrowableType.ts";
+import { GsgKeyParts } from "./GsgKeyParts.ts";
 
 
 type InterpreterEvents = "stop" | "done" | "resetRuntime" | "stateChanged" |
@@ -99,6 +100,16 @@ export class Interpreter {
     } | undefined = undefined
 
 
+    /** GSG: Programmteile „wenn Taste … gedrückt“ (@WennTaste) */
+    keyParts!: GsgKeyParts;
+
+    /**
+     * GSG: Das laufende Programm wurde in der Blockansicht gestartet. Dann ist eine entfernte Figur (destroy) wie in
+     * Scratch einfach weg: Blöcke an ihr bleiben wirkungslos statt das Programm mit einem Fehler abzubrechen.
+     * In der Java-Ansicht bleibt es beim Fehler. Gesetzt bei jedem Start.
+     */
+    blocksMode = false;
+
     constructor(
         printManager?: IPrintManager,
         private actionManager?: ActionManager,
@@ -120,6 +131,7 @@ export class Interpreter {
         this.#registerActions();
 
         this.actorManager = new ActorManager(this);
+        this.keyParts = new GsgKeyParts(this);
 
         if (breakpointManager) breakpointManager.attachToInterpreter(this);
 
@@ -360,6 +372,8 @@ export class Interpreter {
 
         this.main?.getBottomDiv()?.errorManager?.hideAllErrorDecorations();
         this.keyboardManager?.clearPressedKeys();
+        this.blocksMode = (this.main as { blockModeController?: { getMode?(): string } } | undefined)
+            ?.blockModeController?.getMode?.() === "blocks";
 
         if (this.scheduler.state != SchedulerState.paused && this.executable && resetRuntime) {
             this.graphicsManager?.shrinkGraphicsDiv();
@@ -508,6 +522,7 @@ export class Interpreter {
             this.hideProgrampointerPosition();
             this.eventManager.fire("stop");
             this.keyboardManager?.unsubscribeAllListeners();
+            this.keyParts?.clear();
             this.actorManager.clear();
             this.actorManager.registerKeyboardListeners(this);
             // TODO
@@ -629,6 +644,7 @@ export class Interpreter {
         this.programPointerManager?.hideAll();
 
         this.#mainThread = this.scheduler.init(executable, mainModule, setOneTimeBreakpointAtFirstVisibleLine);
+        if (this.#mainThread) this.keyParts.register(mainModule);   // GSG: „wenn Taste … gedrückt“
 
         if (this.#mainThread) {
             if (executable instanceof JavaExecutable) {
@@ -656,6 +672,7 @@ export class Interpreter {
 
     hasActorsOrPAppletOrRunningTimers(): boolean {
         if (this.retrieveObject("PAppletClass")) return true;
+        if (this.keyParts?.isActive()) return true;   // GSG: wartet auf Tasten
 
         let world: IWorld = this.retrieveObject("WorldClass");
         if (this.actorManager.hasActors() || world?.hasActors()) return true;

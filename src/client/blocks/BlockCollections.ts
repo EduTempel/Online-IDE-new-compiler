@@ -140,6 +140,10 @@ export function defineCollectionBlocks(defineJson: (json: object[]) => void) {
             ...statement, ...l, tooltip: "Entfernt das Element an einer Position (ab 0 gezählt); die folgenden rücken nach vorn.",
         },
         {
+            type: B.listClear, message0: "entferne alle Elemente aus Liste %1 %2", args0: [coll(LIST), hint(".clear()")],
+            ...statement, ...l, tooltip: "Entfernt alle Elemente; danach ist die Liste leer (Länge 0).",
+        },
+        {
             type: B.listGet, message0: "Element an Position %1 von Liste %2 %3", args0: [value("I"), coll(LIST), hint(".get")],
             output: null, ...l, tooltip: "Das Element an einer Position (ab 0 gezählt).",
         },
@@ -304,6 +308,7 @@ export function listsFlyout(ws: Blockly.WorkspaceSvg): Blockly.utils.toolbox.Fly
         { kind: "block", type: B.listAdd, fields: { NAME: l.name }, inputs: { V: lit(l.elem) } },
         { kind: "block", type: B.listInsert, fields: { NAME: l.name }, inputs: { V: lit(l.elem), I: num("0") } },
         { kind: "block", type: B.listRemove, fields: { NAME: l.name }, inputs: { I: num("0") } },
+        { kind: "block", type: B.listClear, fields: { NAME: l.name } },
         { kind: "block", type: B.listGet, fields: { NAME: l.name }, inputs: { I: num("0") } },
         { kind: "block", type: B.listSet, fields: { NAME: l.name }, inputs: { I: num("0"), V: lit(l.elem) } },
         { kind: "block", type: B.listSize, fields: { NAME: l.name } },

@@ -5,7 +5,7 @@ import type { RootVariable } from "../objects/HeapSnapshot";
 import { render, snapshot } from "../trace/TraceData";
 
 /**
- * Werte für die Variablenanzeige auf der Bühne (ohne Oberfläche, damit testbar):
+ * Werte für den Reiter „Variablen“ (ohne Oberfläche, damit testbar):
  *  - beim Programmstart leeren (keine Werte vom letzten Lauf stehen lassen)
  *  - während des Laufs regelmäßig abfragen (poll)
  *  - am Programmende einmal vollständig lesen: auch Programme, die kürzer laufen als ein
@@ -14,7 +14,52 @@ import { render, snapshot } from "../trace/TraceData";
 
 const MAX_TEXT = 80;
 
-export type Monitor = { name: string; text: string };
+/** Reihungen und Listen haben zusätzlich ihre Elemente (für die Anzeige mit Positionen) und ihre Länge */
+export type Monitor = { name: string; text: string; list?: { items: string[]; length: number } };
+
+/** so viele Elemente zeigt die Listenanzeige höchstens (die Länge stimmt trotzdem) */
+export const MAX_LIST_ITEMS = 100;
+const LIST_CLASSES = new Set(["ArrayList", "LinkedList", "CopyOnWriteArrayList", "Vector", "List", "DynArray"]);
+const BOXED_TYPES = new Set(["Integer", "Double", "Float", "Long", "Short", "Byte", "Character", "Boolean", "String"]);
+
+/** Elemente einer Reihung (int[] …), Liste (ArrayList) oder dynamischen Reihung; sonst undefined */
+function listElements(value: unknown): unknown[] | undefined {
+    if (Array.isArray(value)) return value;
+    if (!value || typeof value !== "object") return undefined;
+    const v = value as { getType?: () => { identifier?: string } | undefined; constructor?: { name?: string }; elements?: unknown; getElements?: () => unknown };
+    let cls: string | undefined;
+    try { cls = v.getType?.()?.identifier; } catch { /* egal */ }
+    if (!cls || !LIST_CLASSES.has(cls)) return undefined;
+    try {
+        const elements = Array.isArray(v.elements) ? v.elements : v.getElements?.();
+        return Array.isArray(elements) ? elements : undefined;
+    } catch {
+        return undefined;
+    }
+}
+
+/** Datentyp eines Elements: bei Reihungen aus dem Typ (double[] → double), bei Listen aus der Hüllklasse */
+function elementType(element: unknown, arrayType?: string): string | undefined {
+    if (arrayType?.endsWith("[]")) return arrayType.slice(0, -2);
+    if (element && typeof element === "object") {
+        try {
+            const cls = (element as { getType?: () => { identifier?: string } | undefined }).getType?.()?.identifier;
+            if (cls && BOXED_TYPES.has(cls)) return cls;
+        } catch { /* egal */ }
+    }
+    return undefined;
+}
+
+/** Anzeige einer Reihung bzw. Liste: Elemente als Text (höchstens MAX_LIST_ITEMS) und Länge */
+export function listMonitor(value: unknown, type?: string): Monitor["list"] {
+    const elements = listElements(value);
+    if (!elements) return undefined;
+    const arrayType = Array.isArray(value) ? type : undefined;
+    return {
+        items: elements.slice(0, MAX_LIST_ITEMS).map((e) => monitorText(e, elementType(e, arrayType))),
+        length: elements.length,
+    };
+}
 
 /** Wert für die Anzeige: Kommazahlen mit Nachkommastelle, lange Texte gekürzt */
 export function monitorText(value: unknown, type?: string): string {
@@ -98,8 +143,12 @@ export class StageVariableTracker {
     }
 
     private set(roots: RootVariable[]) {
-        const next = roots.filter((r) => r.name !== "this").map((r) => ({ name: r.name, text: monitorText(r.value, r.type) }));
-        const changed = next.length !== this.monitors.length || next.some((m, i) => m.name !== this.monitors[i].name || m.text !== this.monitors[i].text);
+        const next: Monitor[] = roots.filter((r) => r.name !== "this").map((r) => {
+            const list = listMonitor(r.value, r.type);
+            return list ? { name: r.name, text: monitorText(r.value, r.type), list } : { name: r.name, text: monitorText(r.value, r.type) };
+        });
+        const key = (m: Monitor) => m.list ? JSON.stringify(m.list) : m.text;
+        const changed = next.length !== this.monitors.length || next.some((m, i) => m.name !== this.monitors[i].name || key(m) !== key(this.monitors[i]));
         if (!changed) return;
         this.monitors = next;
         this.onChange();

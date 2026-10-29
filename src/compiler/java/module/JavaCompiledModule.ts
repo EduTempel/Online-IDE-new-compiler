@@ -1,3 +1,4 @@
+import { KEY_PART_ANNOTATION } from "../../common/interpreter/GsgKeyParts";
 import { BaseSymbol } from "../../common/BaseSymbolTable.ts";
 import { Error } from "../../common/Error";
 import { UsagePosition } from "../../common/UsagePosition.ts";
@@ -218,6 +219,8 @@ export class JavaCompiledModule extends JavaBaseModule {
             if (mainMethod) {
                 let statements = mainMethod.statement as ASTBlockNode;
                 if (statements.statements.length > 1) return this.mainClass.resolvedType;
+                // GSG: auch ohne Anweisungen startbar, wenn Tasten Programmteile starten (@WennTaste)
+                if (this.mainClass.methods.some(m => m.annotations?.some(a => a.identifier == KEY_PART_ANNOTATION))) return this.mainClass.resolvedType;
             }
 
         }

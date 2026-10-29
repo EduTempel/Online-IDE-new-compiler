@@ -63,6 +63,8 @@ export class ShapeClass extends ActorClass {
         { type: "method", signature: "final double distanceTo(double x, double y)", native: ShapeClass.prototype._distanceTo, comment: "Abstand vom Mittelpunkt der Figur zum Punkt (x|y), z. B. distanceTo(Mouse.getX(), Mouse.getY())." },
         { type: "method", signature: "final This turnTowards(Shape otherShape)", native: ShapeClass.prototype._turnTowardsShape, comment: "Dreht die Figur so, dass ihre Blickrichtung (forward) zur anderen Figur zeigt." },
         { type: "method", signature: "final This turnTowards(double x, double y)", native: ShapeClass.prototype._turnTowards, comment: "Dreht die Figur so, dass ihre Blickrichtung (forward) zum Punkt (x|y) zeigt, z. B. turnTowards(Mouse.getX(), Mouse.getY())." },
+        { type: "method", signature: "final boolean touchesEdge()", native: ShapeClass.prototype._touchesEdge, comment: "Wahr, wenn die Figur den Rand des Grafikfensters berührt oder über ihn hinausragt (auch wenn sie ganz draußen ist)." },
+        { type: "method", signature: "final This bounceOffEdge()", native: ShapeClass.prototype._bounceOffEdge, comment: "Berührt die Figur den Rand, prallt sie ab: Ihre Blickrichtung wird gespiegelt (wie ein Ball an der Bande), und sie wird ganz ins Fenster zurückgeschoben. Gedacht für Bewegungen mit forward(…)." },
         { type: "method", signature: "final This moveBackFrom(Shape otherShape, boolean keepColliding)", native: ShapeClass.prototype._moveBackFrom, comment: JRC.shapeMoveBackFromComment },
 
         { type: "method", signature: "static void setDefaultVisibility(boolean isVisible)", native: ShapeClass._setDefaultVisibility, comment: JRC.shapeSetDefaultVisibilityComment },
@@ -276,7 +278,13 @@ export class ShapeClass extends ActorClass {
 
 
 
+    /** GSG: im Blockmodus entfernte Figur – Blöcke an ihr bleiben wirkungslos (siehe destroy) */
+    isRetired(): boolean {
+        return this.isDestroyed && !!this.world?.interpreter?.blocksMode;
+    }
+
     _move(dx: number, dy: number) {
+        if (this.isRetired()) return this;   // GSG: entfernte Figur (Blockmodus) bleibt, wo sie war
         if (dx != 0 || dy != 0) {
             this.lastMoveDx = dx;
             this.lastMoveDy = dy;
@@ -295,6 +303,7 @@ export class ShapeClass extends ActorClass {
     }
 
     _rotate(angleInDeg: number, cX?: number, cY?: number) {
+        if (this.isRetired()) return this;   // GSG: entfernte Figur (Blockmodus) bleibt, wo sie war
         if (typeof cX == "undefined") {
             let p = new PIXI.Point(this.centerXInitial, this.centerYInitial);
             this.container.localTransform.apply(p, p);
@@ -333,6 +342,7 @@ export class ShapeClass extends ActorClass {
     }
 
     _scale(factor: number, cX?: number, cY?: number) {
+        if (this.isRetired()) return this;   // GSG: entfernte Figur (Blockmodus) bleibt, wo sie war
         if (typeof cX == "undefined") {
             let p = new PIXI.Point(this.centerXInitial, this.centerYInitial);
             this.container.localTransform.apply(p, p);
@@ -375,6 +385,7 @@ export class ShapeClass extends ActorClass {
     }
 
     _mirrorXY(scaleX: number, scaleY: number) {
+        if (this.isRetired()) return this;   // GSG: entfernte Figur (Blockmodus) bleibt, wo sie war
         let cX: number, cY: number;
 
         let p = new PIXI.Point(this.centerXInitial, this.centerYInitial);
@@ -420,6 +431,40 @@ export class ShapeClass extends ActorClass {
     _turnTowardsShape(otherShape: ShapeClass) {
         if (otherShape == null) throw new RuntimeExceptionClass("turnTowards: Die andere Figur gibt es (noch) nicht (null).");
         return this._turnTowards(otherShape._getCenterX(), otherShape._getCenterY());
+    }
+
+    /** GSG: sichtbarer Bereich des Grafikfensters */
+    private viewRect() {
+        const w = this.world;
+        return { left: w.currentLeft, top: w.currentTop, right: w.currentLeft + w.currentWidth, bottom: w.currentTop + w.currentHeight };
+    }
+
+    /** GSG (Blöcke „berührt den Rand“): Umriss reicht an den Fensterrand oder darüber hinaus */
+    _touchesEdge(): boolean {
+        if (this.isRetired() || !this.container.visible) return false;
+        const b = this.container.getBounds();
+        const v = this.viewRect();
+        return b.left <= v.left || b.top <= v.top || b.right >= v.right || b.bottom >= v.bottom;
+    }
+
+    /** GSG (Block „pralle vom Rand ab“, wie in Scratch): Blickrichtung spiegeln und ins Fenster zurückschieben */
+    _bounceOffEdge() {
+        if (this.isRetired()) return this;
+        const v = this.viewRect();
+        let b = this.container.getBounds();
+        let dx = Math.cos(this.directionRad), dy = -Math.sin(this.directionRad);   // y zeigt nach unten
+        // nur spiegeln, wenn die Figur auf den Rand zu läuft (sonst zappelt sie am Rand hin und her)
+        if ((b.left <= v.left && dx < 0) || (b.right >= v.right && dx > 0)) dx = -dx;
+        if ((b.top <= v.top && dy < 0) || (b.bottom >= v.bottom && dy > 0)) dy = -dy;
+        let delta = Math.atan2(-dy, dx) / Math.PI * 180 - this.directionRad / Math.PI * 180;
+        delta = ((delta % 360) + 540) % 360 - 180;
+        if (Math.abs(delta) > 1e-9) this._rotate(delta);
+        // ganz ins Fenster zurück (nach dem Drehen, weil sich der Umriss dabei ändern kann)
+        b = this.container.getBounds();
+        const mx = b.left < v.left ? v.left - b.left : b.right > v.right ? v.right - b.right : 0;
+        const my = b.top < v.top ? v.top - b.top : b.bottom > v.bottom ? v.bottom - b.bottom : 0;
+        if (mx !== 0 || my !== 0) this._move(mx, my);
+        return this;
     }
 
     _forward(distance: number) {
@@ -538,7 +583,14 @@ export class ShapeClass extends ActorClass {
         let index2 = world.shapesNotAffectedByWorldTransforms.indexOf(this);
         if (index2 >= 0) world.shapesNotAffectedByWorldTransforms.splice(index2, 1);
 
-        this.world.interpreter.actorManager.shapesToDestroySafely.push(this);
+        if (this.world.interpreter.blocksMode) {
+            // GSG, Blockmodus (wie in Scratch: weg ist weg): nicht zerstören, sondern endgültig verstecken. Die Figur
+            // gehört nicht mehr zur Welt (berührt nichts, wird nicht angeklickt); spätere Blöcke an ihr laufen
+            // ohne Fehler ins Leere, ihre Werte (Position, Winkel) bleiben auf dem letzten Stand.
+            this.container.visible = false;
+        } else {
+            this.world.interpreter.actorManager.shapesToDestroySafely.push(this);
+        }
 
         if (this.mouseEventsImplemented) {
             this.world.mouseManager.removeShapeWithImplementedMouseMethods(this);
@@ -613,6 +665,7 @@ export class ShapeClass extends ActorClass {
     }
 
     _setVisible(isVisible: boolean): ShapeClass {
+        if (isVisible && this.isDestroyed) return this;   // GSG: entfernte Figur kommt nicht wieder
         this.container.visible = isVisible;
         return this;
     }
@@ -641,6 +694,12 @@ export class ShapeClass extends ActorClass {
 
         if(otherShape == null) return false;
 
+        // GSG: eine entfernte Figur berührt nichts mehr (vorher: „isDestroyed == null“ unten griff nie, und der
+        // Zugriff auf ihren Container warf MethodOfDestroyedObjectCalledException). Ist diese Figur selbst
+        // entfernt, bleibt es in der Java-Ansicht beim Fehler (Methode eines zerstörten Objekts), im Blockmodus: falsch.
+        if (otherShape.isDestroyed) return false;
+        if (this.isRetired()) return false;
+
         // is other shape a turtle?
         if (!this.turtle && otherShape.turtle) {
             return otherShape._collidesWith(this);
@@ -651,7 +710,6 @@ export class ShapeClass extends ActorClass {
             return otherShape._collidesWith(this);
         }
 
-        if (this.isDestroyed == null || otherShape.isDestroyed == null) return false;
 
         // uncomment this to remove lag of 1/30 s
         // updateWorldTransformRecursively(this.container, false);
@@ -759,6 +817,8 @@ export class ShapeClass extends ActorClass {
             if (otherShape == this) continue;
 
             if (otherShape.isDestroyed) continue;
+
+            if (otherShape.container?.visible === false) continue;   // GSG: versteckte Figuren berühren nichts (wie in Scratch)
 
             if (color != null && !otherShape.shapes) {
                 if (otherShape.fillColor != color) continue;

@@ -304,3 +304,57 @@
     flex: 1;
     border-top: 1px solid var(--gsg-line);
 }
+
+/* ------------------------------------------------------------------ Passwort vergessen */
+
+.joeCssFence #login.gsg-login .gsg-forgot-toggle {
+    display: block;
+    margin: 12px auto 0;
+    padding: 4px 6px;
+    border: none;
+    background: none;
+    color: var(--gsg-navy);
+    font: inherit;
+    font-size: 0.9em;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.joeCssFence #login.gsg-login .gsg-forgot-toggle:hover {
+    color: var(--brand-primary-hover, #0b4a8a);
+}
+
+.joeCssFence #login.gsg-login .gsg-forgot-toggle:focus-visible {
+    outline: 3px solid var(--gsg-green);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+.joeCssFence #login.gsg-login .gsg-forgot {
+    margin-top: 8px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: var(--gsg-navy-tint);
+    color: var(--gsg-ink);
+    font-size: 0.85em;
+    line-height: 1.4;
+    text-align: left;
+}
+
+.joeCssFence #login.gsg-login .gsg-forgot[hidden],
+.joeCssFence #login.gsg-login .gsg-forgot p[hidden] {
+    display: none;
+}
+
+.joeCssFence #login.gsg-login .gsg-forgot p {
+    margin: 0;
+}
+
+.joeCssFence #login.gsg-login .gsg-forgot p + p {
+    margin-top: 8px;
+}
+
+.joeCssFence #login.gsg-login .gsg-forgot a {
+    color: var(--gsg-navy);
+    font-weight: 600;
+}

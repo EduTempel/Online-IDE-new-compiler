@@ -42,6 +42,7 @@ export const FIGURE_CALLS: FigureCall[] = [
     { block: B.figScale, method: "scale", inputs: ["F"] },
     { block: B.figSetText, method: "setText", inputs: ["TEXT"], kinds: ["Text"] },
     { block: B.figSetImage, method: "setImageIndex", inputs: ["I"], kinds: ["Sprite"] },
+    { block: B.figBounce, method: "bounceOffEdge", inputs: [] },
 ];
 
 /** figAction: Feld ACTION -> Java-Aufruf */
@@ -87,12 +88,39 @@ export function keyLabel(value: string): string {
     return KEYS.find(([, v]) => v.toLowerCase() === value.toLowerCase())?.[0] ?? value;
 }
 
+/** Vorschlag für den Namen eines Programmteils „wenn Taste … gedrückt“: pfeilOben, leertaste, tasteA … */
+export function keyPartName(key: string): string {
+    const named: Record<string, string> = {
+        ArrowRight: "pfeilRechts", ArrowLeft: "pfeilLinks", ArrowUp: "pfeilOben", ArrowDown: "pfeilUnten",
+        " ": "leertaste", Enter: "eingabetaste",
+    };
+    return named[key] ?? (/^[a-z0-9]$/i.test(key) ? "taste" + key.toUpperCase() : "tastendruck");
+}
+
 /** Wert des Feldes OTHER für den Mauszeiger (kein gültiger Variablenname) */
 export const MOUSE_TARGET = "@maus";
 
 /** Ziel als Java-Argument: andere Figur oder Position des Mauszeigers */
 export function targetJava(other: string | undefined): string {
     return !other || other === MOUSE_TARGET ? "Mouse.getX(), Mouse.getY()" : other;
+}
+
+/** Werte des Feldes OTHER bei „berührt“: Rand bzw. irgendeine Figur (keine gültigen Variablennamen) */
+export const EDGE_TARGET = "@rand";
+export const ANY_TARGET = "@irgendeine";
+
+/** „A berührt …“ in Java */
+export function touchesJava(name: string, other: string | undefined): string {
+    if (other === EDGE_TARGET) return `${name}.touchesEdge()`;
+    if (other === ANY_TARGET) return `${name}.collidesWithAnyShape()`;
+    return `${name}.collidesWith(${other})`;
+}
+
+/** „A berührt …“ auf Deutsch (Struktogramm) */
+export function touchesLabel(other: string | undefined): string {
+    if (other === EDGE_TARGET) return "den Rand";
+    if (other === ANY_TARGET) return "irgendeine Figur";
+    return other ?? "…";
 }
 
 /** Ziel auf Deutsch (Struktogramm) */
@@ -102,7 +130,7 @@ export function targetLabel(other: string | undefined): string {
 
 /** Ergebnistypen der Werte-Blöcke */
 export const FIGURE_OUTPUT_TYPES: Record<string, string> = {
-    [B.figProp]: "double", [B.figTouches]: "boolean", [B.figOutside]: "boolean", [B.figDistance]: "double",
+    [B.figProp]: "double", [B.figTouches]: "boolean", [B.figOutside]: "boolean", [B.figDistance]: "double", [B.figTouchesColor]: "boolean",
     [B.keyDown]: "boolean", [B.mouseDown]: "boolean", [B.mouseOver]: "boolean", [B.mouseXY]: "double",
 };
 
@@ -117,6 +145,6 @@ export function figureInputType(blockType: string, input: string): string[] | nu
 
 export const FIGURE_BLOCK_TYPES = new Set<string>([
     ...FIGURE_CREATIONS.map((c) => c.block), ...FIGURE_CALLS.map((c) => c.block),
-    B.figColor, B.figAction, B.figProp, B.figTouches, B.figOutside, B.figDistance, B.figTurnTo, B.worldNew,
+    B.figColor, B.figAction, B.figProp, B.figTouches, B.figOutside, B.figDistance, B.figTurnTo, B.worldNew, B.figTouchesColor,
     B.keyDown, B.mouseDown, B.mouseOver, B.mouseXY,
 ]);

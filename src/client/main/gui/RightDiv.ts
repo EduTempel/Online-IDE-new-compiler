@@ -17,7 +17,7 @@ import { addTaskTab } from '../../task/TaskTab.js';
 import { addHandbookTab } from '../../handbook/HandbookTab.js';
 import { addTraceTab } from '../../trace/TraceTab.js';
 import { addObjectsTab } from '../../objects/ObjectsTab.js';
-import { addStageVariables } from '../../stage/StageVariables.js';
+import { addVariablesTab } from '../../stage/VariablesTab.js';
 import { compactWhenNarrow, decorateTab, splitRightDiv, type RightSplit } from '../../rightpanel/RightPanel.js';
 
 
@@ -171,9 +171,9 @@ export class RightDiv {
             `);
         this.outputTab.bodyDiv.appendChild($runInnerDiv[0]);
 
-        // GSG: Variablen auf der Bühne (wie Scratch); darf den Start der IDE nie verhindern
+        // GSG: eigener Reiter „Variablen“ (Kästchen wie in Scratch); darf den Start der IDE nie verhindern
         try {
-            addStageVariables(this.main, this.outputTab.bodyDiv);
+            addVariablesTab(this.main, this.tabManager);
         } catch (e) {
             console.error(e);
         }
@@ -216,7 +216,7 @@ export class RightDiv {
         }
 
         // GSG: beim Programmstart die Ausgabe (Text und Grafikfenster) zeigen – sonst bleibt z. B. der Reiter
-        // "Aufgabe" vorn und das Grafikfenster unsichtbar. Ausnahme: Tracetabelle und Objekte (beim Beobachten).
+        // "Aufgabe" vorn und das Grafikfenster unsichtbar. Ausnahme: Variablen, Tracetabelle und Objekte (beim Beobachten).
         const showOutputOnStart = () => {
             const interpreter = this.main.getInterpreter?.();
             if (!interpreter) {
@@ -225,7 +225,7 @@ export class RightDiv {
             }
             interpreter.eventManager.on("start", () => {
                 const active = this.tabManager.tabs.find((t) => t.isActive());
-                if (active && active !== this.outputTab && !["Trace", "Objects"].includes(active.name)) this.outputTab.show();
+                if (active && active !== this.outputTab && !["Trace", "Objects", "Variables"].includes(active.name)) this.outputTab.show();
             });
         };
         showOutputOnStart();

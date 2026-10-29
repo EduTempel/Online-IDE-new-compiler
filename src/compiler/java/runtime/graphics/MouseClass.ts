@@ -73,7 +73,7 @@ export class MouseClass extends ObjectClass {
     }
 
     static _wasClickedShape(shape: ShapeClass | null): boolean {
-        if (!shape) return false;
+        if (!shape || shape.isDestroyed) return false;   // GSG: entfernte Figuren lassen sich nicht anklicken
         const clicks = MouseClass.freshClicks();
         const hits = clicks.filter((c) => {
             try {
@@ -89,7 +89,7 @@ export class MouseClass extends ObjectClass {
 
     static _isOver(shape: ShapeClass | null): boolean {
         const s = MouseClass.state;
-        if (!shape || !s.inside) return false;
+        if (!shape || shape.isDestroyed || !s.inside) return false;
         try {
             return !!shape._containsPoint(s.x, s.y);
         } catch {

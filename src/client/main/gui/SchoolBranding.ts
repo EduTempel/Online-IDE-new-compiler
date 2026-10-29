@@ -53,14 +53,29 @@ function applyAppBranding() {
  * (Elemente mit Klasse gsg-iserv-only in index.html, Abfrage /api/login-optionen des Backends).
  */
 export function showIServLoginIfEnabled() {
+    setupForgotPassword();
     applyAppBranding();
     fetch("/api/login-optionen")
         .then((r) => (r.ok ? r.json() : { iserv: false }))
-        .then((o: { iserv?: boolean }) => {
+        .then((o: { iserv?: boolean, iservUrl?: string | null }) => {
             if (!o.iserv) return;
+            const iservUrl = o.iservUrl;
+            if (iservUrl) document.querySelectorAll<HTMLAnchorElement>("a.gsg-iserv-home").forEach((a) => (a.href = iservUrl));
             document.querySelectorAll<HTMLElement>(".gsg-iserv-only").forEach((el) => (el.hidden = false));
         })
         .catch(() => { /* Backend nicht erreichbar: nur lokales Login */ });
+}
+
+/** Login-Seite: „Passwort vergessen?“ klappt die Hinweise für IServ- und lokale Konten auf und zu */
+function setupForgotPassword() {
+    document.querySelectorAll<HTMLButtonElement>(".gsg-forgot-toggle").forEach((button) => {
+        const box = document.getElementById(button.getAttribute("aria-controls") ?? "");
+        if (!box) return;
+        button.addEventListener("click", () => {
+            box.hidden = !box.hidden;
+            button.setAttribute("aria-expanded", String(!box.hidden));
+        });
+    });
 }
 
 type ThemeLike = { name: string, cssColors: { [color: string]: string } };

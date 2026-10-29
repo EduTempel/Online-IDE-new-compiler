@@ -730,6 +730,10 @@ class Translator {
             const v = x(m[1]), l = x(m[2]);
             return v && l ? `${l.code}.push(${v.code});` : undefined;
         }
+        if ((m = /^(?:lösche|entferne)\s+alle\s+Elemente\s+(?:von|aus)\s+(.+)$/i.exec(s))) {
+            const l = x(m[1]);
+            return l ? `${l.code}.clear();` : undefined;
+        }
         if ((m = /^(?:lösche|entferne)\s+(?:das\s+)?Element\s+an\s+Position\s+(.+?)\s+(?:von|aus)\s+(.+)$/i.exec(s))) {
             const i = x(m[1]), l = x(m[2]);
             if (!i || !l) return undefined;

@@ -2,8 +2,9 @@ import { Lexer } from "../../compiler/java/lexer/Lexer";
 import { TokenType } from "../../compiler/java/TokenType";
 import { B, COLLECTION_CALLS, elementJavaType, INPUT_METHODS, MATH_FUNCTIONS, VAR_TYPES, type BlockState, type CollKind, type Param, type WorkspaceState } from "./BlockTypes";
 import { attributesOf, collectionOfType, collectionType, findMethod, isClassType, methodsOf, typeInfo, unwrap, type ClassInfo, type ClassMap } from "./ClassModel";
-import { FIGURE_ACTIONS, FIGURE_CALLS, FIGURE_CREATIONS, FIGURE_PROPS, FILLED, isFigureClass, MOUSE_TARGET, type FigureClass } from "./FigureSpec";
+import { ANY_TARGET, EDGE_TARGET, FIGURE_ACTIONS, FIGURE_CALLS, FIGURE_CREATIONS, FIGURE_PROPS, FILLED, isFigureClass, MOUSE_TARGET, type FigureClass } from "./FigureSpec";
 import { ADT_CALLS, ADT_CREATIONS, ADT_GET_TYPES, getOp, isAdtClass, TREE_DELETES, TREE_SIDES, TREE_TESTS, type AdtClass } from "./AdtSpec";
+import { KEY_PART_ANNOTATION } from "../../compiler/common/interpreter/GsgKeyParts";
 
 /**
  * Java -> Blöcke. Eigener kleiner Parser für den Teil von Java, den es als Blöcke gibt
@@ -96,8 +97,18 @@ export class JavaBlockParser {
         this.scanSignatures();
         const main: BlockState[] = [];
         const hats: BlockState[] = [];   // Operationen und Klassen in der Reihenfolge des Codes
+        // Name des Hauptprogramms: Kommentar „// Hauptprogramm „Name““ ganz am Anfang
+        let programName = "";
+        const first = this.peek();
+        if (first?.tt === TokenType.comment) {
+            const m = /^\/\/\s*Hauptprogramm\s+„([^„“\n]*)“\s*$/.exec(this.text(0, 1));
+            if (m) {
+                programName = m[1].trim();
+                this.pos++;
+            }
+        }
         while (this.pos < this.toks.length) {
-            const hat = this.tryClass() ?? this.tryMethod();
+            const hat = this.tryClass() ?? this.tryKeyPart() ?? this.tryMethod();
             if (hat) {
                 hat.x = 400;
                 hat.y = 20 + hats.length * 200;
@@ -109,6 +120,7 @@ export class JavaBlockParser {
         }
         for (let i = main.length - 2; i >= 0; i--) main[i].next = { block: main[i + 1] };
         const start: BlockState = { type: B.start, id: "start", x: 20, y: 20, deletable: false };
+        if (programName) start.fields = { NAME: programName };
         if (main[0]) start.inputs = { BODY: { block: main[0] } };
         return { state: { blocks: { languageVersion: 0, blocks: [start, ...hats] } }, ranges: this.ranges };
     }
@@ -422,6 +434,38 @@ export class JavaBlockParser {
      * Operation: Typ (oder void) Name ( Typ Name, … ) { … } – Typen nur die der Blöcke.
      * Passt etwas nicht, bleibt die Position unverändert (dann wird es Java-Text im Hauptprogramm).
      */
+    /**
+     * Programmteil „wenn Taste … gedrückt“: @WennTaste("a") void name() { … }. Er kennt die Variablen des
+     * Hauptprogramms (soweit bis hier deklariert); eigene bleiben in ihm.
+     */
+    private tryKeyPart(): BlockState | undefined {
+        const begin = this.pos;
+        if (!this.is(TokenType.at) || this.peek(1)?.value !== KEY_PART_ANNOTATION || !this.is(TokenType.leftBracket, 2)
+            || !this.is(TokenType.stringLiteral, 3) || !this.is(TokenType.rightBracket, 4) || !this.is(TokenType.keywordVoid, 5)
+            || !this.is(TokenType.identifier, 6) || !this.is(TokenType.leftBracket, 7) || !this.is(TokenType.rightBracket, 8)
+            || !this.is(TokenType.leftCurlyBracket, 9)) return undefined;
+        const key = String(this.peek(3)!.value), name = String(this.peek(6)!.value);
+        if (!key) return undefined;
+        const rangeCount = this.ranges.length;
+        const outer = this.vars;
+        this.vars = new Map(outer);
+        try {
+            this.pos = begin + 10;
+            const body = this.statementList(true);
+            this.expect(TokenType.rightCurlyBracket);
+            const b = this.block(B.keyStart, begin, this.pos, { fields: { KEY: key, NAME: name } });
+            if (body) b.inputs = { BODY: { block: body } };
+            return b;
+        } catch (e) {
+            if (!(e instanceof Fail)) throw e;
+            this.pos = begin;
+            this.ranges.length = rangeCount;
+            return undefined;
+        } finally {
+            this.vars = outer;
+        }
+    }
+
     private tryMethod(): BlockState | undefined {
         const begin = this.pos;
         const ret = this.is(TokenType.keywordVoid) ? { type: "void", next: begin + 1 } : this.typeAt(begin);
@@ -1032,7 +1076,7 @@ export class JavaBlockParser {
     }
 
     /** Farbe als Argument: "red" oder Color.randomColor() */
-    private colourArg(from: number, to: number): string | undefined {
+    colourArg(from: number, to: number): string | undefined {
         const t = this.toks[from];
         if (to === from + 1 && t?.tt === TokenType.stringLiteral) return String(t.value);
         if (this.text(from, to).replace(/\s/g, "") === "Color.randomColor()") return "random";
@@ -1803,6 +1847,12 @@ class ExpressionParser {
         const prop = FIGURE_PROPS.find(([, , java]) => java === method);
         if (prop && close === openIndex + 1) result = this.p.value(B.figProp, { fields: { PROP: prop[1], NAME: name } });
         else if (method === "isOutsideView" && close === openIndex + 1) result = this.p.value(B.figOutside, { fields: { NAME: name } });
+        else if (method === "touchesEdge" && close === openIndex + 1) result = this.p.value(B.figTouches, { fields: { NAME: name, OTHER: EDGE_TARGET } });
+        else if (method === "collidesWithAnyShape" && close === openIndex + 1) result = this.p.value(B.figTouches, { fields: { NAME: name, OTHER: ANY_TARGET } });
+        else if (method === "collidesWithFillColor" && close > openIndex + 1) {
+            const colour = this.p.colourArg(openIndex + 1, close);
+            if (colour !== undefined && colour !== "random") result = this.p.value(B.figTouchesColor, { fields: { NAME: name, COLOR: colour } });
+        }
         else if (method === "collidesWith" && close === openIndex + 2 && this.p.tok(openIndex + 1)?.tt === TokenType.identifier) {
             result = this.p.value(B.figTouches, { fields: { NAME: name, OTHER: String(this.p.tok(openIndex + 1)!.value) } });
         }

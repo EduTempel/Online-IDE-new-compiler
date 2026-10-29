@@ -22,6 +22,32 @@ export const BLOCK_HANDBOOK: HandbookSection[] = [
                 runs: true,
             },
             {
+                title: "Mehrere Programmteile: wenn Taste … gedrückt",
+                text: "Das Hauptprogramm kann einen **Namen** bekommen (Feld neben „Hauptprogramm“). Weitere Programmteile beginnen mit **wenn Taste … gedrückt** und haben ebenfalls einen Namen. "
+                    + "Bei jedem Druck auf die Taste laufen ihre Blöcke – gleichzeitig mit dem Hauptprogramm und mit **dessen Variablen**. Jede Taste startet nur **einen** Programmteil. "
+                    + "Das Programm wartet auf Tasten, bis man **Stopp** drückt. So passen mehrere kleine Programme in eine Datei.",
+                code: lines(
+                    "// Hauptprogramm „Zähler“",
+                    "int zahl = 0;",
+                    "println(\"Pfeil hoch: +1, Pfeil runter: -1, Leertaste: anzeigen\");",
+                    "",
+                    "@WennTaste(\"ArrowUp\")",
+                    "void pfeilOben() {",
+                    "    zahl++;",
+                    "}",
+                    "",
+                    "@WennTaste(\"ArrowDown\")",
+                    "void pfeilUnten() {",
+                    "    zahl--;",
+                    "}",
+                    "",
+                    "@WennTaste(\" \")",
+                    "void leertaste() {",
+                    "    println(\"Zahl: \" + zahl);",
+                    "}",
+                ),
+            },
+            {
                 title: "falls … dann … sonst",
                 text: "Ist die Bedingung **wahr**, laufen die Blöcke bei *dann*, sonst die bei *sonst*. Den sonst-Teil kann man auch weglassen.",
                 code: lines(
@@ -310,6 +336,19 @@ export const BLOCK_HANDBOOK: HandbookSection[] = [
                     "namen.set(1, \"Linus\");",
                     "namen.remove(2);",
                     "println(namen.get(0));",
+                ),
+                runs: true,
+            },
+            {
+                title: "alle Elemente entfernen",
+                text: "**entferne alle Elemente aus Liste** leert die Liste auf einmal; danach ist ihre Länge 0. Im Reiter **Variablen** sieht man jede Liste mit den Positionen ihrer Elemente und ihrer Länge.",
+                code: lines(
+                    "ArrayList<Integer> zahlen = new ArrayList<Integer>();",
+                    "zahlen.add(7);",
+                    "zahlen.add(9);",
+                    "println(zahlen.size());",
+                    "zahlen.clear();",
+                    "println(zahlen.size());",
                 ),
                 runs: true,
             },
@@ -683,20 +722,21 @@ export const BLOCK_HANDBOOK: HandbookSection[] = [
             },
             {
                 title: "Zusammenstoß, Position, verstecken",
-                text: "**berührt** prüft, ob sich zwei Figuren überlappen. **x-Position (Mitte)** liefert, wo die Figur gerade ist. **verstecke** und **entferne** wählt man in der Auswahl desselben Blocks.",
+                text: "**berührt** prüft, ob sich zwei Figuren überlappen. **x-Position (Mitte)** liefert, wo die Figur gerade ist. "
+                    + "**verstecke** macht die Figur unsichtbar (mit **zeige** kommt sie wieder); eine versteckte Figur berührt nichts. "
+                    + "**entferne** nimmt sie endgültig weg. Beides wählt man in der Auswahl desselben Blocks. "
+                    + "Im Blockmodus bleiben Blöcke an einer entfernten Figur danach einfach ohne Wirkung; in Java ist das ein Fehler – deshalb steht **entferne** hier erst am Ende.",
                 code: lines(
                     "Circle ball = new Circle(100, 300, 30);",
                     "Rectangle wand = new Rectangle(600, 200, 20, 200);",
-                    "while (true) {",
+                    "while (ball.getCenterX() < 700) {",
                     "    ball.move(4, 0);",
                     "    if (ball.collidesWith(wand)) {",
                     "        ball.setVisible(false);",
                     "    }",
-                    "    if (ball.getCenterX() > 700) {",
-                    "        ball.destroy();",
-                    "    }",
                     "    Thread.sleep(20);",
                     "}",
+                    "ball.destroy();",
                 ),
             },
             {
@@ -711,6 +751,29 @@ export const BLOCK_HANDBOOK: HandbookSection[] = [
                     "    Thread.sleep(20);",
                     "}",
                     "ziel.setFillColor(\"green\");",
+                ),
+            },
+            {
+                title: "Rand, Farbe, abprallen",
+                text: "Bei **berührt** kann man statt einer Figur auch **Rand** (die Figur reicht an den Fensterrand) oder **irgendeine Figur** wählen. "
+                    + "**berührt Farbe** zählt Kreise, Rechtecke und Texte in dieser Farbe (nicht die Farben in Sprite-Bildern). "
+                    + "**pralle vom Rand ab** spiegelt die Blickrichtung wie bei einem Ball an der Bande – das passt zu **gehe … Schritte in Blickrichtung**. "
+                    + "Hier springt der Ball herum, bis er die grüne Wand rechts trifft.",
+                code: lines(
+                    "Circle ball = new Circle(100, 300, 20);",
+                    "Rectangle tor = new Rectangle(760, 0, 40, 600);",
+                    "tor.setFillColor(\"green\");",
+                    "int abpraller = 0;",
+                    "ball.rotate(70);",
+                    "while (!ball.collidesWithFillColor(\"green\")) {",
+                    "    ball.forward(6);",
+                    "    if (ball.touchesEdge()) {",
+                    "        abpraller++;",
+                    "    }",
+                    "    ball.bounceOffEdge();",
+                    "    Thread.sleep(20);",
+                    "}",
+                    "println(\"Abpraller: \" + abpraller);",
                 ),
             },
         ],
@@ -732,6 +795,25 @@ export const BLOCK_HANDBOOK: HandbookSection[] = [
                     "        ball.move(-5, 0);",
                     "    }",
                     "    Thread.sleep(20);",
+                    "}",
+                ),
+            },
+            {
+                title: "Programmteile mit Tasten starten",
+                text: "Ohne Spielschleife: Jeder Block **wenn Taste … gedrückt** ist ein eigener Programmteil, der bei jedem Tastendruck einmal läuft. "
+                    + "Zur Auswahl stehen nur Tasten, die noch frei sind. Der Ball gehört dem Hauptprogramm – alle Programmteile können ihn bewegen.",
+                code: lines(
+                    "// Hauptprogramm „Ball steuern“",
+                    "Circle ball = new Circle(400, 300, 30);",
+                    "",
+                    "@WennTaste(\"ArrowRight\")",
+                    "void pfeilRechts() {",
+                    "    ball.move(20, 0);",
+                    "}",
+                    "",
+                    "@WennTaste(\"ArrowLeft\")",
+                    "void pfeilLinks() {",
+                    "    ball.move(-20, 0);",
                     "}",
                 ),
             },

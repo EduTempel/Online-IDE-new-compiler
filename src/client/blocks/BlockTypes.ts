@@ -9,7 +9,8 @@
  */
 
 export const B = {
-    start: "j_start",               // Hauptprogramm (Hut-Block), Eingang BODY
+    start: "j_start",               // Hauptprogramm (Hut-Block), Feld NAME (Name, darf leer sein), Eingang BODY
+    keyStart: "j_key_start",        // Hut-Block „wenn Taste … gedrückt“: Felder KEY, NAME; Anweisungen BODY  (@WennTaste("a") void name() { … })
 
     // Operationen (Methoden im Hauptprogramm)
     method: "j_method",             // Hut-Block; Felder NAME, RETURN (void/int/…), PNAME0/PTYPE0 …; Anweisungen BODY; extraState { params }
@@ -52,6 +53,7 @@ export const B = {
     listAdd: "j_list_add",          // Feld NAME; Eingang V  (l.add(v);)
     listInsert: "j_list_insert",    // Feld NAME; Eingänge I, V  (l.add(i, v);)
     listRemove: "j_list_remove",    // Feld NAME; Eingang I  (l.remove(i);)
+    listClear: "j_list_clear",      // Feld NAME  (l.clear();)
     listGet: "j_list_get",          // Feld NAME; Eingang I  (l.get(i))
     listSet: "j_list_set",          // Feld NAME; Eingänge I, V  (l.set(i, v);)
     listSize: "j_list_size",        // Feld NAME  (l.size())
@@ -119,8 +121,10 @@ export const B = {
     figColor: "j_fig_color",        // Felder NAME, COLOR  (f.setFillColor("red");)
     figAction: "j_fig_action",      // Felder ACTION (show/hide/front/back/destroy), NAME
     figProp: "j_fig_prop",          // Felder PROP (x/y/angle), NAME  (f.getCenterX() …)
-    figTouches: "j_fig_touches",    // Felder NAME, OTHER  (f.collidesWith(g))
+    figTouches: "j_fig_touches",    // Felder NAME, OTHER (Figur, Rand oder irgendeine Figur)  (f.collidesWith(g) / f.touchesEdge() / f.collidesWithAnyShape())
     figOutside: "j_fig_outside",    // Feld NAME  (f.isOutsideView())
+    figTouchesColor: "j_fig_touches_color", // Felder NAME, COLOR  (f.collidesWithFillColor("red"))
+    figBounce: "j_fig_bounce",      // Feld NAME  (f.bounceOffEdge();)
     figDistance: "j_fig_distance",  // Felder NAME, OTHER (Figur oder Mauszeiger)  (f.distanceTo(g) / f.distanceTo(Mouse.getX(), Mouse.getY()))
     keyDown: "j_key_down",          // Feld KEY  (Input.isKeyDown("ArrowRight"))
     mouseDown: "j_mouse_down",      // Feld WHAT (down/clicked)  (Mouse.isDown() / Mouse.wasClicked())
@@ -187,6 +191,7 @@ export const COLLECTION_CALLS: { type: string; kind: "list" | "dyn"; method: str
     { type: "j_list_add", kind: "list", method: "add", args: ["V"], stmt: true },
     { type: "j_list_insert", kind: "list", method: "add", args: ["I", "V"], stmt: true },
     { type: "j_list_remove", kind: "list", method: "remove", args: ["I"], stmt: true },
+    { type: "j_list_clear", kind: "list", method: "clear", args: [], stmt: true },
     { type: "j_list_set", kind: "list", method: "set", args: ["I", "V"], stmt: true },
     { type: "j_list_get", kind: "list", method: "get", args: ["I"], stmt: false },
     { type: "j_list_size", kind: "list", method: "size", args: [], stmt: false },

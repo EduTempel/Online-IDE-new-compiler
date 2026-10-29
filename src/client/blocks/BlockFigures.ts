@@ -2,7 +2,7 @@ import * as Blockly from "blockly/core";
 import { B } from "./BlockTypes";
 import { variablesFor, collectVariables } from "./BlockTypeSystem";
 import {
-    COLOURS, DEFAULT_FIGURE_NAME, FIGURE_ACTIONS, FIGURE_CLASSES, FIGURE_NAMES_DE, FIGURE_PROPS, FILLED, isFigureClass, KEYS, MOUSE_TARGET,
+    COLOURS, DEFAULT_FIGURE_NAME, FIGURE_ACTIONS, FIGURE_CLASSES, FIGURE_NAMES_DE, FIGURE_PROPS, FILLED, isFigureClass, KEYS, keyPartName, MOUSE_TARGET, EDGE_TARGET, ANY_TARGET,
     type FigureClass,
 } from "./FigureSpec";
 
@@ -73,11 +73,12 @@ export class FieldOpenDropdown extends Blockly.FieldDropdown {
 /** Auswahl einer Figur (Variable vom Typ Circle, Rectangle, Text oder Sprite); mit mouse: auch „Mauszeiger“ */
 export class FieldFigureName extends Blockly.FieldDropdown {
     static override fromJson(options: Blockly.FieldDropdownFromJsonConfig) {
-        const o = options as { text?: string; kinds?: FigureClass[]; mouse?: boolean };
-        return new FieldFigureName(String(o.text ?? "ball"), o.kinds ?? [...FIGURE_CLASSES], !!o.mouse);
+        const o = options as { text?: string; kinds?: FigureClass[]; mouse?: boolean; touch?: boolean };
+        return new FieldFigureName(String(o.text ?? "ball"), o.kinds ?? [...FIGURE_CLASSES], !!o.mouse, !!o.touch);
     }
 
-    constructor(value: string, private kinds: FigureClass[], private mouse = false) {
+    /** mouse: auch „Mauszeiger“; touch: auch „Rand“ und „irgendeine Figur“ (Block „berührt“) */
+    constructor(value: string, private kinds: FigureClass[], private mouse = false, private touch = false) {
         super(function (this: FieldFigureName) { return this.figureOptions(); } as unknown as Blockly.MenuGenerator);
         this.setValue(value);
     }
@@ -90,13 +91,17 @@ export class FieldFigureName extends Blockly.FieldDropdown {
         const current = this.getValue();
         if (typeof current === "string" && current) names.add(current);
         names.delete(MOUSE_TARGET);
+        names.delete(EDGE_TARGET);
+        names.delete(ANY_TARGET);
         if (names.size === 0) names.add(DEFAULT_FIGURE_NAME[kinds[0]]);
         const options: [string, string][] = [...names].sort((a, b) => a.localeCompare(b, "de")).map((n) => [n, n]);
+        if (this.touch) return [["Rand", EDGE_TARGET], ["irgendeine Figur", ANY_TARGET], ...options];
         return this.mouse ? [["Mauszeiger", MOUSE_TARGET], ...options] : options;
     }
 
     protected override doClassValidation_(newValue?: unknown): string | null {
         if (this.mouse && newValue === MOUSE_TARGET) return newValue;
+        if (this.touch && (newValue === EDGE_TARGET || newValue === ANY_TARGET)) return newValue;
         return typeof newValue === "string" && /^[\p{L}_$][\p{L}\p{N}_$]*$/u.test(newValue) ? newValue : null;
     }
 
@@ -210,6 +215,12 @@ export function defineFigureBlocks(defineJson: (json: object[]) => void) {
             ...statement, ...fig, tooltip: "Bewegt die Figur in die Richtung, in die sie gedreht ist (am Anfang: nach rechts).",
         },
         {
+            type: B.figBounce, message0: "pralle mit %1 vom Rand ab %2", args0: [figure(), hint(".bounceOffEdge")],
+            ...statement, ...fig,
+            tooltip: "Berührt die Figur den Rand, prallt sie ab wie ein Ball an der Bande: Ihre Blickrichtung wird gespiegelt. "
+                + "Passt zu „gehe … Schritte in Blickrichtung“ in einer Schleife (bei „bewege um (x | y)“ ändert sich nichts an der Bewegung).",
+        },
+        {
             type: B.figTurnTo, message0: "drehe %1 in Richtung %2 %3", args0: [figure(), target(), hint(".turnTowards")],
             ...statement, ...fig,
             tooltip: "Dreht die Figur so, dass sie zum Mauszeiger (oder zu einer anderen Figur) schaut. "
@@ -245,8 +256,19 @@ export function defineFigureBlocks(defineJson: (json: object[]) => void) {
             output: null, ...fig, tooltip: "Position der Mitte bzw. Drehwinkel der Figur (Kommazahl).",
         },
         {
-            type: B.figTouches, message0: "%1 berührt %2 %3", args0: [figure(), figure(undefined, "OTHER"), hint(".collidesWith")],
-            output: null, ...fig, tooltip: "Wahr, wenn sich die beiden Figuren überlappen.",
+            type: B.figTouches, message0: "%1 berührt %2 %3",
+            args0: [figure(), { ...figure(undefined, "OTHER"), touch: true }, hint(".collidesWith")],
+            output: null, ...fig,
+            tooltip: "Wahr, wenn sich die beiden Figuren überlappen. „Rand“: die Figur reicht an den Rand des Grafikfensters "
+                + "oder darüber hinaus. „irgendeine Figur“: sie überlappt mit irgendeiner anderen sichtbaren Figur.",
+        },
+        {
+            type: B.figTouchesColor, message0: "%1 berührt Farbe %2 %3",
+            args0: [figure(), { type: "field_gsg_open_dropdown", name: "COLOR", choices: COLOURS.filter(([, v]) => v !== "random"), value: "red" },
+                hint(".collidesWithFillColor")],
+            output: null, ...fig,
+            tooltip: "Wahr, wenn die Figur einen Kreis, ein Rechteck oder einen Text dieser Farbe berührt "
+                + "(eingefärbt mit „färbe“). Farben in Sprite-Bildern zählen nicht.",
         },
         {
             type: B.figOutside, message0: "%1 ist außerhalb des Fensters %2", args0: [figure(), hint(".isOutsideView()")],
@@ -340,6 +362,7 @@ export function figuresFlyout(ws: Blockly.WorkspaceSvg): Blockly.utils.toolbox.F
         { kind: "block", type: B.figMoveTo, fields: { NAME: any }, inputs: { X: num("400"), Y: num("300") } },
         { kind: "block", type: B.figRotate, fields: { NAME: any }, inputs: { A: num("15") } },
         { kind: "block", type: B.figForward, fields: { NAME: any }, inputs: { D: num("5") } },
+        { kind: "block", type: B.figBounce, fields: { NAME: any } },
         { kind: "block", type: B.figTurnTo, fields: { NAME: any, OTHER: MOUSE_TARGET } },
         { kind: "block", type: B.figScale, fields: { NAME: any }, inputs: { F: num("1.5") } },
         { kind: "block", type: B.figColor, fields: { NAME: filled, COLOR: "red" } },
@@ -349,6 +372,8 @@ export function figuresFlyout(ws: Blockly.WorkspaceSvg): Blockly.utils.toolbox.F
         { kind: "label", text: "Werte und Bedingungen" },
         { kind: "block", type: B.figProp, fields: { PROP: "x", NAME: any } },
         { kind: "block", type: B.figTouches, fields: { NAME: any, OTHER: other } },
+        { kind: "block", type: B.figTouches, fields: { NAME: any, OTHER: EDGE_TARGET } },
+        { kind: "block", type: B.figTouchesColor, fields: { NAME: any, COLOR: "red" } },
         { kind: "block", type: B.figOutside, fields: { NAME: any } },
         { kind: "block", type: B.figDistance, fields: { NAME: any, OTHER: other } },
     ];
@@ -359,6 +384,8 @@ export function inputFlyout(ws: Blockly.WorkspaceSvg): Blockly.utils.toolbox.Fly
     const figs = existingFigures(ws);
     const any = firstOf(figs, [...FIGURE_CLASSES]);
     const key = (k: string) => ({ block: { type: B.keyDown, fields: { KEY: k } } });
+    const used = new Set(ws.getAllBlocks(false).filter((b) => b.type === B.keyStart).map((b) => String(b.getFieldValue("KEY")).toLowerCase()));
+    const freeKey = KEYS.map(([, v]) => v).find((v) => !used.has(v.toLowerCase())) ?? " ";
     const move = (dx: string, dy: string) => ({ block: { type: B.figMove, fields: { NAME: any }, inputs: { DX: num(dx), DY: num(dy) } } });
     const items: object[] = [
         { kind: "label", text: "Spielschleife: Tasten und Maus immer wieder abfragen, kurz warten, von vorn." },
@@ -377,6 +404,8 @@ export function inputFlyout(ws: Blockly.WorkspaceSvg): Blockly.utils.toolbox.Fly
                 },
             },
         },
+        { kind: "label", text: "Programmteil, den eine Taste startet (jede Taste nur einmal)" },
+        { kind: "block", type: B.keyStart, fields: { KEY: freeKey, NAME: keyPartName(freeKey) } },
         { kind: "label", text: "Tasten" },
         { kind: "block", type: B.keyDown, fields: { KEY: "ArrowRight" } },
         { kind: "block", type: B.keyDown, fields: { KEY: " " } },

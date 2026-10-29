@@ -3,7 +3,7 @@ import "/assets/css/gsg-rightpanel.css";
 
 /**
  * Rechter Bereich der IDE in zwei Teilen (eigene Erweiterung des GSG):
- *  - oben: was das Programm tut – Ausgabe (Bühne, Variablen, Text), Klassendiagramm, Struktogramm,
+ *  - oben: was das Programm tut – Ausgabe (Bühne und Text), Variablen, Klassendiagramm, Struktogramm,
  *    Objekte, Tracetabelle
  *  - unten: was zu tun ist und wie es geht – Aufgabe und Handbuch
  * Dazwischen eine Trennlinie zum Ziehen (Höhe bleibt im Browser gespeichert, Doppelklick klappt zu/auf).
@@ -21,6 +21,7 @@ const MIN_TOP = 160;
 /** Symbole (eigene, einfache Zeichnungen; Farbe = Schriftfarbe) */
 const ICONS: Record<string, string> = {
     output: '<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M10 7.5v5l4-2.5z"/><path d="M8 21h8M12 17v4"/>',
+    variables: '<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M5.5 9.5l4 5M9.5 9.5l-4 5"/><rect x="13" y="9" width="6" height="6" rx="1.5"/>',
     classes: '<rect x="2" y="3" width="8" height="7" rx="1"/><rect x="14" y="14" width="8" height="7" rx="1"/><path d="M2 6.5h8M14 17.5h8M6 10v7.5h8"/>',
     structogram: '<rect x="3" y="3" width="18" height="18" rx="1"/><path d="M3 8h18M3 8l9 5 9-5M12 13v8"/>',
     objects: '<circle cx="6" cy="6" r="3"/><circle cx="18" cy="8" r="3"/><circle cx="10" cy="18" r="3"/><path d="M8.6 7.2l6.5 0.4M7.2 8.8l1.8 6.4"/>',
@@ -38,6 +39,7 @@ export function icon(name: string): string {
 /** Reiter → Symbol und kurzer Name (Schlüssel: interner Name des Reiters) */
 export const TAB_LOOK: Record<string, { icon: string; label: string }> = {
     "Output": { icon: "output", label: "Ausgabe" },
+    "Variables": { icon: "variables", label: "Variablen" },
     "Class Diagram": { icon: "classes", label: "Klassen" },
     "Structogram": { icon: "structogram", label: "Struktogramm" },
     "Objects": { icon: "objects", label: "Objekte" },

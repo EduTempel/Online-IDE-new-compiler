@@ -20,6 +20,7 @@ import { Constants } from "../Constants";
 import { registerBlockImageMenu } from "./BlockImage";
 import { registerBlockHelpMenu } from "./BlockHelp";
 import { ensureLibraries } from "../structogram/ProjectFiles";
+import { autoCollapseLeftPanel } from "../main/gui/LeftPanelToggle";
 
 /**
  * Blockansicht einer Java-Datei: links die Blöcke (Blockly), rechts der daraus erzeugte
@@ -227,6 +228,45 @@ export class BlockView {
         this.ws.registerToolboxCategoryCallback(CLASSES_CATEGORY, (w) => classesFlyout(w));
         this.ws.registerToolboxCategoryCallback(OBJECTS_CATEGORY, (w) => objectsFlyout(w));
 
+        // Geöffnete Kategorie bleibt offen, bis man sie (oder eine andere) noch einmal anklickt – Blockly schließt sie
+        // sonst bei jedem Klick oder Ziehen auf der Fläche. Die Fläche rückt dafür neben die Kategorie (nichts verdeckt).
+        const toolboxObject = this.ws.getToolbox() as Blockly.Toolbox | null;
+        const toolboxFlyout = toolboxObject?.getFlyout();
+        if (toolboxObject && toolboxFlyout) {
+            toolboxObject.autoHide = () => { /* nur per Klick auf die Kategorie schließen */ };
+            // Platz neben der Kategorie hält Blockly nur bei autoClose = false frei – und zwar auch, wenn sie zu ist.
+            // Deshalb nur, solange sie offen ist (sonst bliebe links eine leere Lücke).
+            const show = toolboxFlyout.show.bind(toolboxFlyout);
+            const hide = toolboxFlyout.hide.bind(toolboxFlyout);
+            // die Blöcke rücken neben die Kategorie (und beim Schließen zurück), damit nichts unter ihr verschwindet
+            let showing = false;   // show() ruft intern zuerst hide() auf
+            toolboxFlyout.show = (contents) => {
+                showing = true;
+                try {
+                    toolboxFlyout.autoClose = false;
+                    show(contents);
+                } finally {
+                    showing = false;
+                }
+                toolboxObject.handleToolboxItemResize();
+            };
+            toolboxFlyout.hide = () => {
+                hide();
+                if (showing) return;
+                toolboxFlyout.autoClose = true;
+                toolboxObject.handleToolboxItemResize();
+            };
+            // Blockly passt die Breite oft erst nach dem Zeichnen an (z. B. Formen nach den Variablen): mitrücken
+            const flyoutSvg = this.ws.getInjectionDiv().querySelector<SVGElement>("svg.blocklyToolboxFlyout");
+            this.flyoutObserver?.disconnect();
+            if (flyoutSvg) {
+                this.flyoutObserver = new ResizeObserver(() => {
+                    if (toolboxFlyout.isVisible() && !toolboxFlyout.autoClose) toolboxObject.handleToolboxItemResize();
+                });
+                this.flyoutObserver.observe(flyoutSvg);
+            }
+        }
+
         // „Variablen“ hat Unterkategorien (Reihungen, Listen, ADT) und kann deshalb keine dynamische Kategorie sein:
         // die eigenen Variablen werden beim Öffnen eingesetzt (nur wenn die Kategorie eigene Blöcke zeigt)
         const variables = (this.ws.getToolbox() as Blockly.Toolbox | null)?.getToolboxItemById("variablen") as unknown as { getContents(): unknown[] } | null;
@@ -247,6 +287,7 @@ export class BlockView {
     }
 
     private toolboxObserver?: ResizeObserver;
+    private flyoutObserver?: ResizeObserver;
 
     private previewCollapsedByUser: boolean | null = null;
 
@@ -332,7 +373,7 @@ export class BlockView {
         const ws = this.ws;
         const start = ws?.getBlockById("start") as Blockly.BlockSvg | null;
         if (!ws || !start) return;
-        const methods = ws.getTopBlocks(false).filter((b) => b.type === B.method || b.type === B.class)
+        const methods = ws.getTopBlocks(false).filter((b) => b.type === B.method || b.type === B.class || b.type === B.keyStart)
             .sort((a, b) => a.getRelativeToSurfaceXY().y - b.getRelativeToSurfaceXY().y);
         if (methods.length === 0) return;
         Blockly.renderManagement.triggerQueuedRenders(ws);
@@ -405,6 +446,8 @@ export class BlockView {
         if (e.type === Blockly.Events.TOOLBOX_ITEM_SELECT) {
             // Blöcke in der Werkzeugleiste: Formen passend zu den Variablen der Arbeitsfläche
             setTimeout(() => this.typeFlyout(), 0);
+            // Platz für die geöffnete Kategorie: Dateiliste links einklappen (Symbol am Rand klappt sie wieder aus)
+            if ((e as Blockly.Events.ToolboxItemSelect).newItem) autoCollapseLeftPanel();
             return;
         }
         if (e.isUiEvent || e.type === Blockly.Events.FINISHED_LOADING) return;

@@ -135,7 +135,10 @@ export class StructogramView {
         if (this.diagrams.length > 1 && !confirm(`Für jedes der ${this.diagrams.length} Struktogramme eine Struktogramm-Datei anlegen?`)) return;
         const base = (this.file?.name ?? "Programm").replace(/\.java$/i, "");
         for (const d of this.diagrams) {
-            const name = d.title === "Hauptprogramm" ? base : (/^(?:Konstruktor\s+)?([\p{L}_$][\p{L}\p{N}_$]*)/u.exec(d.title)?.[1] ?? base);
+            const main = /^Hauptprogramm(?:\s+„(.+)“)?$/u.exec(d.title);
+            const keyPart = /^wenn Taste .* gedrückt: ([\p{L}_$][\p{L}\p{N}_$]*)$/u.exec(d.title);
+            const name = main ? (main[1]?.replace(/[\\/:*?"<>|]/g, "").trim() || base) : keyPart ? keyPart[1]
+                : (/^(?:Konstruktor\s+)?([\p{L}_$][\p{L}\p{N}_$]*)/u.exec(d.title)?.[1] ?? base);
             await createFile(this.main, freeName(this.main, name + ".struktogramm", folder), serializeDoc(docFromDiagram(d)), folder);
         }
     }

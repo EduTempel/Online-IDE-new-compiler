@@ -127,11 +127,11 @@ export function enclosingClass(b: Blockly.Block): Blockly.Block | null {
 // ------------------------------------------------------------------ Variablen und Geltungsbereiche
 
 /** Blöcke mit eigenen Variablen: Hauptprogramm, Operation, Konstruktor, Operation einer Klasse */
-const SCOPE_ROOTS = new Set<string>([B.start, B.method, B.ctor, B.classMethod]);
+const SCOPE_ROOTS = new Set<string>([B.start, B.keyStart, B.method, B.ctor, B.classMethod]);
 
 /** Ist der Block ein Hut (Hauptprogramm, Operation, Klasse)? */
 export function isHat(b: Blockly.Block | null | undefined): boolean {
-    return !!b && (b.type === B.start || b.type === B.method || b.type === B.class);
+    return !!b && (b.type === B.start || b.type === B.keyStart || b.type === B.method || b.type === B.class);
 }
 
 /** Geltungsbereich eines Blocks (Operation, Konstruktor, Hauptprogramm; direkt in der Klasse: die Klasse) */
@@ -194,6 +194,9 @@ export function scopeVariables(root: Blockly.Block): Map<string, JType> {
     if (root.type === B.class) return new Map(attributes.map((a) => [a.name, a.type]));
     const own = variablesOf(innerBlocks(root));
     const result = new Map(attributes.map((a) => [a.name, a.type] as [string, string]));
+    // Programmteil „wenn Taste … gedrückt“: auch die Variablen des Hauptprogramms
+    const start = root.type === B.keyStart ? root.workspace.getTopBlocks(false).find((b) => b.type === B.start) : undefined;
+    if (start) for (const [k, v] of variablesOf(innerBlocks(start))) result.set(k, v);
     for (const [k, v] of own) result.set(k, v);
     return result;
 }
@@ -286,7 +289,7 @@ export function callSignatures(b: Blockly.Block): Map<string, Signature> {
 function enclosingReturnType(b: Blockly.Block): string | undefined {
     const root = scopeRoot(b);
     if (root?.type === B.method || root?.type === B.classMethod) return String(root.getFieldValue("RETURN") ?? "void");
-    return root?.type === B.ctor ? "void" : undefined;
+    return root?.type === B.ctor || root?.type === B.keyStart ? "void" : undefined;
 }
 
 /** Klasse eines Objekt-Werts (Eingang OBJ) */
@@ -708,11 +711,21 @@ function applyTypesNow(ws: Blockly.Workspace, vars: Map<string, JType>) {
         }
         if (b.type === B.superCall && scopeRoot(b)?.type !== B.ctor) note(b, "„super(…)“ steht am Anfang eines Konstruktors.");
     }
+    // Programmteile „wenn Taste … gedrückt“: jede Taste nur einmal, Namen nicht doppelt
+    const parts = blocks.filter((b) => b.type === B.keyStart && !b.isInFlyout);
+    const named = blocks.filter((b) => (b.type === B.keyStart || b.type === B.method) && !b.isInFlyout);
+    for (const b of parts) {
+        const key = String(b.getFieldValue("KEY") ?? "").toLowerCase(), name = String(b.getFieldValue("NAME") ?? "");
+        const first = parts.find((o) => String(o.getFieldValue("KEY") ?? "").toLowerCase() === key);
+        if (first && first !== b) note(b, `Diese Taste startet schon „${first.getFieldValue("NAME")}“. Jede Taste darf nur einen Programmteil starten – bitte eine andere wählen.`);
+        if (named.some((o) => o !== b && o.getFieldValue("NAME") === name)) note(b, `Den Namen „${name}“ gibt es schon (Programmteil oder Operation). Bitte einen anderen wählen.`);
+    }
     for (const b of blocks) {
         if (b.type !== B.return && b.type !== B.returnVoid) continue;
         const root = scopeRoot(b) ?? b.getRootBlock();
         const ret = enclosingReturnType(b);
         if (b.type === B.return && root.type === B.start) note(b, "Das Hauptprogramm hat kein Ergebnis. Zum Beenden „beende die Operation“ nehmen.");
+        else if (b.type === B.return && root.type === B.keyStart) note(b, "Ein Programmteil hat kein Ergebnis. Zum Beenden „beende die Operation“ nehmen.");
         else if (b.type === B.return && ret === "void") note(b, "Diese Operation liefert kein Ergebnis: oben einen Ergebnistyp wählen oder „beende die Operation“ nehmen.");
         else if (b.type === B.returnVoid && ret && ret !== "void") note(b, "Diese Operation muss ein Ergebnis liefern: „gib zurück“ nehmen.");
     }

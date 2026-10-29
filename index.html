@@ -57,6 +57,15 @@
                         autocomplete="current-password" tabindex="2">
                     <div id="login-message" role="alert"></div>
                     <div id="login-button" role="button" tabindex="3">Anmelden</div>
+                    <!-- Passwort vergessen: Hinweise für IServ- und lokale Konten (SchoolBranding.ts) -->
+                    <button type="button" class="gsg-forgot-toggle" aria-expanded="false" aria-controls="gsg-forgot" tabindex="4">Passwort vergessen?</button>
+                    <div id="gsg-forgot" class="gsg-forgot" hidden>
+                        <p class="gsg-iserv-only" hidden><strong>Du meldest dich über IServ an?</strong> Dann gilt dein IServ-Passwort.
+                            Zurücksetzen kannst du es nur in IServ: <a class="gsg-iserv-home" href="/" target="_blank" rel="noopener">IServ öffnen</a>.</p>
+                        <p><strong>Du hast Benutzername und Passwort von der Schule bekommen?</strong> Bitte deine Lehrkraft, dein Passwort
+                            zurückzusetzen (Lehrkräfte wenden sich an die Schul-Admins). Danach ist dein Passwort vorerst dein Benutzername,
+                            und du legst ein neues fest.</p>
+                    </div>
                 </div>
                 <div id="login-spinner" class="jo_login_div">
                     <img src="assets/graphics/ball-triangle.svg" alt="">

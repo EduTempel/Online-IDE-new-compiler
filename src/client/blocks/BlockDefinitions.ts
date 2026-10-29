@@ -7,6 +7,7 @@ import { defineFigureBlocks, FIGURES_CATEGORY, FIGURES_COLOUR, INPUT_CATEGORY, I
 import { ADT_CATEGORY, ADT_COLOUR, ARRAYS_CATEGORY, ARRAYS_COLOUR, defineCollectionBlocks, LISTS_CATEGORY, LISTS_COLOUR } from "./BlockCollections";
 import { CLASSES_CATEGORY, CLASSES_COLOUR, defineClassBlocks, OBJECTS_CATEGORY, OBJECTS_COLOUR } from "./BlockClasses";
 import { registerTypeField } from "./BlockFields";
+import { KEYS, keyPartName } from "./FigureSpec";
 
 /**
  * Blöcke der Stufe 1 (Grundlagen, Abitur-Operationen): deutsche Beschriftung, das Java-Wort klein dahinter
@@ -69,12 +70,64 @@ export class FieldVariableName extends Blockly.FieldDropdown {
     }
 }
 
+/** Tasten, die schon ein anderer Block „wenn Taste … gedrückt“ derselben Arbeitsfläche belegt */
+function usedKeys(block: Blockly.Block): Set<string> {
+    return new Set(block.workspace.getAllBlocks(false)
+        .filter((b) => b.type === B.keyStart && b !== block)
+        .map((b) => String(b.getFieldValue("KEY") ?? "").toLowerCase()));
+}
+
+/**
+ * Taste eines Programmteils: zur Auswahl stehen nur Tasten, die noch kein anderer Programmteil hat
+ * (gleiche Startbedingung zweimal geht nicht).
+ */
+export class FieldKeyPart extends Blockly.FieldDropdown {
+    static override fromJson(options: Blockly.FieldDropdownFromJsonConfig) {
+        return new FieldKeyPart(String((options as { value?: string }).value ?? " "));
+    }
+
+    constructor(value: string) {
+        super(function (this: FieldKeyPart) { return this.keyOptions(); } as unknown as Blockly.MenuGenerator);
+        this.setValue(value);
+    }
+
+    private keyOptions(): [string, string][] {
+        const block = this.getSourceBlock();
+        const used = block && !block.isInFlyout ? usedKeys(block) : new Set<string>();
+        const current = String(this.getValue() ?? "");
+        const options = KEYS.filter(([, v]) => v === current || !used.has(v.toLowerCase()));
+        if (current && !options.some(([, v]) => v === current)) options.unshift([current, current]);
+        return options;
+    }
+
+    protected override doClassValidation_(newValue?: unknown): string | null {
+        return typeof newValue === "string" && newValue !== "" ? newValue : null;
+    }
+
+    protected override doValueUpdate_(newValue: string) {
+        super.doValueUpdate_(newValue);
+        this.getOptions(false);
+        super.doValueUpdate_(newValue);
+    }
+}
+
+/** Name für einen Programmteil, den es (unter Operationen und Programmteilen) noch nicht gibt */
+function freePartName(block: Blockly.Block, base: string): string {
+    const taken = new Set(block.workspace.getAllBlocks(false)
+        .filter((b) => (b.type === B.keyStart || b.type === B.method) && b !== block)
+        .map((b) => String(b.getFieldValue("NAME") ?? "")));
+    let name = base;
+    for (let n = 2; taken.has(name); n++) name = base + n;
+    return name;
+}
+
 let defined = false;
 
 export function defineBlocks() {
     if (defined) return;
     defined = true;
     Blockly.fieldRegistry.register("field_gsg_variable", FieldVariableName as unknown as Blockly.fieldRegistry.RegistrableField);
+    Blockly.fieldRegistry.register("field_gsg_key_part", FieldKeyPart as unknown as Blockly.fieldRegistry.RegistrableField);
     registerTypeField();
 
     // Java-Bezeichner: nur Buchstaben, Ziffern, _ und $; nicht mit Ziffer beginnen
@@ -100,6 +153,36 @@ export function defineBlocks() {
         });
     });
 
+    // Name des Hauptprogramms: freier Text in einer Zeile (steht im Java-Code als Kommentar „// Hauptprogramm „Name““)
+    Blockly.Extensions.register("gsg_program_name", function (this: Blockly.Block) {
+        this.getField("NAME")?.setValidator((v: string) => String(v).replace(/[\r\n„“"]/g, "").slice(0, 60));
+    });
+    /*
+     * Programmteil „wenn Taste … gedrückt“: neu hereingezogen oder kopiert bekommt er eine freie Taste und
+     * einen freien Namen; beim Wechsel der Taste wandert ein vorgeschlagener Name mit (pfeilOben → leertaste).
+     */
+    Blockly.Extensions.register("gsg_key_part", function (this: Blockly.Block) {
+        this.setOnChange(function (this: Blockly.Block, e: Blockly.Events.Abstract) {
+            if (this.isInFlyout || this.workspace.isFlyout) return;
+            if (e.type === Blockly.Events.BLOCK_CREATE && (e as Blockly.Events.BlockCreate).ids?.includes(this.id)) {
+                const used = usedKeys(this);
+                let key = String(this.getFieldValue("KEY") ?? " ");
+                if (used.has(key.toLowerCase())) key = KEYS.map(([, v]) => v).find((v) => !used.has(v.toLowerCase())) ?? key;
+                const name = String(this.getFieldValue("NAME") ?? "");
+                const suggested = KEYS.some(([, v]) => keyPartName(v) === name) || name === "tastendruck";
+                if (key !== this.getFieldValue("KEY")) this.setFieldValue(key, "KEY");
+                const wanted = freePartName(this, suggested ? keyPartName(key) : name);
+                if (wanted !== name) this.setFieldValue(wanted, "NAME");
+            } else if (e.type === Blockly.Events.BLOCK_CHANGE) {
+                const c = e as Blockly.Events.BlockChange;
+                if (c.blockId !== this.id || c.element !== "field" || c.name !== "KEY") return;
+                if (this.getFieldValue("NAME") === keyPartName(String(c.oldValue ?? ""))) {
+                    this.setFieldValue(freePartName(this, keyPartName(String(c.newValue ?? ""))), "NAME");
+                }
+            }
+        });
+    });
+
     // alle Blöcke ohne Java-Schnipsel (stehen im Tooltip)
     const defineJson = (json: object[]) => Blockly.common.defineBlocksWithJsonArray(withoutJavaHints(json as Record<string, unknown>[]));
 
@@ -112,11 +195,21 @@ export function defineBlocks() {
 
     defineJson([
         {
-            type: B.start, message0: "Hauptprogramm %1", args0: [hint("main")],
+            type: B.start, message0: "Hauptprogramm %1 %2", args0: [{ type: "field_input", name: "NAME", text: "" }, hint("main")],
             message1: "%1", args1: [{ type: "input_statement", name: "BODY" }],
-            colour: COLOURS.start, hat: "cap",
+            colour: COLOURS.start, hat: "cap", extensions: ["gsg_program_name"],
             tooltip: "Hier beginnt das Programm. Ausgeführt werden die Blöcke, die hier angehängt sind "
-                + "(und Operationen, wenn sie aufgerufen werden).",
+                + "(und Operationen, wenn sie aufgerufen werden). In das Feld kann ein Name für das Programm. "
+                + "Weitere Programmteile startet „wenn Taste … gedrückt“.",
+        },
+        {
+            type: B.keyStart, message0: "wenn Taste %1 gedrückt: %2 %3",
+            args0: [{ type: "field_gsg_key_part", name: "KEY", value: " " }, { type: "field_input", name: "NAME", text: "leertaste" }, hint("@WennTaste")],
+            message1: "%1", args1: [{ type: "input_statement", name: "BODY" }],
+            colour: COLOURS.start, hat: "cap", extensions: ["gsg_identifier", "gsg_key_part"],
+            tooltip: "Ein weiterer Programmteil mit Namen: Er startet bei jedem Druck auf die Taste – gleichzeitig mit dem "
+                + "Hauptprogramm und mit dessen Variablen. Läuft er noch, zählt erneutes Drücken nicht. Jede Taste gibt es "
+                + "nur einmal. Das Programm wartet auf Tasten, bis „Stopp“ gedrückt wird. Java: @WennTaste(\" \") void leertaste() { … }",
         },
 
         // ------------------------------------------------------------ Variablen
@@ -492,6 +585,8 @@ function fullToolbox(): { kind: string; contents: object[] } {
             {
                 kind: "category", toolboxitemid: "steuerung", name: "Steuerung", colour: COLOURS.control, contents: [
                     { kind: "label", text: "Blöcke unter „Hauptprogramm“ hängen – nur sie werden ausgeführt." },
+                    { kind: "label", text: "Weitere Programmteile: starten mit einer Taste, jede Taste nur einmal." },
+                    blk(B.keyStart),
                     blk(B.if, { extraState: { elseIfs: 0, hasElse: false, fixed: true } }),
                     blk(B.if, { extraState: { elseIfs: 0, hasElse: true, fixed: true } }),
                     blk(B.if, { extraState: { elseIfs: 1, hasElse: false } }),

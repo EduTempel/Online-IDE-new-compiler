@@ -57,7 +57,7 @@ export function startedMainClass(interpreter: Interpreter, suggestedModule?: unk
 
 /**
  * frame "top": aktuelle Operation (Objektdiagramm beim Anhalten);
- * frame "main": Hauptprogramm, auch wenn gerade eine Operation läuft (Variablenanzeige auf der Bühne)
+ * frame "main": Hauptprogramm, auch wenn gerade eine Operation läuft (Reiter „Variablen“)
  */
 export function captureCurrentFrame(interpreter: Interpreter, frame: "top" | "main" = "top"): Capture | undefined {
     // Hauptprogramm: auch wenn sein Thread gerade wartet (warte …, Eingabe) – dann ist er nicht der aktuelle
