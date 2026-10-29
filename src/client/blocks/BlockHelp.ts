@@ -12,7 +12,7 @@ import { OPERATIONS_COLOUR } from "./BlockOperations";
  */
 
 const CATEGORY_BY_COLOUR: Record<string, string> = {
-    [COLOURS.start]: "steuerung",
+    [COLOURS.start]: "start",
     [COLOURS.control]: "steuerung",
     [COLOURS.output]: "ausgabe",
     [COLOURS.variables]: "variablen",

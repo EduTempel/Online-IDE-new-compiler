@@ -1,11 +1,11 @@
 import { Lexer } from "../../compiler/java/lexer/Lexer";
 import { TokenType } from "../../compiler/java/TokenType";
-import { B, COLLECTION_CALLS, COLLECTION_DECLARATIONS, elementJavaType, type BlockState, type Collections, type Param, type WorkspaceState } from "./BlockTypes";
+import { B, COLLECTION_CALLS, COLLECTION_DECLARATIONS, elementJavaType, isPartHat, type BlockState, type Collections, type Param, type WorkspaceState } from "./BlockTypes";
 import { collectionOfType, collectionType, methodParams, wrapperOf } from "./ClassModel";
 import type { LineRange } from "./JavaBlockParser";
 import { colourJava, FIGURE_ACTIONS, FIGURE_CALLS, FIGURE_CREATIONS, FIGURE_PROPS, targetJava, touchesJava } from "./FigureSpec";
 import { ADT_CALLS, ADT_CREATIONS, ADT_GET_TYPES, TREE_SIDES } from "./AdtSpec";
-import { KEY_PART_ANNOTATION } from "../../compiler/common/interpreter/GsgKeyParts";
+import { CLICK_PART_ANNOTATION, KEY_PART_ANNOTATION, MESSAGE_PART_ANNOTATION, START_PART_ANNOTATION } from "../../compiler/common/interpreter/GsgParts";
 
 export { methodParams };
 
@@ -87,24 +87,32 @@ export class JavaBlockGenerator {
         const mainColls = collectionsInTree(start?.inputs?.BODY?.block);
         this.colls = mainColls;
         this.statements(start?.inputs?.BODY?.block, "");
-        const hats = top.filter((b) => b.type === B.method || b.type === B.class || b.type === B.keyStart)
+        const hats = top.filter((b) => b.type === B.method || b.type === B.class || isPartHat(b.type))
             .sort((a, b) => (a.y ?? 0) - (b.y ?? 0) || (a.x ?? 0) - (b.x ?? 0));
         for (const h of hats) {
             if (this.lines.length) this.emit("");
             if (h.type === B.class) this.classDeclaration(h);
-            else if (h.type === B.keyStart) this.keyPart(h, mainColls);
+            else if (isPartHat(h.type)) this.part(h, mainColls);
             else this.method(h, "");
         }
         return { code: this.lines.length ? this.lines.join("\n") + "\n" : "", ranges: this.ranges };
     }
 
-    /** Programmteil „wenn Taste … gedrückt“: @WennTaste("a") void name() { … } – mit den Variablen des Hauptprogramms */
-    private keyPart(b: BlockState, mainColls: Collections) {
+    /**
+     * Programmteil mit den Variablen des Hauptprogramms: @WennTaste("a"), @WennNachricht("los"),
+     * @WennAngeklickt("ball") oder @BeimStart vor void name() { … }
+     */
+    private part(b: BlockState, mainColls: Collections) {
         const startLine = this.lines.length + 1;
-        const key = escapeJavaString(String(b.fields?.KEY ?? " "));
+        const f = b.fields ?? {};
+        const [annotation, fallback] =
+            b.type === B.msgStart ? [`@${MESSAGE_PART_ANNOTATION}("${escapeJavaString(String(f.MSG || "los"))}")`, "nachricht"]
+            : b.type === B.clickStart ? [`@${CLICK_PART_ANNOTATION}("${escapeJavaString(String(f.FIG ?? ""))}")`, "angeklickt"]
+            : b.type === B.progStart ? [`@${START_PART_ANNOTATION}`, "beimStart"]
+            : [`@${KEY_PART_ANNOTATION}("${escapeJavaString(String(f.KEY ?? " "))}")`, "tastendruck"];
         this.colls = new Map([...mainColls, ...collectionsInTree(b.inputs?.BODY?.block)]);
-        this.emit(`@${KEY_PART_ANNOTATION}("${key}")`);
-        this.emit(`void ${b.fields?.NAME || "tastendruck"}() {`);
+        this.emit(annotation);
+        this.emit(`void ${f.NAME || fallback}() {`);
         this.statements(b.inputs?.BODY?.block, INDENT);
         this.emit("}");
         if (b.id) this.ranges.push({ id: b.id, startLine, endLine: this.lines.length });
@@ -256,6 +264,10 @@ export class JavaBlockGenerator {
             }
             case B.wait:
                 this.emit(`${indent}Thread.sleep(${this.input(b, "MS", Order.NONE)});`);
+                break;
+            case B.msgSend:
+            case B.msgSendWait:
+                this.emit(`${indent}Nachricht.${b.type === B.msgSend ? "sende" : "sendeUndWarte"}("${escapeJavaString(String(f.MSG || "los"))}");`);
                 break;
             case B.trace: {
                 const text = (f.TEXT ?? "").trim();
@@ -551,6 +563,7 @@ export class JavaBlockGenerator {
             case B.figProp: return `${f.NAME}.${FIGURE_PROPS.find(([, v]) => v === f.PROP)?.[2] ?? "getCenterX"}()`;
             case B.figTouches: return touchesJava(f.NAME ?? "", f.OTHER);
             case B.figTouchesColor: return `${f.NAME}.collidesWithFillColor(${colourJava(f.COLOR ?? "red")})`;
+            case B.figTouchesList: return `${f.NAME}.collidesWithAnyOf(${f.LIST ?? "liste"})`;
             case B.figOutside: return `${f.NAME}.isOutsideView()`;
             case B.figDistance: return `${f.NAME}.distanceTo(${targetJava(f.OTHER)})`;
             case B.keyDown: return `Input.isKeyDown(${JSON.stringify(f.KEY ?? "ArrowRight")})`;

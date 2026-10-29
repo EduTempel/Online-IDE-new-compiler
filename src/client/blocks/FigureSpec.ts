@@ -130,7 +130,7 @@ export function targetLabel(other: string | undefined): string {
 
 /** Ergebnistypen der Werte-Blöcke */
 export const FIGURE_OUTPUT_TYPES: Record<string, string> = {
-    [B.figProp]: "double", [B.figTouches]: "boolean", [B.figOutside]: "boolean", [B.figDistance]: "double", [B.figTouchesColor]: "boolean",
+    [B.figProp]: "double", [B.figTouches]: "boolean", [B.figOutside]: "boolean", [B.figDistance]: "double", [B.figTouchesColor]: "boolean", [B.figTouchesList]: "boolean",
     [B.keyDown]: "boolean", [B.mouseDown]: "boolean", [B.mouseOver]: "boolean", [B.mouseXY]: "double",
 };
 
@@ -145,6 +145,6 @@ export function figureInputType(blockType: string, input: string): string[] | nu
 
 export const FIGURE_BLOCK_TYPES = new Set<string>([
     ...FIGURE_CREATIONS.map((c) => c.block), ...FIGURE_CALLS.map((c) => c.block),
-    B.figColor, B.figAction, B.figProp, B.figTouches, B.figOutside, B.figDistance, B.figTurnTo, B.worldNew, B.figTouchesColor,
+    B.figColor, B.figAction, B.figProp, B.figTouches, B.figOutside, B.figDistance, B.figTurnTo, B.worldNew, B.figTouchesColor, B.figTouchesList,
     B.keyDown, B.mouseDown, B.mouseOver, B.mouseXY,
 ]);

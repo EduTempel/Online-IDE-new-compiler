@@ -4,6 +4,7 @@ import { FieldButton, hintLabel, mutate, type Mutable } from "./BlockMutators";
 import { FieldType } from "./BlockFields";
 import { collectionsFor, collectionsOf, defaultLiteral, TYPE_NAMES, type JType } from "./BlockTypeSystem";
 import { adtExtraItems, defineAdtBlocks } from "./BlockAdt";
+import { isFigureClass } from "./FigureSpec";
 
 /**
  * Paket 5 des Blockmodus, drei getrennte Kategorien (Positionen zählen immer ab 0):
@@ -26,11 +27,12 @@ const DEFAULT_NAMES: Record<CollKind, string> = { array: "zahlen", array2d: "fel
 /** Auswahl einer Reihung bzw. Liste (bestimmter Arten) des eigenen Hauptprogramms bzw. der Operation */
 export class FieldCollectionName extends Blockly.FieldDropdown {
     static override fromJson(options: Blockly.FieldDropdownFromJsonConfig) {
-        const o = options as { text?: string; kinds?: CollKind[] };
-        return new FieldCollectionName(String(o.text ?? "zahlen"), o.kinds ?? ["array"]);
+        const o = options as { text?: string; kinds?: CollKind[]; figures?: boolean };
+        return new FieldCollectionName(String(o.text ?? "zahlen"), o.kinds ?? ["array"], !!o.figures);
     }
 
-    constructor(value: string, private kinds: CollKind[]) {
+    /** figures: nur Listen mit Figuren (Kreis, Rechteck, Text, Sprite) */
+    constructor(value: string, private kinds: CollKind[], private figures = false) {
         super(function (this: FieldCollectionName) { return this.collectionOptions(); } as unknown as Blockly.MenuGenerator);
         this.setValue(value);
     }
@@ -39,7 +41,7 @@ export class FieldCollectionName extends Blockly.FieldDropdown {
         const block = this.getSourceBlock();
         const names = new Set<string>();
         const kinds = this.kinds ?? ["array"];   // im Konstruktor von FieldDropdown noch nicht gesetzt
-        if (block) for (const [name, c] of collectionsFor(block)) if (kinds.includes(c.kind)) names.add(name);
+        if (block) for (const [name, c] of collectionsFor(block)) if (kinds.includes(c.kind) && (!this.figures || isFigureClass(c.elem))) names.add(name);
         const current = this.getValue();
         if (typeof current === "string" && current) names.add(current);
         if (names.size === 0) names.add(DEFAULT_NAMES[kinds[0]]);
@@ -118,7 +120,8 @@ export function defineCollectionBlocks(defineJson: (json: object[]) => void) {
             message1: "%1", args1: [{ type: "input_statement", name: "DO" }],
             ...statement, colour: ARRAYS_COLOUR, extensions: ["gsg_identifier"],
             tooltip: "Geht alle Elemente der Reihung bzw. Liste der Reihe nach durch; die Variable enthält jeweils das aktuelle Element. "
-                + "Bei einer zweidimensionalen Reihung ist jedes Element eine Zeile.",
+                + "Bei einer zweidimensionalen Reihung ist jedes Element eine Zeile. Achtung: Währenddessen nichts aus der Liste "
+                + "entfernen – dann werden Elemente übersprungen. Figuren lieber verstecken.",
         },
 
         // ------------------------------------------------------------ Liste (ArrayList)

@@ -750,6 +750,11 @@ class Translator {
             const text = (m[1] ?? "").trim().replace(/\\/g, "\\\\").replace(/"/g, '\\"');
             return text ? `trace("${text}");` : "trace();";
         }
+        // Nachrichten (Paket 15c): sende Nachricht „los“ [und warte]
+        if ((m = /^sende\s+(?:die\s+)?Nachricht\s+[„"“](.+?)[“"”](\s+und\s+warte)?$/i.exec(s))) {
+            const msg = m[1].replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+            return `Nachricht.${m[2] ? "sendeUndWarte" : "sende"}("${msg}");`;
+        }
         if ((m = /^warte\s+(.+?)\s+Millisekunden$/i.exec(s))) {
             const v = x(m[1]);
             return v ? `Thread.sleep(${v.code});` : undefined;

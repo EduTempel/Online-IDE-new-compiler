@@ -360,6 +360,7 @@ export class Scheduler {
     }
 
     suspendThread(thread: Thread) {
+        this.interpreter.parts?.onSuspend(thread);   // GSG: „wenn das Programm startet“ beginnt, wenn das Hauptprogramm wartet
         let index = this.runningThreads.indexOf(thread);
         if (index >= 0) {
             this.runningThreads.splice(index, 1);

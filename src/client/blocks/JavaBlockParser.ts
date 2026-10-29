@@ -4,7 +4,7 @@ import { B, COLLECTION_CALLS, elementJavaType, INPUT_METHODS, MATH_FUNCTIONS, VA
 import { attributesOf, collectionOfType, collectionType, findMethod, isClassType, methodsOf, typeInfo, unwrap, type ClassInfo, type ClassMap } from "./ClassModel";
 import { ANY_TARGET, EDGE_TARGET, FIGURE_ACTIONS, FIGURE_CALLS, FIGURE_CREATIONS, FIGURE_PROPS, FILLED, isFigureClass, MOUSE_TARGET, type FigureClass } from "./FigureSpec";
 import { ADT_CALLS, ADT_CREATIONS, ADT_GET_TYPES, getOp, isAdtClass, TREE_DELETES, TREE_SIDES, TREE_TESTS, type AdtClass } from "./AdtSpec";
-import { KEY_PART_ANNOTATION } from "../../compiler/common/interpreter/GsgKeyParts";
+import { CLICK_PART_ANNOTATION, KEY_PART_ANNOTATION, MESSAGE_PART_ANNOTATION, START_PART_ANNOTATION } from "../../compiler/common/interpreter/GsgParts";
 
 /**
  * Java -> Blöcke. Eigener kleiner Parser für den Teil von Java, den es als Blöcke gibt
@@ -108,7 +108,7 @@ export class JavaBlockParser {
             }
         }
         while (this.pos < this.toks.length) {
-            const hat = this.tryClass() ?? this.tryKeyPart() ?? this.tryMethod();
+            const hat = this.tryClass() ?? this.tryPart() ?? this.tryMethod();
             if (hat) {
                 hat.x = 400;
                 hat.y = 20 + hats.length * 200;
@@ -435,25 +435,40 @@ export class JavaBlockParser {
      * Passt etwas nicht, bleibt die Position unverändert (dann wird es Java-Text im Hauptprogramm).
      */
     /**
-     * Programmteil „wenn Taste … gedrückt“: @WennTaste("a") void name() { … }. Er kennt die Variablen des
-     * Hauptprogramms (soweit bis hier deklariert); eigene bleiben in ihm.
+     * Programmteil: @WennTaste("a"), @WennNachricht("los"), @WennAngeklickt("ball") oder @BeimStart vor
+     * void name() { … }. Er kennt die Variablen des Hauptprogramms (soweit bis hier deklariert); eigene bleiben in ihm.
      */
-    private tryKeyPart(): BlockState | undefined {
+    private tryPart(): BlockState | undefined {
         const begin = this.pos;
-        if (!this.is(TokenType.at) || this.peek(1)?.value !== KEY_PART_ANNOTATION || !this.is(TokenType.leftBracket, 2)
-            || !this.is(TokenType.stringLiteral, 3) || !this.is(TokenType.rightBracket, 4) || !this.is(TokenType.keywordVoid, 5)
-            || !this.is(TokenType.identifier, 6) || !this.is(TokenType.leftBracket, 7) || !this.is(TokenType.rightBracket, 8)
-            || !this.is(TokenType.leftCurlyBracket, 9)) return undefined;
-        const key = String(this.peek(3)!.value), name = String(this.peek(6)!.value);
-        if (!key) return undefined;
+        if (!this.is(TokenType.at)) return undefined;
+        const annotation = String(this.peek(1)?.value ?? "");
+        let trigger = "", head = begin + 2;   // head: Position von void
+        if (annotation === START_PART_ANNOTATION) {
+            if (this.is(TokenType.leftBracket, 2)) return undefined;
+        } else if ([KEY_PART_ANNOTATION, MESSAGE_PART_ANNOTATION, CLICK_PART_ANNOTATION].includes(annotation)) {
+            if (!this.is(TokenType.leftBracket, 2) || !this.is(TokenType.stringLiteral, 3) || !this.is(TokenType.rightBracket, 4)) return undefined;
+            trigger = String(this.peek(3)!.value);
+            if (!trigger) return undefined;
+            if (annotation === CLICK_PART_ANNOTATION && !/^[\p{L}_$][\p{L}\p{N}_$]*$/u.test(trigger)) return undefined;
+            head = begin + 5;
+        } else return undefined;
+        const at = head - begin;
+        if (!this.is(TokenType.keywordVoid, at) || !this.is(TokenType.identifier, at + 1) || !this.is(TokenType.leftBracket, at + 2)
+            || !this.is(TokenType.rightBracket, at + 3) || !this.is(TokenType.leftCurlyBracket, at + 4)) return undefined;
+        const name = String(this.peek(at + 1)!.value);
+        const [type, fields]: [string, { [k: string]: string }] =
+            annotation === KEY_PART_ANNOTATION ? [B.keyStart, { KEY: trigger, NAME: name }]
+            : annotation === MESSAGE_PART_ANNOTATION ? [B.msgStart, { MSG: trigger, NAME: name }]
+            : annotation === CLICK_PART_ANNOTATION ? [B.clickStart, { FIG: trigger, NAME: name }]
+            : [B.progStart, { NAME: name }];
         const rangeCount = this.ranges.length;
         const outer = this.vars;
         this.vars = new Map(outer);
         try {
-            this.pos = begin + 10;
+            this.pos = head + 5;
             const body = this.statementList(true);
             this.expect(TokenType.rightCurlyBracket);
-            const b = this.block(B.keyStart, begin, this.pos, { fields: { KEY: key, NAME: name } });
+            const b = this.block(type, begin, this.pos, { fields });
             if (body) b.inputs = { BODY: { block: body } };
             return b;
         } catch (e) {
@@ -1044,6 +1059,14 @@ export class JavaBlockParser {
             const b = this.block(B.call, begin, this.pos, { fields: { NAME: name } });
             this.addArguments(b, begin + 1, close);
             return b;
+        }
+        // Nachricht.sende("los");  Nachricht.sendeUndWarte("los");
+        if (name === "Nachricht" && second.tt === TokenType.dot && ["sende", "sendeUndWarte"].includes(String(this.peek(2)?.value))
+            && this.is(TokenType.leftBracket, 3) && this.is(TokenType.stringLiteral, 4) && this.is(TokenType.rightBracket, 5)
+            && this.is(TokenType.semicolon, 6) && String(this.peek(4)!.value) !== "") {
+            const wait = this.peek(2)!.value === "sendeUndWarte", msg = String(this.peek(4)!.value);
+            this.pos += 7;
+            return this.block(wait ? B.msgSendWait : B.msgSend, begin, this.pos, { fields: { MSG: msg } });
         }
         // Thread.sleep(…);
         if (name === "Thread" && second.tt === TokenType.dot && this.peek(2)?.value === "sleep" && this.peek(3)?.tt === TokenType.leftBracket) {
@@ -1852,6 +1875,9 @@ class ExpressionParser {
         else if (method === "collidesWithFillColor" && close > openIndex + 1) {
             const colour = this.p.colourArg(openIndex + 1, close);
             if (colour !== undefined && colour !== "random") result = this.p.value(B.figTouchesColor, { fields: { NAME: name, COLOR: colour } });
+        }
+        else if (method === "collidesWithAnyOf" && close === openIndex + 2 && this.p.tok(openIndex + 1)?.tt === TokenType.identifier) {
+            result = this.p.value(B.figTouchesList, { fields: { NAME: name, LIST: String(this.p.tok(openIndex + 1)!.value) } });
         }
         else if (method === "collidesWith" && close === openIndex + 2 && this.p.tok(openIndex + 1)?.tt === TokenType.identifier) {
             result = this.p.value(B.figTouches, { fields: { NAME: name, OTHER: String(this.p.tok(openIndex + 1)!.value) } });

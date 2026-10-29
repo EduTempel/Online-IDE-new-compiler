@@ -136,7 +136,7 @@ export class StructogramView {
         const base = (this.file?.name ?? "Programm").replace(/\.java$/i, "");
         for (const d of this.diagrams) {
             const main = /^Hauptprogramm(?:\s+„(.+)“)?$/u.exec(d.title);
-            const keyPart = /^wenn Taste .* gedrückt: ([\p{L}_$][\p{L}\p{N}_$]*)$/u.exec(d.title);
+            const keyPart = /^wenn .*: ([\p{L}_$][\p{L}\p{N}_$]*)$/u.exec(d.title);   // Programmteile (Taste, Nachricht, Klick, Start)
             const name = main ? (main[1]?.replace(/[\\/:*?"<>|]/g, "").trim() || base) : keyPart ? keyPart[1]
                 : (/^(?:Konstruktor\s+)?([\p{L}_$][\p{L}\p{N}_$]*)/u.exec(d.title)?.[1] ?? base);
             await createFile(this.main, freeName(this.main, name + ".struktogramm", folder), serializeDoc(docFromDiagram(d)), folder);

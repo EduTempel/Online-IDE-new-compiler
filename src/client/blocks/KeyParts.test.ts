@@ -77,7 +77,7 @@ describe("Programmteile „wenn Taste … gedrückt“ (@WennTaste)", () => {
         press("a");
         expect(printManager.output).toBe("erster\n");
         interpreter.setState(SchedulerState.stopped);
-        expect(interpreter.keyParts.isActive()).toBe(false);
+        expect(interpreter.parts.isActive()).toBe(false);
     });
 
     test("läuft der Programmteil noch, zählt erneutes Drücken nicht", async () => {
@@ -88,9 +88,9 @@ describe("Programmteile „wenn Taste … gedrückt“ (@WennTaste)", () => {
             "    Thread.sleep(100000);",
             "}",
         ));
-        interpreter.keyParts.onKey("b");
+        interpreter.parts.onKey("b");
         interpreter.runREPLSynchronously();
-        interpreter.keyParts.onKey("b");
+        interpreter.parts.onKey("b");
         interpreter.runREPLSynchronously();
         expect(printManager.output).toBe("los\n");
     });

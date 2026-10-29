@@ -2,6 +2,7 @@ import { LibraryDeclarations } from "../../module/libraries/DeclareType";
 import { NonPrimitiveType } from "../../types/NonPrimitiveType";
 import { ObjectClass } from "../system/javalang/ObjectClassStringClass";
 import type { ShapeClass } from "./ShapeClass";
+import { gsgClickListeners } from "../../../common/interpreter/GsgParts";
 
 /**
  * GSG (Blockmodus, Paket 8): Maus abfragen, ohne eigene Klasse mit onMouseDown usw. –
@@ -55,6 +56,7 @@ export class MouseClass extends ObjectClass {
                 s.inside = true;
                 s.clicks.push({ x, y, time: performance.now() });
                 if (s.clicks.length > 20) s.clicks.shift();
+                for (const listener of gsgClickListeners) listener(x, y);   // GSG: „wenn … angeklickt wird“
                 break;
             case "mouseup": s.down = false; break;
             case "mouseenter": case "mousemove": s.inside = true; break;

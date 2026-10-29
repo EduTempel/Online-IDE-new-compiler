@@ -8,6 +8,7 @@ import { ADT_CATEGORY, ADT_COLOUR, ARRAYS_CATEGORY, ARRAYS_COLOUR, defineCollect
 import { CLASSES_CATEGORY, CLASSES_COLOUR, defineClassBlocks, OBJECTS_CATEGORY, OBJECTS_COLOUR } from "./BlockClasses";
 import { registerTypeField } from "./BlockFields";
 import { KEYS, keyPartName } from "./FigureSpec";
+import { definePartBlocks, freePartName, messageToolboxItems, startToolboxItems } from "./BlockParts";
 
 /**
  * Blöcke der Stufe 1 (Grundlagen, Abitur-Operationen): deutsche Beschriftung, das Java-Wort klein dahinter
@@ -111,16 +112,6 @@ export class FieldKeyPart extends Blockly.FieldDropdown {
     }
 }
 
-/** Name für einen Programmteil, den es (unter Operationen und Programmteilen) noch nicht gibt */
-function freePartName(block: Blockly.Block, base: string): string {
-    const taken = new Set(block.workspace.getAllBlocks(false)
-        .filter((b) => (b.type === B.keyStart || b.type === B.method) && b !== block)
-        .map((b) => String(b.getFieldValue("NAME") ?? "")));
-    let name = base;
-    for (let n = 2; taken.has(name); n++) name = base + n;
-    return name;
-}
-
 let defined = false;
 
 export function defineBlocks() {
@@ -192,6 +183,7 @@ export function defineBlocks() {
     defineCollectionBlocks(defineJson);
     defineClassBlocks(defineJson);
     defineFigureBlocks(defineJson);
+    definePartBlocks(defineJson);
 
     defineJson([
         {
@@ -200,7 +192,7 @@ export function defineBlocks() {
             colour: COLOURS.start, hat: "cap", extensions: ["gsg_program_name"],
             tooltip: "Hier beginnt das Programm. Ausgeführt werden die Blöcke, die hier angehängt sind "
                 + "(und Operationen, wenn sie aufgerufen werden). In das Feld kann ein Name für das Programm. "
-                + "Weitere Programmteile startet „wenn Taste … gedrückt“.",
+                + "Weitere Programmteile starten z. B. „wenn Taste … gedrückt“ oder „wenn ich Nachricht … empfange“.",
         },
         {
             type: B.keyStart, message0: "wenn Taste %1 gedrückt: %2 %3",
@@ -534,7 +526,7 @@ export function variablesFlyout(ws: Blockly.WorkspaceSvg): Blockly.utils.toolbox
  * Kennungen der Kategorien (Reihenfolge der Werkzeugleiste). Lehrkräfte können je Lerngruppe einzelne
  * ausblenden – gleiche Liste wie BLOCK_CATEGORIES in backend/src/repo/apps.ts.
  */
-export const BLOCK_CATEGORY_IDS = ["steuerung", "ausgabe", "variablen", "reihungen", "listen", "adt", "bedingungen", "rechnen", "text",
+export const BLOCK_CATEGORY_IDS = ["start", "steuerung", "ausgabe", "variablen", "reihungen", "listen", "adt", "bedingungen", "rechnen", "text",
     "figuren", "tasten", "operationen", "klassen", "objekte", "java"] as const;
 
 /**
@@ -581,12 +573,13 @@ function fullToolbox(): { kind: string; contents: object[] } {
     return {
         kind: "categoryToolbox",
         contents: [
-            // Reihenfolge: Steuerung, Ausgabe & Eingabe, Variablen, Bedingungen, Rechnen & Werte, Text, Java
+            // Reihenfolge: Start, Steuerung, Ausgabe & Eingabe, Variablen, Bedingungen, Rechnen & Werte, Text, Java
+            {
+                kind: "category", toolboxitemid: "start", name: "Start", colour: COLOURS.start, contents: startToolboxItems(),
+            },
             {
                 kind: "category", toolboxitemid: "steuerung", name: "Steuerung", colour: COLOURS.control, contents: [
-                    { kind: "label", text: "Blöcke unter „Hauptprogramm“ hängen – nur sie werden ausgeführt." },
-                    { kind: "label", text: "Weitere Programmteile: starten mit einer Taste, jede Taste nur einmal." },
-                    blk(B.keyStart),
+                    { kind: "label", text: "Blöcke unter „Hauptprogramm“ oder einem anderen Startblock hängen – nur sie werden ausgeführt." },
                     blk(B.if, { extraState: { elseIfs: 0, hasElse: false, fixed: true } }),
                     blk(B.if, { extraState: { elseIfs: 0, hasElse: true, fixed: true } }),
                     blk(B.if, { extraState: { elseIfs: 1, hasElse: false } }),
@@ -595,6 +588,7 @@ function fullToolbox(): { kind: string; contents: object[] } {
                     blk(B.while),
                     blk(B.for, { inputs: { FROM: num("1"), TO: num("10"), STEP: num("1") } }),
                     blk(B.wait, { inputs: { MS: num("1000") } }),
+                    ...messageToolboxItems(),
                 ],
             },
             {

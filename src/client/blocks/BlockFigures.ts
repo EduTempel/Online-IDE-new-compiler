@@ -1,6 +1,7 @@
 import * as Blockly from "blockly/core";
 import { B } from "./BlockTypes";
 import { variablesFor, collectVariables } from "./BlockTypeSystem";
+import { collectionOfType } from "./ClassModel";
 import {
     COLOURS, DEFAULT_FIGURE_NAME, FIGURE_ACTIONS, FIGURE_CLASSES, FIGURE_NAMES_DE, FIGURE_PROPS, FILLED, isFigureClass, KEYS, keyPartName, MOUSE_TARGET, EDGE_TARGET, ANY_TARGET,
     type FigureClass,
@@ -271,6 +272,13 @@ export function defineFigureBlocks(defineJson: (json: object[]) => void) {
                 + "(eingefärbt mit „färbe“). Farben in Sprite-Bildern zählen nicht.",
         },
         {
+            type: B.figTouchesList, message0: "%1 berührt eine Figur aus %2 %3",
+            args0: [figure(), { type: "field_gsg_collection", name: "LIST", text: "münzen", kinds: ["list"], figures: true }, hint(".collidesWithAnyOf")],
+            output: null, ...fig,
+            tooltip: "Wahr, wenn die Figur mindestens eine Figur aus der Liste berührt (Liste von Kreisen, Rechtecken, Texten oder Sprites). "
+                + "Welche es ist, findet „für jedes Element … aus …“ mit „berührt“ heraus. Versteckte und entfernte Figuren zählen nicht.",
+        },
+        {
             type: B.figOutside, message0: "%1 ist außerhalb des Fensters %2", args0: [figure(), hint(".isOutsideView()")],
             output: null, ...fig, tooltip: "Wahr, wenn die Figur ganz aus dem Grafikfenster heraus ist.",
         },
@@ -343,6 +351,39 @@ function firstOf(figures: Map<string, FigureClass>, kinds: FigureClass[]): strin
     return DEFAULT_FIGURE_NAME[kinds[0]];
 }
 
+/**
+ * Viele Figuren (Paket 15e, statt Klonen in Scratch): in einer Liste sammeln, mit „für jedes Element“ durchgehen.
+ * Muster: wiederhole 10-mal: erstelle Kreis münze …; hänge münze an münzen an.
+ */
+function manyFiguresItems(ws: Blockly.WorkspaceSvg, any: string): object[] {
+    const lists = [...collectVariables(ws)].map(([n, t]) => [n, collectionOfType(t)] as const)
+        .filter(([, c]) => c?.kind === "list" && isFigureClass(c.elem)).map(([n]) => n).sort((a, b) => a.localeCompare(b, "de"));
+    const list = lists[0] ?? "münzen";
+    const coin = { block: { type: B.figCircle, fields: { NAME: "münze" }, inputs: {
+        X: { block: { type: B.random, inputs: { FROM: num("20"), TO: num("780") } } },
+        Y: { block: { type: B.random, inputs: { FROM: num("20"), TO: num("580") } } }, R: num("10") },
+        next: { block: { type: B.listAdd, fields: { NAME: list }, inputs: { V: { block: { type: B.varGet, fields: { NAME: "münze" } } } } } } } };
+    return [
+        { kind: "label", text: "Viele Figuren: in einer Liste sammeln (statt Klonen)" },
+        { kind: "block", type: B.listNew, fields: { NAME: list, TYPE: "Circle" } },
+        { kind: "block", type: B.repeat, inputs: { TIMES: num("10"), DO: coin } },
+        {
+            kind: "block", type: B.forEach, fields: { VAR: "m", LIST: list }, inputs: {
+                DO: {
+                    block: {
+                        type: B.if, extraState: { elseIfs: 0, hasElse: false, fixed: true },
+                        inputs: {
+                            COND: { block: { type: B.figTouches, fields: { NAME: any, OTHER: "m" } } },
+                            DO: { block: { type: B.figAction, fields: { ACTION: "hide", NAME: "m" } } },
+                        },
+                    },
+                },
+            },
+        },
+        { kind: "block", type: B.figTouchesList, fields: { NAME: any, LIST: list } },
+    ];
+}
+
 export function figuresFlyout(ws: Blockly.WorkspaceSvg): Blockly.utils.toolbox.FlyoutItemInfoArray {
     const figs = existingFigures(ws);
     const any = firstOf(figs, [...FIGURE_CLASSES]);
@@ -376,6 +417,7 @@ export function figuresFlyout(ws: Blockly.WorkspaceSvg): Blockly.utils.toolbox.F
         { kind: "block", type: B.figTouchesColor, fields: { NAME: any, COLOR: "red" } },
         { kind: "block", type: B.figOutside, fields: { NAME: any } },
         { kind: "block", type: B.figDistance, fields: { NAME: any, OTHER: other } },
+        ...manyFiguresItems(ws, any),
     ];
     return items as Blockly.utils.toolbox.FlyoutItemInfoArray;
 }
@@ -406,6 +448,8 @@ export function inputFlyout(ws: Blockly.WorkspaceSvg): Blockly.utils.toolbox.Fly
         },
         { kind: "label", text: "Programmteil, den eine Taste startet (jede Taste nur einmal)" },
         { kind: "block", type: B.keyStart, fields: { KEY: freeKey, NAME: keyPartName(freeKey) } },
+        { kind: "label", text: "Programmteil, den ein Mausklick auf eine Figur startet" },
+        { kind: "block", type: B.clickStart, fields: { FIG: any, NAME: any + "Angeklickt" } },
         { kind: "label", text: "Tasten" },
         { kind: "block", type: B.keyDown, fields: { KEY: "ArrowRight" } },
         { kind: "block", type: B.keyDown, fields: { KEY: " " } },

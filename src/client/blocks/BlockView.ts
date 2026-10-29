@@ -13,7 +13,7 @@ import { CLASSES_CATEGORY, classesFlyout, OBJECTS_CATEGORY, objectsFlyout } from
 import { classInfosFromState, type ClassInfo } from "./ClassModel";
 import { registerRenderer } from "./BlockRenderer";
 import { adaptDeclarationValue, applyTypes, collectVariables, isHat, setExternalClasses, type JType } from "./BlockTypeSystem";
-import { B, type WorkspaceState } from "./BlockTypes";
+import { B, isPartHat, type WorkspaceState } from "./BlockTypes";
 import { JavaBlockGenerator } from "./JavaBlockGenerator";
 import { JavaBlockParser, type LineRange } from "./JavaBlockParser";
 import { Constants } from "../Constants";
@@ -373,7 +373,7 @@ export class BlockView {
         const ws = this.ws;
         const start = ws?.getBlockById("start") as Blockly.BlockSvg | null;
         if (!ws || !start) return;
-        const methods = ws.getTopBlocks(false).filter((b) => b.type === B.method || b.type === B.class || b.type === B.keyStart)
+        const methods = ws.getTopBlocks(false).filter((b) => b.type === B.method || b.type === B.class || isPartHat(b.type))
             .sort((a, b) => a.getRelativeToSurfaceXY().y - b.getRelativeToSurfaceXY().y);
         if (methods.length === 0) return;
         Blockly.renderManagement.triggerQueuedRenders(ws);

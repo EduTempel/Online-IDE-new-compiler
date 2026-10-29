@@ -1,5 +1,5 @@
 import * as Blockly from "blockly/core";
-import { B, COLLECTION_DECLARATIONS, COLLECTION_USES, type Param } from "./BlockTypes";
+import { B, COLLECTION_DECLARATIONS, COLLECTION_USES, isPartHat, type Param } from "./BlockTypes";
 import { FieldButton, hintLabel, mutate, type Mutable } from "./BlockMutators";
 import { callSignatures, callTarget, classInfos, collectionsOf, defaultLiteral, enclosingClass, innerBlocks, methodParamsOf, methodSignatures, receiverClass, scopeRoot, scopeVariables, type JType } from "./BlockTypeSystem";
 import { FieldType, identifier, VISIBILITY_OPTIONS } from "./BlockFields";
@@ -381,9 +381,9 @@ export function handleRename(ws: Blockly.Workspace, e: Blockly.Events.BlockChang
     const root = scopeRoot(block);
     const scope = root ? innerBlocks(root) : all;
     if ((root && scopeVariables(root).has(oldName)) || collectionsOf(scope).has(oldName)) return;   // noch anderswo deklariert
-    // Variablen des Hauptprogramms gelten auch in den Programmteilen „wenn Taste … gedrückt“ (ohne eigene gleichnamige)
+    // Variablen des Hauptprogramms gelten auch in den Programmteilen (wenn Taste …, wenn ich Nachricht … usw.; ohne eigene gleichnamige)
     if (root?.type === B.start) {
-        for (const k of all) if (k.type === B.keyStart && !scopeVariables(k).has(oldName)) scope.push(...innerBlocks(k));
+        for (const k of all) if (isPartHat(k.type) && !scopeVariables(k).has(oldName)) scope.push(...innerBlocks(k));
     }
     withGroup(e, () => {
         for (const b of scope) {

@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import "../../compiler/common/interpreter/Interpreter";
 import "../../compiler/java/JavaCompiler";
 import { BLOCK_CATEGORY_IDS, categoryIds, toolbox } from "./BlockDefinitions";
+import { B, PART_HATS } from "./BlockTypes";
 
 const ids = (t: ReturnType<typeof toolbox>) => categoryIds(t);
 
@@ -28,5 +29,15 @@ describe("Werkzeugleiste: Kategorien je Lerngruppe ausblenden", () => {
 
     test("alles ausgeblendet: die volle Werkzeugleiste bleibt (der Server verhindert das ohnehin)", () => {
         expect(ids(toolbox([...BLOCK_CATEGORY_IDS]))).toEqual([...BLOCK_CATEGORY_IDS]);
+    });
+
+    test("Kategorie Start (zuerst) mit allen Startblöcken; Steuerung ohne Startblöcke, aber mit „sende Nachricht“", () => {
+        type Item = { kind: string; type?: string; toolboxitemid?: string; contents?: Item[] };
+        const top = (toolbox() as { contents: Item[] }).contents;
+        const types = (id: string) => top.find((c) => c.toolboxitemid === id)!.contents!.filter((c) => c.kind === "block").map((c) => c.type);
+        expect(top[0].toolboxitemid).toBe("start");
+        expect([...types("start")].sort()).toEqual([...PART_HATS].sort());
+        expect(types("steuerung").filter((t) => PART_HATS.includes(t!))).toEqual([]);
+        expect(types("steuerung")).toEqual(expect.arrayContaining([B.msgSend, B.msgSendWait]));
     });
 });

@@ -50,13 +50,33 @@ function elementType(element: unknown, arrayType?: string): string | undefined {
     return undefined;
 }
 
+const FIGURE_NAMES: Record<string, string> = { Circle: "Kreis", Rectangle: "Rechteck", Text: "Text", Sprite: "Sprite" };
+
+/** Figur in einer Liste kurz: „Kreis bei (120 | 300)“, dazu „versteckt“ bzw. „entfernt“ (Paket 15e) */
+export function figureText(element: unknown): string | undefined {
+    if (!element || typeof element !== "object") return undefined;
+    const e = element as {
+        getType?: () => { identifier?: string } | undefined; isDestroyed?: boolean; container?: { visible?: boolean };
+        _getCenterX?: () => number; _getCenterY?: () => number;
+    };
+    let cls: string | undefined;
+    try { cls = e.getType?.()?.identifier; } catch { return undefined; }
+    if (!cls || !FIGURE_NAMES[cls] || typeof e._getCenterX !== "function") return undefined;
+    let where = "";
+    try {
+        where = ` bei (${Math.round(e._getCenterX!())} | ${Math.round(e._getCenterY?.() ?? 0)})`;
+    } catch { /* entfernt: keine Position mehr */ }
+    const state = e.isDestroyed ? " – entfernt" : e.container?.visible === false ? " – versteckt" : "";
+    return FIGURE_NAMES[cls] + where + state;
+}
+
 /** Anzeige einer Reihung bzw. Liste: Elemente als Text (höchstens MAX_LIST_ITEMS) und Länge */
 export function listMonitor(value: unknown, type?: string): Monitor["list"] {
     const elements = listElements(value);
     if (!elements) return undefined;
     const arrayType = Array.isArray(value) ? type : undefined;
     return {
-        items: elements.slice(0, MAX_LIST_ITEMS).map((e) => monitorText(e, elementType(e, arrayType))),
+        items: elements.slice(0, MAX_LIST_ITEMS).map((e) => figureText(e) ?? monitorText(e, elementType(e, arrayType))),
         length: elements.length,
     };
 }

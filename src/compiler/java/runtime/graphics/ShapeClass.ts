@@ -84,6 +84,7 @@ export class ShapeClass extends ActorClass {
         { type: "method", signature: "final Shape getFirstCollidingShape()", native: ShapeClass.prototype._getFirstCollidingShape, comment: JRC.shapeGetFirstCollidingShapeComment },
         { type: "method", signature: "final <T extends Shape> T[] getCollidingShapes(Group<T> group)", native: ShapeClass.prototype._getCollidingShapesGroup, comment: JRC.shapeGetCollidingShapesGroupComment },
         { type: "method", signature: "final <T extends Shape> T[] getCollidingShapes(ArrayList<T> listOfShapes)", native: ShapeClass.prototype._getCollidingShapesArrayList, comment: JRC.shapeGetCollidingShapesArrayListComment },
+        { type: "method", signature: "final <T extends Shape> boolean collidesWithAnyOf(ArrayList<T> listOfShapes)", native: ShapeClass.prototype._collidesWithAnyOf, comment: "Wahr, wenn die Figur (mindestens) eine Figur aus der Liste berührt. Versteckte und entfernte Figuren zählen nicht." },
         { type: "method", signature: "final void reactToMouseEventsWhenInvisible(boolean b)", native: ShapeClass.prototype._reactToMouseEventsWhenInvisible, comment: JRC.shapeReactToMouseEventsWhenInvisibleComment },
 
         { type: "method", signature: "void onMouseUp(double x, double y, int button)", java: ShapeClass.prototype._mj$onMouseUp$void$double$double$int, comment: JRC.shapeOnMouseUpComment },
@@ -699,6 +700,8 @@ export class ShapeClass extends ActorClass {
         // entfernt, bleibt es in der Java-Ansicht beim Fehler (Methode eines zerstörten Objekts), im Blockmodus: falsch.
         if (otherShape.isDestroyed) return false;
         if (this.isRetired()) return false;
+        // GSG: versteckte Figuren berühren nichts (wie in Scratch und bei „berührt irgendeine Figur“)
+        if (otherShape.container?.visible === false || this.container?.visible === false) return false;
 
         // is other shape a turtle?
         if (!this.turtle && otherShape.turtle) {
@@ -793,6 +796,15 @@ export class ShapeClass extends ActorClass {
             if (this._collidesWith(shape)) ret.push(shape);
         }
         return ret;
+    }
+
+    /** GSG (Paket 15e, Block „berührt eine Figur aus Liste“) */
+    _collidesWithAnyOf(list: ArrayListClass | null): boolean {
+        if (list == null) return false;
+        for (const shape of list.getElements()) {
+            if (shape && shape !== this && this._collidesWith(shape)) return true;
+        }
+        return false;
     }
 
     _getCollidingShapesGroup(group: GroupClass): ShapeClass[] | null {

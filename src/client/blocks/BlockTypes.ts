@@ -11,6 +11,11 @@
 export const B = {
     start: "j_start",               // Hauptprogramm (Hut-Block), Feld NAME (Name, darf leer sein), Eingang BODY
     keyStart: "j_key_start",        // Hut-Block „wenn Taste … gedrückt“: Felder KEY, NAME; Anweisungen BODY  (@WennTaste("a") void name() { … })
+    msgStart: "j_msg_start",        // Hut-Block „wenn ich Nachricht … empfange“: Felder MSG, NAME; BODY  (@WennNachricht("los") void name() { … })
+    clickStart: "j_click_start",    // Hut-Block „wenn … angeklickt wird“: Felder FIG, NAME; BODY  (@WennAngeklickt("ball") void name() { … })
+    progStart: "j_prog_start",      // Hut-Block „wenn das Programm startet“: Feld NAME; BODY  (@BeimStart void name() { … })
+    msgSend: "j_msg_send",          // Feld MSG  (Nachricht.sende("los");)
+    msgSendWait: "j_msg_send_wait", // Feld MSG  (Nachricht.sendeUndWarte("los");)
 
     // Operationen (Methoden im Hauptprogramm)
     method: "j_method",             // Hut-Block; Felder NAME, RETURN (void/int/…), PNAME0/PTYPE0 …; Anweisungen BODY; extraState { params }
@@ -124,6 +129,7 @@ export const B = {
     figTouches: "j_fig_touches",    // Felder NAME, OTHER (Figur, Rand oder irgendeine Figur)  (f.collidesWith(g) / f.touchesEdge() / f.collidesWithAnyShape())
     figOutside: "j_fig_outside",    // Feld NAME  (f.isOutsideView())
     figTouchesColor: "j_fig_touches_color", // Felder NAME, COLOR  (f.collidesWithFillColor("red"))
+    figTouchesList: "j_fig_touches_list", // Felder NAME, LIST  (ball.collidesWithAnyOf(münzen) – eine Figur aus der Liste)
     figBounce: "j_fig_bounce",      // Feld NAME  (f.bounceOffEdge();)
     figDistance: "j_fig_distance",  // Felder NAME, OTHER (Figur oder Mauszeiger)  (f.distanceTo(g) / f.distanceTo(Mouse.getX(), Mouse.getY()))
     keyDown: "j_key_down",          // Feld KEY  (Input.isKeyDown("ArrowRight"))
@@ -163,6 +169,10 @@ export const B = {
     strCompare: "j_str_compare",    // Eingänge A, B  (a.compareTo(b))
     strCase: "j_str_case",          // Feld CASE (upper/lower); Eingang TEXT
 } as const;
+
+/** Hut-Blöcke weiterer Programmteile (eigener Thread, Variablen des Hauptprogramms, kein Ergebnis) */
+export const PART_HATS: readonly string[] = [B.keyStart, B.msgStart, B.clickStart, B.progStart];
+export const isPartHat = (type: string | undefined) => !!type && PART_HATS.includes(type);
 
 export const VAR_TYPES = ["int", "double", "String", "boolean", "char"] as const;
 /** Sichtbarkeit in Klassen ("" = ohne Angabe) */

@@ -1,6 +1,6 @@
 import { Lexer } from "../../compiler/java/lexer/Lexer";
 import { TokenType } from "../../compiler/java/TokenType";
-import { B, type BlockState } from "../blocks/BlockTypes";
+import { B, isPartHat, type BlockState } from "../blocks/BlockTypes";
 import { JavaBlockParser } from "../blocks/JavaBlockParser";
 import { methodParams, typeInfo, type ClassInfo } from "../blocks/ClassModel";
 import { colourLabel, FIGURE_ACTIONS, FIGURE_PROPS, keyLabel, targetLabel, touchesLabel } from "../blocks/FigureSpec";
@@ -298,6 +298,7 @@ class Expr {
             case B.figProp: return [`${FIGURE_PROPS.find(([, v]) => v === f.PROP)?.[0] ?? "x-Position"} von ${name}`, P.NONE];
             case B.figTouches: return [`${name} berührt ${touchesLabel(f.OTHER)}`, P.EQ];
             case B.figTouchesColor: return [`${name} berührt Farbe ${colourLabel(f.COLOR ?? "red")}`, P.EQ];
+            case B.figTouchesList: return [`${name} berührt eine Figur aus ${f.LIST ?? ""}`, P.EQ];
             case B.figOutside: return [`${name} ist außerhalb des Fensters`, P.EQ];
             case B.figDistance: return [`Abstand von ${name} zu ${targetLabel(f.OTHER)}`, P.NONE];
             case B.keyDown: return [`Taste „${keyLabel(f.KEY ?? "")}“ gedrückt`, P.EQ];
@@ -407,6 +408,8 @@ class Converter {
                 return { kind: "switch", subject: `${v("SUBJECT")} ist gleich`, cases, other };
             }
             case B.wait: return this.stmt(`warte ${v("MS")} Millisekunden`);
+            case B.msgSend: return this.stmt(`sende Nachricht „${f.MSG ?? ""}“`);
+            case B.msgSendWait: return this.stmt(`sende Nachricht „${f.MSG ?? ""}“ und warte`);
             case B.trace: return this.stmt(f.TEXT ? `trage in die Tracetabelle ein („${f.TEXT}“)` : "trage in die Tracetabelle ein");
             case B.comment: return this.stmt(`// ${f.TEXT ?? ""}`.trimEnd());
             case B.return: return this.stmt(`gib ${v("VALUE")} zurück`);
@@ -478,6 +481,17 @@ class Converter {
     }
 }
 
+/** Überschrift eines Programmteils (ohne Namen) */
+export function partTitle(h: BlockState): string {
+    const f = h.fields ?? {};
+    switch (h.type) {
+        case B.msgStart: return `wenn ich Nachricht „${f.MSG ?? ""}“ empfange`;
+        case B.clickStart: return `wenn ${f.FIG ?? ""} angeklickt wird`;
+        case B.progStart: return "wenn das Programm startet";
+        default: return `wenn Taste „${keyLabel(f.KEY ?? "")}“ gedrückt`;
+    }
+}
+
 /**
  * Alle Struktogramme einer Java-Datei: Hauptprogramm (falls es Anweisungen hat), Operationen,
  * Konstruktoren und Operationen von Klassen (mit Klassenname als Gruppe).
@@ -494,10 +508,10 @@ export function diagramsFromJava(code: string, classes: ClassInfo[] = []): Diagr
     const name = String(start?.fields?.NAME ?? "").trim();
     if ((mainBody.length && !onlyComments) || !others.length) result.push({ title: name ? `Hauptprogramm „${name}“` : "Hauptprogramm", body: mainBody });
     for (const h of others) {
-        if (h.type === B.keyStart) {
-            // Programmteil „wenn Taste … gedrückt“: Variablen wie im Hauptprogramm
+        if (isPartHat(h.type)) {
+            // Programmteil (wenn Taste …, wenn ich Nachricht … usw.): Variablen wie im Hauptprogramm
             const contents = contentTypes([start?.inputs?.BODY?.block, h.inputs?.BODY?.block]);
-            result.push({ title: `wenn Taste „${keyLabel(h.fields?.KEY ?? "")}“ gedrückt: ${h.fields?.NAME ?? ""}`, body: new Converter([], [], contents).seq(h.inputs?.BODY?.block) });
+            result.push({ title: `${partTitle(h)}: ${h.fields?.NAME ?? ""}`, body: new Converter([], [], contents).seq(h.inputs?.BODY?.block) });
         } else if (h.type === B.method) {
             const params = methodParams(h);
             const contents = contentTypes([h.inputs?.BODY?.block], params);

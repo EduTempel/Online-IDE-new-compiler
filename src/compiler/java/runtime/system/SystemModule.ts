@@ -92,6 +92,7 @@ import { MathToolsClass } from "./additional/MathToolsClass.ts";
 import { SoundClass } from "./additional/SoundClass.ts";
 import { SystemToolsClass } from "./additional/SystemToolsClass.ts";
 import { TimerClass } from "./additional/TimerClass.ts";
+import { NachrichtClass } from "./additional/NachrichtClass.ts";
 import { Vector2Class } from "./additional/Vector2Class.ts";
 import { ArrayListClass } from "./collections/ArrayListClass.ts";
 import { CollectionInterface } from "./collections/CollectionInterface.ts";
@@ -263,7 +264,7 @@ export class SystemModule extends JavaLibraryModule {
             BaseWorldClass, WorldClass, ActorClass, ShapeClass, FilledShapeClass, RectangleClass,
             CollisionPairClass, GroupClass,
             ScaleModeEnum, RepeatTypeEnum, SpriteLibraryEnum, TileImageClass, SpriteClass, // Sprite
-            CircleClass, EllipseClass, ArcClass, SectorClass, MouseClass,
+            CircleClass, EllipseClass, ArcClass, SectorClass, MouseClass, NachrichtClass,
             PolygonClass, TriangleClass, LineClass, BitmapClass, TextClass, RoundedRectangleClass,
             TurtleClass,
             MethodOfDestroyedGOExceptionClass,

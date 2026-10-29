@@ -29,7 +29,7 @@ import { ArrayClassSimulator } from "../../java/runtime/system/javalang/ArrayCla
 import { JavaExecutable } from "../../java/JavaExecutable.ts";
 import { Debugger } from "../debugger/Debugger.ts";
 import type { IThrowable } from "./ThrowableType.ts";
-import { GsgKeyParts } from "./GsgKeyParts.ts";
+import { GsgParts } from "./GsgParts.ts";
 
 
 type InterpreterEvents = "stop" | "done" | "resetRuntime" | "stateChanged" |
@@ -100,8 +100,8 @@ export class Interpreter {
     } | undefined = undefined
 
 
-    /** GSG: Programmteile „wenn Taste … gedrückt“ (@WennTaste) */
-    keyParts!: GsgKeyParts;
+    /** GSG: Programmteile „wenn Taste … gedrückt“, „wenn ich Nachricht … empfange“ usw. (@WennTaste, @WennNachricht …) */
+    parts!: GsgParts;
 
     /**
      * GSG: Das laufende Programm wurde in der Blockansicht gestartet. Dann ist eine entfernte Figur (destroy) wie in
@@ -131,7 +131,7 @@ export class Interpreter {
         this.#registerActions();
 
         this.actorManager = new ActorManager(this);
-        this.keyParts = new GsgKeyParts(this);
+        this.parts = new GsgParts(this);
 
         if (breakpointManager) breakpointManager.attachToInterpreter(this);
 
@@ -522,7 +522,7 @@ export class Interpreter {
             this.hideProgrampointerPosition();
             this.eventManager.fire("stop");
             this.keyboardManager?.unsubscribeAllListeners();
-            this.keyParts?.clear();
+            this.parts?.clear();
             this.actorManager.clear();
             this.actorManager.registerKeyboardListeners(this);
             // TODO
@@ -644,7 +644,7 @@ export class Interpreter {
         this.programPointerManager?.hideAll();
 
         this.#mainThread = this.scheduler.init(executable, mainModule, setOneTimeBreakpointAtFirstVisibleLine);
-        if (this.#mainThread) this.keyParts.register(mainModule);   // GSG: „wenn Taste … gedrückt“
+        if (this.#mainThread) this.parts.register(mainModule, this.#mainThread);   // GSG: Programmteile (Tasten, Nachrichten …)
 
         if (this.#mainThread) {
             if (executable instanceof JavaExecutable) {
@@ -672,7 +672,7 @@ export class Interpreter {
 
     hasActorsOrPAppletOrRunningTimers(): boolean {
         if (this.retrieveObject("PAppletClass")) return true;
-        if (this.keyParts?.isActive()) return true;   // GSG: wartet auf Tasten
+        if (this.parts?.isActive()) return true;   // GSG: wartet auf Tasten und Klicks
 
         let world: IWorld = this.retrieveObject("WorldClass");
         if (this.actorManager.hasActors() || world?.hasActors()) return true;

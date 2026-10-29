@@ -8,19 +8,9 @@ import { lines, type HandbookSection } from "./Handbook";
  */
 export const BLOCK_HANDBOOK: HandbookSection[] = [
     {
-        id: "steuerung", title: "Steuerung", icon: "🔁",
-        intro: "Steuerungsblöcke legen fest, **in welcher Reihenfolge** und **wie oft** etwas passiert. Ausgeführt wird nur, was unter „Hauptprogramm“ hängt – von oben nach unten.",
+        id: "start", title: "Start", icon: "🚩",
+        intro: "Startblöcke (dunkelblau) beginnen einen **Programmteil**. Das **Hauptprogramm** steht immer auf der Arbeitsfläche; weitere Programmteile starten bei einem Tastendruck, einem Mausklick auf eine Figur, einer Nachricht oder zusammen mit dem Programm – und laufen **gleichzeitig** mit dem Hauptprogramm und mit dessen Variablen.",
         entries: [
-            {
-                title: "Ein Programm läuft von oben nach unten",
-                text: "Die Blöcke unter **Hauptprogramm** werden der Reihe nach ausgeführt. Lose Blöcke daneben gehören nicht zum Programm.",
-                code: lines(
-                    "println(\"Guten Morgen!\");",
-                    "println(\"Heute ist Informatik.\");",
-                    "println(\"Viel Spaß!\");",
-                ),
-                runs: true,
-            },
             {
                 title: "Mehrere Programmteile: wenn Taste … gedrückt",
                 text: "Das Hauptprogramm kann einen **Namen** bekommen (Feld neben „Hauptprogramm“). Weitere Programmteile beginnen mit **wenn Taste … gedrückt** und haben ebenfalls einen Namen. "
@@ -46,6 +36,104 @@ export const BLOCK_HANDBOOK: HandbookSection[] = [
                     "    println(\"Zahl: \" + zahl);",
                     "}",
                 ),
+            },
+            {
+                title: "wenn … angeklickt wird",
+                text: "Ein Programmteil **wenn … angeklickt wird** läuft bei jedem Mausklick auf die Figur. Zur Auswahl stehen die Figuren des Hauptprogramms. "
+                    + "Versteckte und entfernte Figuren lassen sich nicht anklicken. Das Programm wartet auf Klicks, bis man **Stopp** drückt.",
+                code: lines(
+                    "// Hauptprogramm „Fang mich“",
+                    "Circle ziel = new Circle(400, 300, 40);",
+                    "int treffer = 0;",
+                    "",
+                    "@WennAngeklickt(\"ziel\")",
+                    "void zielAngeklickt() {",
+                    "    treffer++;",
+                    "    println(\"Treffer: \" + treffer);",
+                    "    ziel.moveTo(Random.randint(50, 750), Random.randint(50, 550));",
+                    "}",
+                ),
+            },
+            {
+                title: "Nachrichten senden und empfangen",
+                text: "Programmteile können sich gegenseitig Bescheid geben: **sende Nachricht …** startet alle Programmteile **wenn ich Nachricht … empfange** mit dieser Nachricht. "
+                    + "Eine neue Nachricht legt man in der Auswahl mit **Neue Nachricht …** an. Mehrere Programmteile dürfen dieselbe Nachricht empfangen – hier blinkt das Tor, und gleichzeitig wird gejubelt. "
+                    + "**sende Nachricht … und warte** wartet, bis alle Empfänger fertig sind; ohne „und warte“ läuft das Programm sofort weiter. "
+                    + "Läuft ein Empfänger noch, startet ihn dieselbe Nachricht nicht ein zweites Mal.",
+                code: lines(
+                    "// Hauptprogramm „Torschuss“",
+                    "Circle ball = new Circle(100, 300, 20);",
+                    "Rectangle tor = new Rectangle(700, 220, 20, 160);",
+                    "tor.setFillColor(\"green\");",
+                    "Nachricht.sende(\"Anpfiff\");",
+                    "while (!ball.collidesWith(tor)) {",
+                    "    ball.move(5, 0);",
+                    "    Thread.sleep(20);",
+                    "}",
+                    "Nachricht.sendeUndWarte(\"Tor!\");",
+                    "println(\"Abpfiff\");",
+                    "",
+                    "@WennNachricht(\"Anpfiff\")",
+                    "void beiAnpfiff() {",
+                    "    println(\"Los geht's!\");",
+                    "}",
+                    "",
+                    "@WennNachricht(\"Tor!\")",
+                    "void beiTor() {",
+                    "    for (int durchlauf = 1; durchlauf <= 3; durchlauf++) {",
+                    "        tor.setFillColor(\"yellow\");",
+                    "        Thread.sleep(200);",
+                    "        tor.setFillColor(\"green\");",
+                    "        Thread.sleep(200);",
+                    "    }",
+                    "}",
+                    "",
+                    "@WennNachricht(\"Tor!\")",
+                    "void jubeln() {",
+                    "    println(\"Toooor!\");",
+                    "}",
+                ),
+            },
+            {
+                title: "wenn das Programm startet",
+                text: "Ein Programmteil **wenn das Programm startet** läuft neben dem Hauptprogramm her, ohne dass man eine Taste drückt – praktisch für etwas, das die ganze Zeit passieren soll. "
+                    + "Er beginnt, sobald das Hauptprogramm seine Figuren erstellt hat: wenn es zum ersten Mal **wartet** oder fertig ist. "
+                    + "Hier blinkt der Stern, während das Hauptprogramm zählt. Weil das Blinken nie aufhört, beendet man das Programm mit **Stopp**.",
+                code: lines(
+                    "Circle stern = new Circle(400, 300, 30);",
+                    "stern.setFillColor(\"yellow\");",
+                    "for (int i = 10; i >= 1; i--) {",
+                    "    println(i);",
+                    "    Thread.sleep(1000);",
+                    "}",
+                    "println(\"Start!\");",
+                    "",
+                    "@BeimStart",
+                    "void blinken() {",
+                    "    while (true) {",
+                    "        stern.setVisible(false);",
+                    "        Thread.sleep(300);",
+                    "        stern.setVisible(true);",
+                    "        Thread.sleep(300);",
+                    "    }",
+                    "}",
+                ),
+            },
+        ],
+    },
+    {
+        id: "steuerung", title: "Steuerung", icon: "🔁",
+        intro: "Steuerungsblöcke legen fest, **in welcher Reihenfolge** und **wie oft** etwas passiert. Ausgeführt wird nur, was unter „Hauptprogramm“ oder einem anderen Startblock (Kategorie **Start**) hängt – von oben nach unten.",
+        entries: [
+            {
+                title: "Ein Programm läuft von oben nach unten",
+                text: "Die Blöcke unter **Hauptprogramm** werden der Reihe nach ausgeführt. Lose Blöcke daneben gehören nicht zum Programm.",
+                code: lines(
+                    "println(\"Guten Morgen!\");",
+                    "println(\"Heute ist Informatik.\");",
+                    "println(\"Viel Spaß!\");",
+                ),
+                runs: true,
             },
             {
                 title: "falls … dann … sonst",
@@ -776,6 +864,36 @@ export const BLOCK_HANDBOOK: HandbookSection[] = [
                     "println(\"Abpraller: \" + abpraller);",
                 ),
             },
+            {
+                title: "Viele Figuren in einer Liste",
+                text: "Für viele gleiche Figuren (Münzen, Gegner, Sterne) legt man eine **Liste** an, deren Elemente Figuren sind, und hängt jede neue Figur an. "
+                    + "**berührt eine Figur aus …** prüft alle auf einmal; mit **für jedes Element** findet man heraus, welche es war. "
+                    + "Eine eingesammelte Figur **versteckt** man – eine versteckte Figur berührt nichts mehr. Aus der Liste entfernen sollte man sie in der Schleife über dieselbe Liste nicht. "
+                    + "Im Reiter **Variablen** zeigt die Liste, wo jede Figur steht. Hier sammelt die Maus zehn Münzen ein.",
+                code: lines(
+                    "ArrayList<Circle> münzen = new ArrayList<Circle>();",
+                    "for (int durchlauf = 1; durchlauf <= 10; durchlauf++) {",
+                    "    Circle münze = new Circle(Random.randint(20, 780), Random.randint(20, 580), 10);",
+                    "    münze.setFillColor(\"yellow\");",
+                    "    münzen.add(münze);",
+                    "}",
+                    "Circle sammler = new Circle(400, 300, 20);",
+                    "int punkte = 0;",
+                    "while (punkte < 10) {",
+                    "    sammler.moveTo(Mouse.getX(), Mouse.getY());",
+                    "    if (sammler.collidesWithAnyOf(münzen)) {",
+                    "        for (Circle m : münzen) {",
+                    "            if (sammler.collidesWith(m)) {",
+                    "                m.setVisible(false);",
+                    "                punkte++;",
+                    "            }",
+                    "        }",
+                    "    }",
+                    "    Thread.sleep(20);",
+                    "}",
+                    "println(\"Alle Münzen gesammelt!\");",
+                ),
+            },
         ],
     },
     {
@@ -801,7 +919,8 @@ export const BLOCK_HANDBOOK: HandbookSection[] = [
             {
                 title: "Programmteile mit Tasten starten",
                 text: "Ohne Spielschleife: Jeder Block **wenn Taste … gedrückt** ist ein eigener Programmteil, der bei jedem Tastendruck einmal läuft. "
-                    + "Zur Auswahl stehen nur Tasten, die noch frei sind. Der Ball gehört dem Hauptprogramm – alle Programmteile können ihn bewegen.",
+                    + "Zur Auswahl stehen nur Tasten, die noch frei sind. Der Ball gehört dem Hauptprogramm – alle Programmteile können ihn bewegen. "
+                    + "Für eine Taste nimmt man **entweder** einen Programmteil **oder** die Abfrage **Taste … gedrückt** in einer Schleife – nicht beides.",
                 code: lines(
                     "// Hauptprogramm „Ball steuern“",
                     "Circle ball = new Circle(400, 300, 30);",

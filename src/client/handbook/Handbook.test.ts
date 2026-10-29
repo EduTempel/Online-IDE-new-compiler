@@ -122,6 +122,7 @@ describe("Handbuch: Hilfe und Ausprobieren", () => {
 
     test("Blockfarbe → Kategorie", () => {
         expect(categoryOfColour(COLOURS.control)).toBe("steuerung");
+        expect(categoryOfColour(COLOURS.start)).toBe("start");
         expect(categoryOfColour(ADT_COLOUR.toUpperCase())).toBe("adt");
         expect(categoryOfColour("#123456")).toBeUndefined();
     });

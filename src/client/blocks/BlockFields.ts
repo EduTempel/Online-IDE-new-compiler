@@ -1,5 +1,6 @@
 import * as Blockly from "blockly/core";
 import { VAR_TYPES } from "./BlockTypes";
+import { FIGURE_CLASSES } from "./FigureSpec";
 import { classInfos, typeLabel } from "./BlockTypeSystem";
 
 /**
@@ -41,6 +42,8 @@ export class FieldType extends Blockly.FieldDropdown {
             groups.push([...scalars, ...classes].map((t) => `ArrayList<${({ int: "Integer", double: "Double", boolean: "Boolean", char: "Character" } as Record<string, string>)[t] ?? t}>`));
             groups.push(["DynArray", "Stack", "Queue", "BinTree"]);
         }
+        // Elemente einer Liste bzw. Reihung dürfen auch Figuren sein (Paket 15e: viele Figuren)
+        if (mode === "element") groups.push([...FIGURE_CLASSES]);
         const current = this.getValue();
         if (typeof current === "string" && current && !groups.some((g) => g.includes(current))) groups[0].push(current);
         const options: Blockly.MenuOption[] = [];

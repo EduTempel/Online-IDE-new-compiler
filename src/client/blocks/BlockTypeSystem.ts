@@ -1,7 +1,7 @@
 import * as Blockly from "blockly/core";
 import { FIGURE_BLOCK_TYPES, FIGURE_CREATIONS, FIGURE_OUTPUT_TYPES, figureInputType } from "./FigureSpec";
 import { ADT_BLOCK_TYPES, ADT_CREATIONS, ADT_GET_TYPES } from "./AdtSpec";
-import { B, COLLECTION_DECLARATIONS, COLLECTION_USES, type Collections } from "./BlockTypes";
+import { B, COLLECTION_DECLARATIONS, COLLECTION_USES, isPartHat, PART_HATS, type Collections } from "./BlockTypes";
 import { addMember, attributesOf, collectionOfType, collectionType, findConstructor, findMethod, isClassType, isScalar, isSubclass, methodsOf, typeInfo, type ClassInfo, type ClassMap } from "./ClassModel";
 
 /**
@@ -33,8 +33,12 @@ const NUMERIC_OR_CHAR: JType[] = ["int", "double", "char"];
 
 export const TYPE_NAMES: Record<string, string> = {
     int: "Ganzzahl", double: "Kommazahl", String: "Text", boolean: "Wahrheitswert", char: "Zeichen",
+    Circle: "Kreis", Rectangle: "Rechteck", Text: "Textfigur", Sprite: "Sprite",
 };
-const PLURAL: Record<string, string> = { int: "Ganzzahlen", double: "Kommazahlen", String: "Texten", boolean: "Wahrheitswerten", char: "Zeichen" };
+const PLURAL: Record<string, string> = {
+    int: "Ganzzahlen", double: "Kommazahlen", String: "Texten", boolean: "Wahrheitswerten", char: "Zeichen",
+    Circle: "Kreisen", Rectangle: "Rechtecken", Text: "Textfiguren", Sprite: "Sprites",
+};
 
 /** Beschriftung eines Datentyps (Auswahllisten, Hinweise) */
 export function typeLabel(t: string): string {
@@ -127,11 +131,11 @@ export function enclosingClass(b: Blockly.Block): Blockly.Block | null {
 // ------------------------------------------------------------------ Variablen und Geltungsbereiche
 
 /** Blöcke mit eigenen Variablen: Hauptprogramm, Operation, Konstruktor, Operation einer Klasse */
-const SCOPE_ROOTS = new Set<string>([B.start, B.keyStart, B.method, B.ctor, B.classMethod]);
+const SCOPE_ROOTS = new Set<string>([B.start, ...PART_HATS, B.method, B.ctor, B.classMethod]);
 
 /** Ist der Block ein Hut (Hauptprogramm, Operation, Klasse)? */
 export function isHat(b: Blockly.Block | null | undefined): boolean {
-    return !!b && (b.type === B.start || b.type === B.keyStart || b.type === B.method || b.type === B.class);
+    return !!b && (b.type === B.start || isPartHat(b.type) || b.type === B.method || b.type === B.class);
 }
 
 /** Geltungsbereich eines Blocks (Operation, Konstruktor, Hauptprogramm; direkt in der Klasse: die Klasse) */
@@ -194,8 +198,8 @@ export function scopeVariables(root: Blockly.Block): Map<string, JType> {
     if (root.type === B.class) return new Map(attributes.map((a) => [a.name, a.type]));
     const own = variablesOf(innerBlocks(root));
     const result = new Map(attributes.map((a) => [a.name, a.type] as [string, string]));
-    // Programmteil „wenn Taste … gedrückt“: auch die Variablen des Hauptprogramms
-    const start = root.type === B.keyStart ? root.workspace.getTopBlocks(false).find((b) => b.type === B.start) : undefined;
+    // Programmteile (wenn Taste …, wenn ich Nachricht … usw.): auch die Variablen des Hauptprogramms
+    const start = isPartHat(root.type) ? root.workspace.getTopBlocks(false).find((b) => b.type === B.start) : undefined;
     if (start) for (const [k, v] of variablesOf(innerBlocks(start))) result.set(k, v);
     for (const [k, v] of own) result.set(k, v);
     return result;
@@ -289,7 +293,7 @@ export function callSignatures(b: Blockly.Block): Map<string, Signature> {
 function enclosingReturnType(b: Blockly.Block): string | undefined {
     const root = scopeRoot(b);
     if (root?.type === B.method || root?.type === B.classMethod) return String(root.getFieldValue("RETURN") ?? "void");
-    return root?.type === B.ctor || root?.type === B.keyStart ? "void" : undefined;
+    return root?.type === B.ctor || isPartHat(root?.type) ? "void" : undefined;
 }
 
 /** Klasse eines Objekt-Werts (Eingang OBJ) */
@@ -711,12 +715,13 @@ function applyTypesNow(ws: Blockly.Workspace, vars: Map<string, JType>) {
         }
         if (b.type === B.superCall && scopeRoot(b)?.type !== B.ctor) note(b, "„super(…)“ steht am Anfang eines Konstruktors.");
     }
-    // Programmteile „wenn Taste … gedrückt“: jede Taste nur einmal, Namen nicht doppelt
-    const parts = blocks.filter((b) => b.type === B.keyStart && !b.isInFlyout);
-    const named = blocks.filter((b) => (b.type === B.keyStart || b.type === B.method) && !b.isInFlyout);
+    // Programmteile: jede Taste nur einmal, Namen nicht doppelt
+    const keyParts = blocks.filter((b) => b.type === B.keyStart && !b.isInFlyout);
+    const parts = blocks.filter((b) => isPartHat(b.type) && !b.isInFlyout);
+    const named = blocks.filter((b) => (isPartHat(b.type) || b.type === B.method) && !b.isInFlyout);
     for (const b of parts) {
         const key = String(b.getFieldValue("KEY") ?? "").toLowerCase(), name = String(b.getFieldValue("NAME") ?? "");
-        const first = parts.find((o) => String(o.getFieldValue("KEY") ?? "").toLowerCase() === key);
+        const first = b.type === B.keyStart ? keyParts.find((o) => String(o.getFieldValue("KEY") ?? "").toLowerCase() === key) : undefined;
         if (first && first !== b) note(b, `Diese Taste startet schon „${first.getFieldValue("NAME")}“. Jede Taste darf nur einen Programmteil starten – bitte eine andere wählen.`);
         if (named.some((o) => o !== b && o.getFieldValue("NAME") === name)) note(b, `Den Namen „${name}“ gibt es schon (Programmteil oder Operation). Bitte einen anderen wählen.`);
     }
@@ -725,7 +730,7 @@ function applyTypesNow(ws: Blockly.Workspace, vars: Map<string, JType>) {
         const root = scopeRoot(b) ?? b.getRootBlock();
         const ret = enclosingReturnType(b);
         if (b.type === B.return && root.type === B.start) note(b, "Das Hauptprogramm hat kein Ergebnis. Zum Beenden „beende die Operation“ nehmen.");
-        else if (b.type === B.return && root.type === B.keyStart) note(b, "Ein Programmteil hat kein Ergebnis. Zum Beenden „beende die Operation“ nehmen.");
+        else if (b.type === B.return && isPartHat(root.type)) note(b, "Ein Programmteil hat kein Ergebnis. Zum Beenden „beende die Operation“ nehmen.");
         else if (b.type === B.return && ret === "void") note(b, "Diese Operation liefert kein Ergebnis: oben einen Ergebnistyp wählen oder „beende die Operation“ nehmen.");
         else if (b.type === B.returnVoid && ret && ret !== "void") note(b, "Diese Operation muss ein Ergebnis liefern: „gib zurück“ nehmen.");
     }
