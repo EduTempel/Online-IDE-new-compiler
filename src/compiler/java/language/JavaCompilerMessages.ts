@@ -263,7 +263,8 @@ export class JCM {
     })
 
     static shadowedVariableError = (identifier: string, shadowedSymbolLine: number) => le({
-        "de": "Die Variable " + identifier + " überdeckt eine gleichnamige Variable in einem äußeren Sichtbarkeitsbereich (definiert in Zeile " + shadowedSymbolLine + ").",
+        // GSG (Paket 16): Begriffe wie in den übrigen Meldungen (verdecken, Gültigkeitsbereich)
+        "de": `Die Variable ${identifier} verdeckt die gleichnamige Variable aus Zeile ${shadowedSymbolLine}: Bis zum Ende dieses Blocks ist mit ${identifier} immer die neue Variable gemeint. Wähle besser einen anderen Namen.`,
         "en": "Variable " + identifier + " shadowes a variable with same identifier in outer scope (defined in line " + shadowedSymbolLine + ").",
         "fr": `La variable ${identifier} masque une variable du même identifiant dans une portée externe (définie à la ligne ${shadowedSymbolLine}).`,
     })
@@ -512,8 +513,11 @@ export class JCM {
         "fr": `Impossible d'utiliser des champs non statiques pour initialiser un champ statique.`,
     })
 
-    static attributeHasWrongVisibility = (identifier: string, visibility: string) => le({
-        "de": "Das Attribut " + identifier + " hat die Sichtbarkeit " + visibility + " und kann daher hier nicht verwendet werden.",
+    // GSG (Paket 16f): mit Klasse erklärt, wer das Attribut bzw. die Methode benutzen darf
+    static attributeHasWrongVisibility = (identifier: string, visibility: string, className?: string) => le({
+        "de": visibility == "private" && className ? `Das Attribut ${identifier} ist private: Nur die Klasse ${className} selbst kann es benutzen. Von außen geht das über eine Methode der Klasse (z. B. get${identifier.charAt(0).toUpperCase() + identifier.slice(1)}()).`
+            : visibility == "protected" && className ? `Das Attribut ${identifier} ist protected: Nur die Klasse ${className} und ihre Unterklassen können es benutzen.`
+            : "Das Attribut " + identifier + " hat die Sichtbarkeit " + visibility + " und kann daher hier nicht verwendet werden.",
         "en": "Field " + identifier + " has Visibility " + visibility + ", therefore it is not visible here.",
         "fr": `Le champ ${identifier} a la visibilité ${visibility}, il n'est donc pas visible ici.`,
     })
@@ -522,6 +526,51 @@ export class JCM {
         "de": "Der Bezeichner " + identifier + " ist an dieser Stelle nicht definiert.",
         "en": "Identifier " + identifier + " unknown.",
         "fr": `L'identifiant ${identifier} est inconnu.`,
+    })
+
+    // ------------------------------------------------------------ GSG (Paket 16f): Gültigkeitsbereich erklären
+
+    static gsgVariableDeclaredLater = (identifier: string, line: number) => le({
+        "de": `Die Variable ${identifier} gibt es hier noch nicht: Sie wird erst in Zeile ${line} angelegt. Eine Variable gilt erst ab der Stelle, an der sie angelegt wird.`,
+        "en": `Variable ${identifier} is not yet declared here: it is declared in line ${line}.`,
+        "fr": `La variable ${identifier} n'est pas encore déclarée ici : elle est déclarée à la ligne ${line}.`,
+    })
+
+    static gsgVariableOnlyInBlock = (identifier: string, line: number, where: string, fromLine: number, toLine: number) => le({
+        "de": `Die Variable ${identifier} gibt es hier nicht: Sie wurde in Zeile ${line} ${where} angelegt und gilt nur dort (Zeile ${fromLine} bis ${toLine}). Soll sie auch hier gelten, lege sie vor diesem Block an.`,
+        "en": `Variable ${identifier} is not visible here: it is declared in line ${line} and only valid in lines ${fromLine} to ${toLine}.`,
+        "fr": `La variable ${identifier} n'est pas visible ici : elle est déclarée à la ligne ${line} et n'est valable qu'aux lignes ${fromLine} à ${toLine}.`,
+    })
+
+    static gsgVariableOfOtherMethod = (identifier: string, line: number, owner: string) => le({
+        "de": `Die Variable ${identifier} gehört ${("zu " + owner).replace(/^zu dem /, "zum ").replace(/^zu der /, "zur ")} (Zeile ${line}). Jede Methode hat ihre eigenen Variablen – übergib den Wert als Parameter oder lege hier eine eigene Variable an.`,
+        "en": `Variable ${identifier} belongs to ${owner} (line ${line}). Pass its value as a parameter.`,
+        "fr": `La variable ${identifier} appartient à ${owner} (ligne ${line}). Transmettez sa valeur comme paramètre.`,
+    })
+
+    static gsgMainVariableInMethod = (identifier: string, method: string, line: number) => le({
+        "de": `${identifier} ist eine Variable des Hauptprogramms (Zeile ${line}). In echtem Java kennt die Methode ${method}() sie nicht – jede Methode hat ihre eigenen Variablen. Übergib den Wert als Parameter und gib ein Ergebnis mit return zurück.`,
+        "en": `${identifier} is a variable of the main program (line ${line}). In real Java, method ${method}() cannot see it – pass its value as a parameter.`,
+        "fr": `${identifier} est une variable du programme principal (ligne ${line}). En Java, la méthode ${method}() ne la connaît pas – transmettez sa valeur comme paramètre.`,
+    })
+
+    static gsgIdentifierWrongCase = (identifier: string, similar: string) => le({
+        "de": `Der Bezeichner ${identifier} ist an dieser Stelle nicht definiert. Achte auf Groß- und Kleinschreibung: Meinst du ${similar}?`,
+        "en": `Identifier ${identifier} unknown. Did you mean ${similar}?`,
+        "fr": `L'identifiant ${identifier} est inconnu. Vouliez-vous dire ${similar} ?`,
+    })
+
+    static gsgLocalVariableShadowsField = (identifier: string, className: string) => le({
+        "de": `Die lokale Variable ${identifier} verdeckt das Attribut ${identifier} der Klasse ${className}: Ohne this. ist ab hier immer die lokale Variable gemeint. Für das Attribut schreibe this.${identifier}.`,
+        "en": `Local variable ${identifier} shadows field ${identifier} of class ${className}. Use this.${identifier} to access the field.`,
+        "fr": `La variable locale ${identifier} masque le champ ${identifier} de la classe ${className}. Utilisez this.${identifier}.`,
+    })
+
+    static gsgSelfAssignment = (identifier: string, fieldExists: boolean) => le({
+        "de": fieldExists ? `${identifier} = ${identifier} weist der Variablen ihren eigenen Wert zu – das Attribut ${identifier} ändert sich dadurch nicht. Meinst du this.${identifier} = ${identifier}?`
+            : `${identifier} = ${identifier} weist der Variablen ihren eigenen Wert zu und ändert nichts.`,
+        "en": fieldExists ? `${identifier} = ${identifier} assigns the variable to itself. Did you mean this.${identifier} = ${identifier}?` : `${identifier} = ${identifier} assigns the variable to itself.`,
+        "fr": fieldExists ? `${identifier} = ${identifier} affecte la variable à elle-même. Vouliez-vous dire this.${identifier} = ${identifier} ?` : `${identifier} = ${identifier} affecte la variable à elle-même.`,
     })
 
     static plusPlusMinusMinusOnlyForVariables = () => le({
@@ -578,8 +627,10 @@ export class JCM {
         "fr": `L'appel de méthode en dehors de la classe n'est possible qu'avec la syntaxe par points (Object.method(...)).`,
     })
 
-    static methodHasWrongVisibility = (identifier: string, visibility: string) => le({
-        "de": "Die Methode " + identifier + " hat die Sichtbarkeit " + visibility + " und kann daher hier nicht aufgerufen werden.",
+    static methodHasWrongVisibility = (identifier: string, visibility: string, className?: string) => le({
+        "de": visibility == "private" && className ? `Die Methode ${identifier} ist private: Nur die Klasse ${className} selbst kann sie aufrufen.`
+            : visibility == "protected" && className ? `Die Methode ${identifier} ist protected: Nur die Klasse ${className} und ihre Unterklassen können sie aufrufen.`
+            : "Die Methode " + identifier + " hat die Sichtbarkeit " + visibility + " und kann daher hier nicht aufgerufen werden.",
         "en": "Method " + identifier + " has Visibility " + visibility + ", therefore it is not visible here.",
         "fr": `La méthode ${identifier} a la visibilité ${visibility}, elle n'est donc pas visible ici.`,
     })
@@ -775,6 +826,12 @@ export class JCM {
         "de": "Es wird die Syntax new Klasse(Parameter...) oder new Typ[ArrayLänge]... erwartet.",
         "en": `Keyword new has syntax new Class(parameters...) or new ArrayType[length].`,
         "fr": `Le mot-clé new a la syntaxe new Classe(paramètres...) ou new TypeTableau[longueur].`,
+    })
+
+    static initialValueExpected = (found: string) => le({
+        "de": `Nach dem = wird ein Wert erwartet (z. B. 0). Gefunden wurde: ${found}`,
+        "en": `Expected a value after =. Found: ${found}`,
+        "fr": `Une valeur est attendue après =. Trouvé : ${found}.`,
     })
 
     static secondOperandExpected = (operator: string) => le({

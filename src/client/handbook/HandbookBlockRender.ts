@@ -5,6 +5,9 @@ import { registerRenderer } from "../blocks/BlockRenderer";
 import { applyTypes } from "../blocks/BlockTypeSystem";
 import { JavaBlockParser } from "../blocks/JavaBlockParser";
 import { blocksToSvg } from "../blocks/BlockImage";
+import { B } from "../blocks/BlockTypes";
+import { bloecklyUi, defineBloecklyBlocks, setBloecklyUi, type BloecklyUi } from "../bloeckly/BloecklyBlocks";
+import type { BloecklyContext } from "../bloeckly/BloecklySpec";
 
 /**
  * Beispiele des Blöcke-Handbuchs als Bild: Der Java-Code wird in einer unsichtbaren, nur lesbaren
@@ -73,4 +76,50 @@ export function blocksSvg(code: string, dark: boolean): Promise<string> {
     const job = queue.then(() => cache.get(key) ?? render(code, dark).then((svg) => { cache.set(key, svg); return svg; }));
     queue = job.catch(() => undefined);
     return job;
+}
+
+// ------------------------------------------------------------------ Blöckly (Paket 18h)
+
+/**
+ * Skripte einer Blöckly-Datei (Figur oder Bühne) als Bild: wie in der Blockansicht ohne den unsichtbaren Kopf.
+ * Die Auswahllisten (Figuren, Kostüme) kennen dabei die Figuren des Beispiels.
+ */
+export function bloecklySvg(text: string, ctx: BloecklyContext, ui: BloecklyUi, dark: boolean): Promise<string> {
+    const key = (dark ? "bd:" : "bl:") + text;
+    const hit = cache.get(key);
+    if (hit) return Promise.resolve(hit);
+    const job = queue.then(() => cache.get(key) ?? renderBloeckly(text, ctx, ui, dark).then((svg) => { cache.set(key, svg); return svg; }));
+    queue = job.catch(() => undefined);
+    return job;
+}
+
+async function renderBloeckly(text: string, ctx: BloecklyContext, ui: BloecklyUi, dark: boolean): Promise<string> {
+    defineBloecklyBlocks();
+    const w = workspace(dark);
+    const before = bloecklyUi();
+    setBloecklyUi(ui);
+    try {
+        const { state } = JavaBlockParser.parse(text, { bloeckly: ctx });
+        state.blocks.blocks = (state.blocks.blocks ?? []).filter((b) => b.type !== B.blFigure);
+        Blockly.Events.disable();
+        try {
+            w.clear();
+            Blockly.serialization.workspaces.load(state, w, { recordUndo: false });
+        } finally {
+            Blockly.Events.enable();
+        }
+        applyTypes(w);
+        Blockly.renderManagement.triggerQueuedRenders(w);
+        let y = 0;
+        for (const b of w.getTopBlocks(true)) {
+            const xy = b.getRelativeToSurfaceXY();
+            b.moveBy(-xy.x, y - xy.y);
+            y += b.getHeightWidth().height + GAP;
+        }
+        const { svg } = await blocksToSvg(w, null);
+        w.clear();
+        return svg;
+    } finally {
+        setBloecklyUi(before);
+    }
 }

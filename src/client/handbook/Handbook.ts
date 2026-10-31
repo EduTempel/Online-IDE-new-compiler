@@ -26,6 +26,16 @@ export type HandbookEntry = {
     libs?: string[];
     /** läuft im Test ohne Eingabe, Grafik und Endlosschleife (dann wird es dort auch ausgeführt) */
     runs?: boolean;
+    /**
+     * Übung „Finde den Fehler“ (Paket 16): code enthält den Fehler, solution die Lösung mit Erklärung
+     * (aufklappbar). „Ausprobieren“ legt das fehlerhafte Programm an.
+     */
+    solution?: { text: string; code: string };
+    /**
+     * Blöckly (Paket 18h): das Beispiel ist ein ganzes Projekt (Bühne, Figuren, Hauptprogramm). Gezeichnet werden die
+     * Dateien in show; „Ausprobieren“ legt ein neues Projekt mit allen Dateien an.
+     */
+    bloeckly?: { files: { name: string; text: string }[]; show: string[] };
 };
 
 export type HandbookSection = {
@@ -46,6 +56,8 @@ export type OpenOptions = {
     section?: string;
     /** zum ersten Beispiel springen, das diesen Block verwendet */
     blockType?: string;
+    /** zu diesem Eintrag (Überschrift) im Abschnitt springen (Paket 17b: Hilfe zu einer Meldung) */
+    entry?: string;
 };
 
 let opener: ((o: OpenOptions) => void) | undefined;

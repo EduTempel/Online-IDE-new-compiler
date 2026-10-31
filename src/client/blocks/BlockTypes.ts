@@ -17,6 +17,15 @@ export const B = {
     msgSend: "j_msg_send",          // Feld MSG  (Nachricht.sende("los");)
     msgSendWait: "j_msg_send_wait", // Feld MSG  (Nachricht.sendeUndWarte("los");)
 
+    // Blöckly (Paket 18e): eine Klasse je Figur bzw. Bühne; die Blöcke meinen immer diese Figur
+    blFigure: "bl_figure",          // Kopf der Klasse (Kennung "start"): Anweisungen VARS (Variablen); extraState { klasse, oberklasse, ctor, prefix, suffix }
+    blVar: "bl_var",                // Felder NAME, TYPE; Eingang VALUE  (int punkte = 0; auf der Bühne static)
+    blFlag: "bl_flag",              // Hut „Wenn 🚩 angeklickt“: BODY; extraState { name }  (@BeimStart void beimStart() { … })
+    blKey: "bl_key",                // Hut „Wenn Taste … gedrückt“: Feld KEY; BODY  (@WennTaste("a") void wennTasteA() { … })
+    blClick: "bl_click",            // Hut „Wenn diese Figur angeklickt“: BODY  (@WennAngeklickt void wennAngeklickt() { … })
+    blMsg: "bl_msg",                // Hut „Wenn ich … empfange“: Feld MSG; BODY  (@WennNachricht("los") void beiLos() { … })
+    blClone: "bl_clone",            // Hut „Wenn ich als Klon entstehe“: BODY  (@WennIchAlsKlonEntstehe void alsKlon() { … })
+
     // Operationen (Methoden im Hauptprogramm)
     method: "j_method",             // Hut-Block; Felder NAME, RETURN (void/int/…), PNAME0/PTYPE0 …; Anweisungen BODY; extraState { params }
     return: "j_return",             // Eingang VALUE  (return wert;)
@@ -131,6 +140,8 @@ export const B = {
     figTouchesColor: "j_fig_touches_color", // Felder NAME, COLOR  (f.collidesWithFillColor("red"))
     figTouchesList: "j_fig_touches_list", // Felder NAME, LIST  (ball.collidesWithAnyOf(münzen) – eine Figur aus der Liste)
     figBounce: "j_fig_bounce",      // Feld NAME  (f.bounceOffEdge();)
+    figSay: "j_fig_say",            // Feld NAME; Eingang TEXT  (f.say("Hallo");) – Paket 17c
+    figSayFor: "j_fig_say_for",     // Feld NAME; Eingänge TEXT, SECS  (f.say("Hallo", 2);)
     figDistance: "j_fig_distance",  // Felder NAME, OTHER (Figur oder Mauszeiger)  (f.distanceTo(g) / f.distanceTo(Mouse.getX(), Mouse.getY()))
     keyDown: "j_key_down",          // Feld KEY  (Input.isKeyDown("ArrowRight"))
     mouseDown: "j_mouse_down",      // Feld WHAT (down/clicked)  (Mouse.isDown() / Mouse.wasClicked())
@@ -171,7 +182,8 @@ export const B = {
 } as const;
 
 /** Hut-Blöcke weiterer Programmteile (eigener Thread, Variablen des Hauptprogramms, kein Ergebnis) */
-export const PART_HATS: readonly string[] = [B.keyStart, B.msgStart, B.clickStart, B.progStart];
+export const PART_HATS: readonly string[] = [B.keyStart, B.msgStart, B.clickStart, B.progStart,
+    B.blFlag, B.blKey, B.blClick, B.blMsg, B.blClone];
 export const isPartHat = (type: string | undefined) => !!type && PART_HATS.includes(type);
 
 export const VAR_TYPES = ["int", "double", "String", "boolean", "char"] as const;
@@ -241,7 +253,9 @@ export type BlockState = {
     fields?: { [name: string]: string };
     inputs?: { [name: string]: { block: BlockState } };
     next?: { block: BlockState };
-    extraState?: { code?: string; elseIfs?: number; hasElse?: boolean; fixed?: boolean; items?: number; params?: Param[]; args?: number; override?: boolean; isPublic?: boolean; labels?: string[] };
+    extraState?: { code?: string; elseIfs?: number; hasElse?: boolean; fixed?: boolean; items?: number; params?: Param[]; args?: number; override?: boolean; annotation?: string; isPublic?: boolean; labels?: string[];
+        // Blöckly: Name der Methode eines Skripts; Kopf der Klasse (klasse, oberklasse, ctor, prefix, suffix)
+        name?: string; klasse?: string; oberklasse?: string; ctor?: string; prefix?: string; suffix?: string };
     deletable?: boolean;
 };
 

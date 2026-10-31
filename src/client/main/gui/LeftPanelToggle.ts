@@ -73,3 +73,8 @@ export function autoCollapseLeftPanel() {
     if (!state || state.keepOpen) return;
     setCollapsed(true, false);
 }
+
+/** Leer-Ansicht „Neues Projekt“ / „Neue Datei“: die Liste muss sichtbar sein, dort wird der Name eingegeben */
+export function expandLeftPanel() {
+    setCollapsed(false, false);
+}

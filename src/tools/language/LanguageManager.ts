@@ -1,6 +1,7 @@
 import { Main } from "../../client/main/Main";
 import { openContextMenu } from "../HtmlTools";
 import { LanguageManagerMessages } from "./LanguagemanagerMessages";
+import { gsgDeutsch } from "../../client/main/gui/language/GsgDeutsch";
 
 type Language = {
     id: string,
@@ -40,7 +41,8 @@ export function lm(map: Record<string, string>): string {
         }
     }
 
-    return template;
+    // GSG: deutsche Texte an unsere Begriffe anpassen (Projekt statt Workspace u. a.)
+    return currentLanguageId === "de" ? gsgDeutsch(template) : template;
 }
 
 export function lInterval(map: Record<string, [number, number]>): [number, number] {

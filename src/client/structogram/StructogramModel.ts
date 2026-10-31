@@ -465,6 +465,8 @@ class Converter {
             case B.figTurnTo: return this.stmt(`drehe ${name} in Richtung ${targetLabel(f.OTHER)}`);
             case B.figScale: return this.stmt(`vergrößere ${name} um Faktor ${v("F")}`);
             case B.figBounce: return this.stmt(`pralle mit ${name} vom Rand ab`);
+            case B.figSay: return this.stmt(`${name} sagt ${v("TEXT")}`);
+            case B.figSayFor: return this.stmt(`${name} sagt ${v("TEXT")} für ${v("SECS")} Sekunden`);
             case B.figColor: return this.stmt(`färbe ${name} ${colourLabel(f.COLOR ?? "red")}`);
             case B.figSetText: return this.stmt(`setze Inhalt von ${name} auf ${v("TEXT")}`);
             case B.figSetImage: return this.stmt(`setze Bildnummer von ${name} auf ${v("I")}`);

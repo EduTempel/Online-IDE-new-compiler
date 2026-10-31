@@ -6,6 +6,7 @@ import type { LineRange } from "./JavaBlockParser";
 import { colourJava, FIGURE_ACTIONS, FIGURE_CALLS, FIGURE_CREATIONS, FIGURE_PROPS, targetJava, touchesJava } from "./FigureSpec";
 import { ADT_CALLS, ADT_CREATIONS, ADT_GET_TYPES, TREE_SIDES } from "./AdtSpec";
 import { CLICK_PART_ANNOTATION, KEY_PART_ANNOTATION, MESSAGE_PART_ANNOTATION, START_PART_ANNOTATION } from "../../compiler/common/interpreter/GsgParts";
+import { blBlock, blHat, defaultHatName, formFor, STAGE_SUPER, type BloecklyContext, type HeaderState } from "../bloeckly/BloecklySpec";
 
 export { methodParams };
 
@@ -70,9 +71,19 @@ export class JavaBlockGenerator {
     private className = "";
     /** Attribute der Klasse (gelten in allen Operationen der Klasse) */
     private classColls: Collections = new Map();
+    /** Blöckly (Paket 18e): Klasse einer Figur bzw. der Bühne */
+    private bl?: { stage: boolean; stageClass: string; globals: Set<string>; fields: Set<string> };
 
-    static generate(state: WorkspaceState): GeneratorResult {
-        return new JavaBlockGenerator().run(state);
+    constructor(private ctx?: BloecklyContext) { }
+
+    /** bloeckly: Projekt in Blöckly (Variablen für alle Figuren heißen in Figuren Spiel.name) */
+    static generate(state: WorkspaceState, options: { bloeckly?: BloecklyContext } = {}): GeneratorResult {
+        return new JavaBlockGenerator(options.bloeckly).run(state);
+    }
+
+    /** Java-Ausdruck eines einzelnen Werte-Blocks (Paket 17a: Block anklicken zeigt den Wert) */
+    static expressionCode(b: BlockState): string {
+        return new JavaBlockGenerator().value(b, Order.NONE);
     }
 
     /**
@@ -81,6 +92,11 @@ export class JavaBlockGenerator {
      */
     run(state: WorkspaceState): GeneratorResult {
         const top = state.blocks?.blocks ?? [];
+        const header = top.find((b) => b.type === B.blFigure);
+        if (header) {
+            this.bloecklyClass(header, top);
+            return { code: this.lines.join("\n") + "\n", ranges: this.ranges };
+        }
         const start = top.find((b) => b.type === B.start);
         const name = programName(start);
         if (name) this.emit(`// Hauptprogramm „${name}“`);
@@ -118,6 +134,85 @@ export class JavaBlockGenerator {
         if (b.id) this.ranges.push({ id: b.id, startLine, endLine: this.lines.length });
     }
 
+    /**
+     * Blöckly: class X extends Figur { Variablen, Konstruktor (unverändert), Skripte und eigene Blöcke } – jeweils
+     * durch eine Leerzeile getrennt, Skripte und Blöcke von oben nach unten.
+     */
+    private bloecklyClass(header: BlockState, top: BlockState[]) {
+        const h = (header.extraState ?? {}) as Partial<HeaderState>;
+        const klasse = h.klasse || "Figur1", oberklasse = h.oberklasse || "Figur";
+        const fields = new Set<string>();
+        for (let v = header.inputs?.VARS?.block; v; v = v.next?.block) if (v.type === B.blVar && v.fields?.NAME) fields.add(v.fields.NAME);
+        this.bl = {
+            stage: oberklasse === STAGE_SUPER, stageClass: this.ctx?.stage ?? "Spiel",
+            globals: new Set(Object.keys(this.ctx?.globals ?? {})), fields,
+        };
+        this.className = klasse;
+        if (h.prefix) for (const l of h.prefix.split("\n")) this.emit(l);
+        const startLine = this.lines.length + 1;
+        this.emit(`class ${klasse} extends ${oberklasse} {`);
+        if (header.inputs?.VARS?.block) {
+            this.emit("");
+            this.colls = new Map();
+            this.statements(header.inputs.VARS.block, INDENT);
+        }
+        if (h.ctor) {
+            this.emit("");
+            h.ctor.split("\n").forEach((l, i) => this.emit(i === 0 ? INDENT + l : l));
+        }
+        const used = new Set(top.filter((b) => b.type === B.method).map((b) => String(b.fields?.NAME ?? "")));
+        const scripts = top.filter((b) => b.type === B.method || blHat(b.type))
+            .sort((a, b) => (a.y ?? 0) - (b.y ?? 0) || (a.x ?? 0) - (b.x ?? 0));
+        for (const s of scripts) {
+            this.emit("");
+            if (s.type === B.method) this.method(s, INDENT);
+            else this.bloecklyHat(s, used);
+        }
+        this.emit("");
+        this.emit("}");
+        if (header.id) this.ranges.push({ id: header.id, startLine, endLine: this.lines.length });
+        if (h.suffix) for (const l of h.suffix.split("\n")) this.emit(l);
+    }
+
+    /** Skript: @WennTaste("a") void wennTasteA() { … } – Name gespeichert oder vorgeschlagen, nie doppelt */
+    private bloecklyHat(b: BlockState, used: Set<string>) {
+        const startLine = this.lines.length + 1;
+        const hat = blHat(b.type)!;
+        const f = b.fields ?? {};
+        let annotation = "@" + hat.annotation;
+        if (hat.trigger) annotation += `("${escapeJavaString(String(f[hat.trigger] || (hat.trigger === "KEY" ? " " : "los")))}")`;
+        const own = String(b.extraState?.name ?? "");
+        const base = /^[\p{L}_$][\p{L}\p{N}_$]*$/u.test(own) ? own : defaultHatName(b.type, f);
+        let name = base;
+        for (let n = 2; used.has(name); n++) name = base + n;
+        used.add(name);
+        this.colls = collectionsInTree(b.inputs?.BODY?.block);
+        this.emit(INDENT + annotation);
+        this.emit(`${INDENT}void ${name}() {`);
+        this.statements(b.inputs?.BODY?.block, INDENT + INDENT);
+        this.emit(INDENT + "}");
+        if (b.id) this.ranges.push({ id: b.id, startLine, endLine: this.lines.length });
+    }
+
+    /** Aufruf eines Blöckly-Blocks (ohne Semikolon) oder undefined */
+    private bloecklyCode(b: BlockState): string | undefined {
+        const spec = blBlock(b.type);
+        if (!spec) return undefined;
+        const form = formFor(spec, b.fields ?? {});
+        const args = form.params.map((p) => {
+            const a = spec.args.find((x) => x.name === p);
+            if (a?.kind === "choice") return `"${escapeJavaString(String(b.fields?.[p] ?? a.def ?? ""))}"`;
+            return this.input(b, p, Order.NONE);
+        });
+        return `${form.method}(${args.join(", ")})`;
+    }
+
+    /** Variable für alle Figuren: in einer Figur Spiel.punkte (außer die Figur hat selbst eine solche Variable) */
+    private varName(name: string | undefined): string {
+        const n = name ?? "";
+        return this.bl && !this.bl.stage && this.bl.globals.has(n) && !this.bl.fields.has(n) ? `${this.bl.stageClass}.${n}` : n;
+    }
+
     /** Operation (auch in Klassen) bzw. Konstruktor: [Sichtbarkeit] Typ name(Typ a, Typ b) { … } */
     private method(b: BlockState, indent: string) {
         const startLine = this.lines.length + 1;
@@ -126,6 +221,7 @@ export class JavaBlockGenerator {
         this.colls = new Map([...this.classColls, ...paramColls(params), ...collectionsInTree(b.inputs?.BODY?.block)]);
         const vis = f.VIS && f.VIS !== "package" ? f.VIS + " " : "";
         if (b.type === B.classMethod && b.extraState?.override) this.emit(`${indent}@Override`);
+        if (b.type === B.classMethod && typeof b.extraState?.annotation === "string") this.emit(`${indent}@${b.extraState.annotation}`);   // Paket 18g
         const head = b.type === B.ctor ? `${vis}${this.className}` : `${vis}${f.RETURN || "void"} ${f.NAME ?? "operation"}`;
         this.emit(`${indent}${head}(${params.map((p) => `${p.type} ${p.name}`).join(", ")}) {`);
         this.statements(b.inputs?.BODY?.block, indent + INDENT);
@@ -213,14 +309,19 @@ export class JavaBlockGenerator {
                 break;
             }
             case B.varSet:
-                this.emit(`${indent}${f.NAME} = ${this.input(b, "VALUE", Order.NONE)};`);
+                this.emit(`${indent}${this.varName(f.NAME)} = ${this.input(b, "VALUE", Order.NONE)};`);
                 break;
             case B.varChange: {
                 // um 1: zahl++ / zahl--, sonst zahl += … / zahl -= …
                 const minus = f.OP === "-";
                 const v = b.inputs?.VALUE?.block;
-                if (v?.type === B.number && String(v.fields?.NUM ?? "").trim() === "1") this.emit(`${indent}${f.NAME}${minus ? "--" : "++"};`);
-                else this.emit(`${indent}${f.NAME} ${minus ? "-=" : "+="} ${this.input(b, "VALUE", Order.NONE)};`);
+                if (v?.type === B.number && String(v.fields?.NUM ?? "").trim() === "1") this.emit(`${indent}${this.varName(f.NAME)}${minus ? "--" : "++"};`);
+                else this.emit(`${indent}${this.varName(f.NAME)} ${minus ? "-=" : "+="} ${this.input(b, "VALUE", Order.NONE)};`);
+                break;
+            }
+            case B.blVar: {
+                const value = b.inputs?.VALUE?.block;
+                this.emit(`${indent}${this.bl?.stage ? "static " : ""}${f.TYPE ?? "int"} ${f.NAME}${value ? " = " + this.value(value, Order.NONE) : ""};`);
                 break;
             }
             case B.varSub:
@@ -348,7 +449,8 @@ export class JavaBlockGenerator {
                 break;
             }
             default: {
-                const figure = this.figureStatement(b) ?? this.adtStatement(b);
+                const bl = blBlock(b.type) && !blBlock(b.type)!.output ? this.bloecklyCode(b) : undefined;
+                const figure = bl !== undefined ? bl + ";" : this.figureStatement(b) ?? this.adtStatement(b);
                 if (figure !== undefined) {
                     this.emit(indent + figure);
                     break;
@@ -414,7 +516,7 @@ export class JavaBlockGenerator {
             case B.bool:
                 return [f.VALUE === "false" ? "false" : "true", Order.ATOMIC];
             case B.varGet:
-                return [f.NAME ?? "", Order.ATOMIC];
+                return [this.varName(f.NAME), Order.ATOMIC];
             case B.arith:
             case B.compare:
             case B.logic: {
@@ -488,7 +590,7 @@ export class JavaBlockGenerator {
         }
         const call = COLLECTION_CALLS.find((c) => c.type === b.type && !c.stmt);
         if (call) return [`${f.NAME}.${call.method}(${call.args.map((a) => this.input(b, a, Order.NONE)).join(", ")})`, Order.ATOMIC];
-        const figure = this.figureExpression(b);
+        const figure = blBlock(b.type)?.output ? this.bloecklyCode(b) : this.figureExpression(b);
         if (figure !== undefined) return [figure, Order.ATOMIC];
         const adt = this.adtExpression(b);
         if (adt !== undefined) return adt;

@@ -333,6 +333,50 @@ export const BLOCK_HANDBOOK: HandbookSection[] = [
                 ),
                 runs: true,
             },
+            {
+                title: "Wo gilt eine Variable? (Gültigkeitsbereich)",
+                text: "Eine Variable gilt **ab dem Block, der sie anlegt, bis zum Ende der Klammer**, in der er steckt. " +
+                    "`quadrat` wird in der Schleife angelegt und gilt nur dort – nach der Schleife gibt es sie nicht mehr. " +
+                    "`summe` steht vor der Schleife und gilt deshalb auch danach.\n\n" +
+                    "**Ausprobieren:** Klicke einen Variablenblock an – ein grün gestrichelter Kasten zeigt, wo die Variable gilt (wenn deine Lehrkraft das eingeschaltet hat). " +
+                    "Benutzt ein Block eine Variable außerhalb dieses Bereichs, erscheint ein Warndreieck mit einer Erklärung; " +
+                    "die Auswahlliste bietet nur die Variablen an, die an dieser Stelle gelten. " +
+                    "Legst du eine Variable mit einem Namen an, den es an der Stelle schon gibt, warnt der Block ebenfalls.\n\n" +
+                    "Im Reiter **Variablen** siehst du beim schrittweisen Ausführen jeden Gültigkeitsbereich als eigenen Kasten – ein Klick darauf zeigt ihn in den Blöcken.",
+                code: lines(
+                    "int summe = 0;",
+                    "for (int i = 1; i <= 3; i++) {",
+                    "    int quadrat = i * i;",
+                    "    summe += quadrat;",
+                    "}",
+                    "println(summe);",
+                ),
+                runs: true,
+            },
+            {
+                title: "Übung: Finde den Fehler – die Variable nach der Schleife",
+                text: "Das Programm soll am Ende das letzte Quadrat ausgeben, aber ein Block hat ein Warndreieck und das Programm startet nicht. " +
+                    "Woran liegt es? **Tipp:** Lies die Meldung am Warndreieck. Ist die Anzeige eingeschaltet, zeigt ein Klick auf den Block mit `quadrat` als grüner Kasten, wo die Variable gilt.",
+                code: lines(
+                    "for (int i = 1; i <= 3; i++) {",
+                    "    int quadrat = i * i;",
+                    "    println(quadrat);",
+                    "}",
+                    "println(\"Das letzte Quadrat: \" + quadrat);",
+                ),
+                solution: {
+                    text: "`quadrat` wird **in** der Schleife angelegt und gilt nur bis zum Ende der Schleife. " +
+                        "Lege die Variable **vor** der Schleife an und setze in der Schleife nur noch ihren Wert.",
+                    code: lines(
+                        "int quadrat = 0;",
+                        "for (int i = 1; i <= 3; i++) {",
+                        "    quadrat = i * i;",
+                        "    println(quadrat);",
+                        "}",
+                        "println(\"Das letzte Quadrat: \" + quadrat);",
+                    ),
+                },
+            },
         ],
     },
     {
@@ -842,6 +886,26 @@ export const BLOCK_HANDBOOK: HandbookSection[] = [
                 ),
             },
             {
+                title: "Sprechblase: sage …",
+                text: "**sage** zeigt eine Sprechblase über der Figur – sie wandert mit, wenn sich die Figur bewegt. "
+                    + "**sage … für … Sekunden** wartet so lange und nimmt die Blase dann wieder weg. Ein leerer Text \"\" entfernt die Blase. "
+                    + "Praktisch auch zum Ausprobieren: Lass eine Figur sagen, welchen Wert eine Variable gerade hat.",
+                code: lines(
+                    "Sprite figur = new Sprite(200, 350, SpriteLibrary.Ship_1, 0);",
+                    "Circle ball = new Circle(600, 350, 30);",
+                    "figur.say(\"Hallo! Ich fliege zum Ball.\", 2);",
+                    "int schritte = 0;",
+                    "while (!figur.collidesWith(ball)) {",
+                    "    figur.forward(4);",
+                    "    schritte++;",
+                    "    figur.say(schritte);",
+                    "    Thread.sleep(20);",
+                    "}",
+                    "figur.say(\"Geschafft – nach \" + schritte + \" Schritten!\");",
+                    "ball.say(\"Aua!\", 1);",
+                ),
+            },
+            {
                 title: "Rand, Farbe, abprallen",
                 text: "Bei **berührt** kann man statt einer Figur auch **Rand** (die Figur reicht an den Fensterrand) oder **irgendeine Figur** wählen. "
                     + "**berührt Farbe** zählt Kreise, Rechtecke und Texte in dieser Farbe (nicht die Farben in Sprite-Bildern). "
@@ -987,6 +1051,48 @@ export const BLOCK_HANDBOOK: HandbookSection[] = [
         id: "operationen", title: "Operationen", icon: "🧩",
         intro: "Eine **Operation** (Methode) fasst Blöcke unter einem Namen zusammen. Man **führt sie aus**, so oft man will – auch mit Werten (Parametern). Eine Operation kann ein **Ergebnis** zurückgeben.",
         entries: [
+            {
+                title: "Jede Operation hat ihre eigenen Variablen",
+                text: "Variablen, die in einer Operation angelegt werden, gelten **nur in dieser Operation** – auch die Parameter. " +
+                    "Das Hauptprogramm kennt `ergebnis` nicht, und `verdopple` kennt `zahl` nicht. " +
+                    "Werte gibt man deshalb als **Parameter** hinein und mit **gib zurück** heraus.",
+                code: lines(
+                    "int zahl = 5;",
+                    "println(verdopple(zahl));",
+                    "",
+                    "int verdopple(int x) {",
+                    "    int ergebnis = 2 * x;",
+                    "    return ergebnis;",
+                    "}",
+                ),
+                runs: true,
+            },
+            {
+                title: "Übung: Finde den Fehler – die Operation und das Hauptprogramm",
+                text: "`verdopple` soll die Punkte des Hauptprogramms verdoppeln. Warum gibt es ein Warndreieck? Wie geht es richtig?",
+                code: lines(
+                    "int punkte = 5;",
+                    "verdopple();",
+                    "println(punkte);",
+                    "",
+                    "void verdopple() {",
+                    "    punkte = punkte * 2;",
+                    "}",
+                ),
+                solution: {
+                    text: "Jede Operation hat ihre **eigenen Variablen** – `verdopple` kennt `punkte` aus dem Hauptprogramm nicht. " +
+                        "Gib den Wert als **Parameter** hinein und das Ergebnis mit **gib zurück** heraus; das Hauptprogramm speichert es wieder in `punkte`.",
+                    code: lines(
+                        "int punkte = 5;",
+                        "punkte = verdopple(punkte);",
+                        "println(punkte);",
+                        "",
+                        "int verdopple(int wert) {",
+                        "    return wert * 2;",
+                        "}",
+                    ),
+                },
+            },
             {
                 title: "Operation ohne Ergebnis",
                 text: "Die Operation **begruesse** hat einen Parameter `name`. Im Hauptprogramm wird sie zweimal mit verschiedenen Werten ausgeführt.",
@@ -1186,6 +1292,40 @@ export const BLOCK_HANDBOOK: HandbookSection[] = [
                     "}",
                 ),
                 runs: true,
+            },
+            {
+                title: "Deine Figuren waren Klassen",
+                text: "Kommst du aus **Blöckly**? Dort hattest du Figuren mit Skripten. In Wahrheit war jede Figur eine **Klasse**, die von **Figur** erbt (die Bühne erbt von **Buehne**), und jedes Skript eine **Operation** dieser Klasse. Der Hut „Wenn 🚩 angeklickt“ ist die Annotation `@BeimStart`, „Wenn diese Figur angeklickt wird“ ist `@WennAngeklickt`. Das Hauptprogramm erzeugt die Objekte mit **neues Objekt** – in Blöckly geschah das unsichtbar (dort ohne Variablen: `new Spiel();`). In Blöckly: Rechtsklick auf ein Projekt → **Als Blöckva-Projekt kopieren**.",
+                code: lines(
+                    "Spiel buehne = new Spiel();",
+                    "Waschbär waschbär = new Waschbär();",
+                    "",
+                    "class Spiel extends Buehne {",
+                    "    Spiel() {",
+                    "        super(\"Wald\");",
+                    "    }",
+                    "}",
+                    "",
+                    "class Waschbär extends Figur {",
+                    "    Waschbär() {",
+                    "        super(\"Waschbaer\", -100, 0);",
+                    "    }",
+                    "",
+                    "    @BeimStart",
+                    "    void beimStart() {",
+                    "        while (true) {",
+                    "            gehe(10);",
+                    "            naechstesKostuem();",
+                    "            pralleVomRandAb();",
+                    "        }",
+                    "    }",
+                    "",
+                    "    @WennAngeklickt",
+                    "    void wennAngeklickt() {",
+                    "        sage(\"Ich bin ein Objekt der Klasse Waschbär!\", 2);",
+                    "    }",
+                    "}",
+                ),
             },
         ],
     },

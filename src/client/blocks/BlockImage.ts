@@ -90,7 +90,7 @@ async function copyPng(ws: Blockly.WorkspaceSvg, block: Blockly.BlockSvg | null)
     } catch (e) {
         console.error(e);
         alert("Das Bild konnte nicht in die Zwischenablage gelegt werden: " + (e instanceof Error ? e.message : String(e))
-            + "\nBitte stattdessen „Als Bild speichern“ verwenden.");
+            + "\nNimm stattdessen „Als Bild speichern“.");
     }
 }
 

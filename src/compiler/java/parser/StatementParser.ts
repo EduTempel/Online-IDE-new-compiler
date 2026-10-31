@@ -188,7 +188,7 @@ export abstract class StatementParser extends TermParser {
                 let error = this.pushError(JCM.comparisonOperatorInsteadOfAssignment(), "error", this.cct.range);
                 this.module.quickfixes.push(new ReplaceTokenQuickfix(this.cct.range, "=", JCM.ReplaceTokenQuickfixDefaultMessage("==", "="), error));
             }
-            let initialization = this.comesToken([TokenType.assignment, TokenType.equal], true) ? this.parseTerm() : undefined;
+            let initialization = this.comesToken([TokenType.assignment, TokenType.equal], true) ? this.parseInitialValue() : undefined;
 
             if (identifier.value != "" && type != null) {
                 let node = this.nodeFactory.buildFieldDeclarationNode(rangeStart, identifier, type, undefined,
@@ -242,7 +242,7 @@ export abstract class StatementParser extends TermParser {
 
             let initialization: ASTTermNode | undefined = undefined;
             if (this.comesToken([TokenType.assignment, TokenType.equal], true)) {
-                initialization = this.parseTerm();
+                initialization = this.parseInitialValue();
             }
 
             if (type && identifer) {

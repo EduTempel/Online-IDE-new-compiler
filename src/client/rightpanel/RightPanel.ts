@@ -28,6 +28,7 @@ const ICONS: Record<string, string> = {
     trace: '<rect x="3" y="4" width="18" height="16" rx="1"/><path d="M3 9h18M3 14.5h18M9 4v16M15 4v16"/>',
     task: '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M9 11l2 2 4-4M9 17h6"/>',
     handbook: '<path d="M12 6c-2-1.5-5-2-8-1.5V19c3-.5 6 0 8 1.5 2-1.5 5-2 8-1.5V4.5c-3-.5-6 0-8 1.5zM12 6v14.5"/>',
+    figures: '<circle cx="12" cy="8" r="4"/><path d="M4.5 21c.8-4.2 3.8-6.5 7.5-6.5s6.7 2.3 7.5 6.5"/><path d="M8.5 5.2 7 2.5M15.5 5.2 17 2.5"/>',
     collapse: '<path d="M6 9l6 6 6-6"/>',
     expand: '<path d="M6 15l6-6 6 6"/>',
 };
@@ -44,6 +45,7 @@ export const TAB_LOOK: Record<string, { icon: string; label: string }> = {
     "Structogram": { icon: "structogram", label: "Struktogramm" },
     "Objects": { icon: "objects", label: "Objekte" },
     "Trace": { icon: "trace", label: "Trace" },
+    "Figures": { icon: "figures", label: "Figuren" },
     "Task": { icon: "task", label: "Aufgabe" },
     "Handbook": { icon: "handbook", label: "Handbuch" },
 };

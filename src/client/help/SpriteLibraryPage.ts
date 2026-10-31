@@ -4,6 +4,7 @@ import jQuery from 'jquery';
 import { extractCsrfTokenFromGetRequest, extractLanguageFromGetRequest } from '../communication/AjaxHelper.js';
 import { SpriteLibrary } from '../../compiler/java/runtime/graphics/SpriteLibrary.js';
 import { HelpMessages } from './HelpMessages.js';
+import { gsgFigurenZeigen } from './GsgSpriteLibrary.js';
 
 // type SpriteLibraryEntry = {
 //     filename: string,
@@ -32,6 +33,7 @@ export class SpriteLibraryPage {
         jQuery('#heading').text(HelpMessages.spriteLibraryHeading());
         jQuery('#codeexample').text(HelpMessages.spriteLibraryCodeExample());
         jQuery('#description').text(HelpMessages.spriteLibraryDescription());
+        gsgFigurenZeigen($entries[0]);   // GSG: Figuren und Bühnenbilder für Blöckly
 
         let nameOld: string = "";
         for (let e of SpriteLibrary) {

@@ -1,5 +1,6 @@
 import { JavaBlockParser } from "../blocks/JavaBlockParser";
-import type { HandbookSection } from "./Handbook";
+import type { HandbookEntry, HandbookSection } from "./Handbook";
+import { BUEHNEN_DATEI, BUEHNEN_KLASSE, variablenDerKlasse } from "../bloeckly/BloecklyProjekt";
 
 /** Hilfsfunktionen des Handbuchs (ohne Oberfläche, damit testbar) */
 
@@ -20,8 +21,8 @@ export function structogramShape(doc: { title: string; body: unknown[] }): strin
 }
 
 const typesCache = new Map<string, Set<string>>();
-function blockTypesIn(code: string): Set<string> {
-    let types = typesCache.get(code);
+function blockTypesIn(e: HandbookEntry): Set<string> {
+    let types = typesCache.get(e.code);
     if (!types) {
         types = new Set<string>();
         const visit = (o: unknown) => {
@@ -30,8 +31,15 @@ function blockTypesIn(code: string): Set<string> {
             if (typeof t === "string") types!.add(t);
             for (const v of Object.values(o)) visit(v);
         };
-        visit(JavaBlockParser.parse(code).state);
-        typesCache.set(code, types);
+        if (e.bloeckly) {
+            // Blöckly (Paket 18h): jede gezeigte Datei mit dem Wissen über die Bühne
+            const stage = e.bloeckly.files.find((f) => f.name === BUEHNEN_DATEI);
+            const globals = stage ? variablenDerKlasse(stage.text, { stage: BUEHNEN_KLASSE, globals: {} }) : {};
+            for (const f of e.bloeckly.files.filter((x) => e.bloeckly!.show.includes(x.name))) {
+                visit(JavaBlockParser.parse(f.text, { bloeckly: { stage: BUEHNEN_KLASSE, globals: f === stage ? {} : globals } }).state);
+            }
+        } else visit(JavaBlockParser.parse(e.code).state);
+        typesCache.set(e.code, types);
     }
     return types;
 }
@@ -43,7 +51,7 @@ export function findBlockEntry(sections: HandbookSection[], blockType: string, p
         ...sections.filter((s) => !(s.id === preferred || (preferred && s.parent === preferred))),
     ];
     for (const s of ordered) {
-        const index = s.entries.findIndex((e) => blockTypesIn(e.code).has(blockType));
+        const index = s.entries.findIndex((e) => blockTypesIn(e).has(blockType));
         if (index >= 0) return { section: s.id, index };
     }
     return undefined;

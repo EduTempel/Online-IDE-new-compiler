@@ -11,7 +11,7 @@ export const JAVA_HANDBOOK: HandbookSection[] = [
         entries: [
             {
                 title: "Ausgeben",
-                text: "`println` gibt aus und beginnt danach eine neue Zeile, `print` bleibt in derselben Zeile. Texte stehen in doppelten Anführungszeichen, mit `+` hängt man Texte und Werte aneinander.",
+                text: "`println` gibt aus und beginnt danach eine neue Zeile, `print` bleibt in derselben Zeile. Texte stehen in doppelten Anführungszeichen, mit `+` hängt man Texte und Werte aneinander. Jede Anweisung endet mit einem Strichpunkt `;`.",
                 code: lines(
                     "println(\"Hallo Welt!\");",
                     "print(\"1 + 1 = \");",
@@ -113,6 +113,77 @@ export const JAVA_HANDBOOK: HandbookSection[] = [
                     "println(Integer.parseInt(\"42\") + 1);",
                 ),
                 runs: true,
+            },
+            {
+                title: "Gültigkeitsbereich (Scope)",
+                text: "Eine lokale Variable gilt **ab ihrer Deklaration bis zur schließenden Klammer `}`** des Blocks, in dem sie steht. " +
+                    "Die Zählvariable einer `for`-Schleife gilt nur in der Schleife, Parameter gelten in der ganzen Methode. " +
+                    "Jede Methode hat ihre eigenen Variablen – auch die Variablen des Hauptprogramms kennt eine Methode in Java nicht. " +
+                    "Die Online-IDE führt solche Programme trotzdem aus, zeigt aber eine **Warnung**: Übergib den Wert besser als Parameter. " +
+                    "Ausnahme: Programmteile wie `@WennTaste` arbeiten mit den Variablen des Hauptprogramms.\n\n" +
+                    "Steht der Cursor auf einer Variablen, zeigt ein **grüner Balken** am linken Rand, wo sie gilt. " +
+                    "Hat eine Variable denselben Namen wie ein Attribut oder eine Variable von weiter außen, **verdeckt** sie diese: Für das Attribut schreibst du dann `this.name`. " +
+                    "Im Reiter **Variablen** siehst du beim schrittweisen Ausführen jeden Gültigkeitsbereich als eigenen Kasten.",
+                code: lines(
+                    "int summe = 0;",
+                    "for (int i = 1; i <= 3; i++) {",
+                    "    int quadrat = i * i;",
+                    "    summe += quadrat;",
+                    "}",
+                    "// quadrat und i gibt es hier nicht mehr",
+                    "println(summe);",
+                ),
+                runs: true,
+            },
+            {
+                title: "Übung: Finde den Fehler – die Variable nach der Schleife",
+                text: "Das Programm soll am Ende das letzte Quadrat ausgeben, aber es gibt einen Fehler. Woran liegt es? " +
+                    "**Tipp:** Setze den Cursor auf `quadrat` – der grüne Balken am Rand zeigt, wo die Variable gilt.",
+                code: lines(
+                    "for (int i = 1; i <= 3; i++) {",
+                    "    int quadrat = i * i;",
+                    "    println(quadrat);",
+                    "}",
+                    "println(\"Das letzte Quadrat: \" + quadrat);",
+                ),
+                solution: {
+                    text: "`quadrat` wird **in** der Schleife angelegt und gilt nur bis zum Ende der Schleife. " +
+                        "Lege die Variable **vor** der Schleife an und setze in der Schleife nur noch ihren Wert.",
+                    code: lines(
+                        "int quadrat = 0;",
+                        "for (int i = 1; i <= 3; i++) {",
+                        "    quadrat = i * i;",
+                        "    println(quadrat);",
+                        "}",
+                        "println(\"Das letzte Quadrat: \" + quadrat);",
+                    ),
+                },
+            },
+            {
+                title: "Übung: Finde den Fehler – die Methode und das Hauptprogramm",
+                text: "`verdopple` soll die Punkte des Hauptprogramms verdoppeln. Warum gibt es eine Warnung? Wie geht es richtig?",
+                code: lines(
+                    "int punkte = 5;",
+                    "verdopple();",
+                    "println(punkte);",
+                    "",
+                    "void verdopple() {",
+                    "    punkte = punkte * 2;",
+                    "}",
+                ),
+                solution: {
+                    text: "Jede Methode hat ihre **eigenen Variablen** – `verdopple` kennt `punkte` aus dem Hauptprogramm nicht. " +
+                        "Gib den Wert als **Parameter** hinein und das Ergebnis mit **return** heraus; das Hauptprogramm speichert es wieder in `punkte`.",
+                    code: lines(
+                        "int punkte = 5;",
+                        "punkte = verdopple(punkte);",
+                        "println(punkte);",
+                        "",
+                        "int verdopple(int wert) {",
+                        "    return wert * 2;",
+                        "}",
+                    ),
+                },
             },
         ],
     },
@@ -746,6 +817,46 @@ export const JAVA_HANDBOOK: HandbookSection[] = [
                 ),
                 runs: true,
             },
+            {
+                title: "Übung: Finde den Fehler – der Hund ohne Namen",
+                text: "Das Programm soll `Bello` ausgeben, gibt aber `null` aus. Warum? Lies die Warnung im Reiter „Fehler“.",
+                code: lines(
+                    "Hund h = new Hund(\"Bello\");",
+                    "println(h.getName());",
+                    "",
+                    "class Hund {",
+                    "    private String name;",
+                    "",
+                    "    Hund(String name) {",
+                    "        name = name;",
+                    "    }",
+                    "",
+                    "    String getName() {",
+                    "        return name;",
+                    "    }",
+                    "}",
+                ),
+                solution: {
+                    text: "Der Parameter `name` **verdeckt** das Attribut `name`: Im Konstruktor ist mit `name` immer der Parameter gemeint, " +
+                        "`name = name` ändert also nichts. Mit `this.name` ist das Attribut gemeint.",
+                    code: lines(
+                        "Hund h = new Hund(\"Bello\");",
+                        "println(h.getName());",
+                        "",
+                        "class Hund {",
+                        "    private String name;",
+                        "",
+                        "    Hund(String name) {",
+                        "        this.name = name;",
+                        "    }",
+                        "",
+                        "    String getName() {",
+                        "        return name;",
+                        "    }",
+                        "}",
+                    ),
+                },
+            },
         ],
     },
     {
@@ -955,6 +1066,19 @@ export const JAVA_HANDBOOK: HandbookSection[] = [
                     "Rectangle haus = new Rectangle(200, 300, 200, 200);",
                     "haus.setFillColor(\"red\");",
                     "Text t = new Text(20, 20, 32, \"Mein Bild\");",
+                ),
+            },
+            {
+                title: "Sprechblasen",
+                text: "`say(\"…\")` zeigt eine Sprechblase über einer Figur (wie „sage“ in Scratch); sie bleibt, bis die Figur etwas anderes sagt. "
+                    + "`say(\"…\", 2)` wartet 2 Sekunden und entfernt die Blase wieder. `say(\"\")` entfernt sie sofort.",
+                code: lines(
+                    "Circle a = new Circle(250, 300, 40);",
+                    "Circle b = new Circle(550, 300, 40);",
+                    "b.setFillColor(\"green\");",
+                    "a.say(\"Hallo, wie heißt du?\", 2);",
+                    "b.say(\"Ich heiße Grün.\", 2);",
+                    "a.say(\"Schön, dich kennenzulernen!\");",
                 ),
             },
             {

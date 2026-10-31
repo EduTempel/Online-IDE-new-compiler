@@ -15,6 +15,8 @@ import { GroupClass } from './GroupClass';
 import { updateWorldTransformRecursively } from './PixiHelper';
 import { IWorld } from './IWorld';
 import { ArrayListClass } from '../system/collections/ArrayListClass';
+import { SpeechBubble } from './SpeechBubble';
+import { ThreadState } from '../../../common/interpreter/ThreadState';
 
 export type MouseEventMethod = (t: Thread, callback: CallbackParameter, x: number, y: number, button: number) => void;
 
@@ -65,6 +67,10 @@ export class ShapeClass extends ActorClass {
         { type: "method", signature: "final This turnTowards(double x, double y)", native: ShapeClass.prototype._turnTowards, comment: "Dreht die Figur so, dass ihre Blickrichtung (forward) zum Punkt (x|y) zeigt, z. B. turnTowards(Mouse.getX(), Mouse.getY())." },
         { type: "method", signature: "final boolean touchesEdge()", native: ShapeClass.prototype._touchesEdge, comment: "Wahr, wenn die Figur den Rand des Grafikfensters berührt oder über ihn hinausragt (auch wenn sie ganz draußen ist)." },
         { type: "method", signature: "final This bounceOffEdge()", native: ShapeClass.prototype._bounceOffEdge, comment: "Berührt die Figur den Rand, prallt sie ab: Ihre Blickrichtung wird gespiegelt (wie ein Ball an der Bande), und sie wird ganz ins Fenster zurückgeschoben. Gedacht für Bewegungen mit forward(…)." },
+        { type: "method", signature: "final void say(string text)", native: ShapeClass.prototype._say, comment: "Zeigt eine Sprechblase mit diesem Text über der Figur (wie „sage …“ in Scratch). Sie bleibt, bis die Figur etwas anderes sagt; say(\"\") entfernt sie." },
+        { type: "method", signature: "final void say(string text, double seconds)", java: ShapeClass.prototype._mj$say$void$string$double, comment: "Zeigt eine Sprechblase mit diesem Text über der Figur, wartet die angegebene Zahl von Sekunden und entfernt sie dann wieder (wie „sage … für … Sekunden“ in Scratch)." },
+        { type: "method", signature: "final void say(double text)", native: ShapeClass.prototype._say, comment: "Zeigt eine Sprechblase mit dieser Zahl über der Figur." },
+        { type: "method", signature: "final void say(double text, double seconds)", java: ShapeClass.prototype._mj$say$void$double$double, comment: "Zeigt eine Sprechblase mit dieser Zahl, wartet die angegebene Zahl von Sekunden und entfernt sie wieder." },
         { type: "method", signature: "final This moveBackFrom(Shape otherShape, boolean keepColliding)", native: ShapeClass.prototype._moveBackFrom, comment: JRC.shapeMoveBackFromComment },
 
         { type: "method", signature: "static void setDefaultVisibility(boolean isVisible)", native: ShapeClass._setDefaultVisibility, comment: JRC.shapeSetDefaultVisibilityComment },
@@ -432,6 +438,38 @@ export class ShapeClass extends ActorClass {
     _turnTowardsShape(otherShape: ShapeClass) {
         if (otherShape == null) throw new RuntimeExceptionClass("turnTowards: Die andere Figur gibt es (noch) nicht (null).");
         return this._turnTowards(otherShape._getCenterX(), otherShape._getCenterY());
+    }
+
+    /** GSG (Paket 17c): Sprechblase über der Figur */
+    speechBubble?: SpeechBubble;
+
+    _say(text: unknown) {
+        const t = typeof text === "string" ? text : String((text as { value?: unknown } | null)?.value ?? text ?? "");
+        if (this.isRetired() || (this.isDestroyed && t !== "")) return;
+        if (t === "") {
+            this.speechBubble?.remove();
+            return;
+        }
+        if (!this.speechBubble) this.speechBubble = new SpeechBubble(this);
+        this.speechBubble.say(t);
+    }
+
+    /** sage … für … Sekunden: Blase zeigen, warten, Blase wieder entfernen (sofern die Figur inzwischen nichts anderes sagt) */
+    _mj$say$void$double$double(t: Thread, callback: (() => void) | undefined, text: number, seconds: number) {
+        this._mj$say$void$string$double(t, callback, String(text), seconds);
+    }
+
+    _mj$say$void$string$double(t: Thread, callback: (() => void) | undefined, text: unknown, seconds: number) {
+        this._say(text);
+        const bubble = this.speechBubble;
+        const shown = bubble?.label.text ?? "";
+        t.scheduler.suspendThread(t);
+        t.state = ThreadState.timedWaiting;
+        setTimeout(() => {
+            if (bubble && bubble.label.text === shown) bubble.remove();
+            t.scheduler.restoreThread(t);
+        }, Math.max(0, seconds) * 1000);
+        if (callback) callback();
     }
 
     /** GSG: sichtbarer Bereich des Grafikfensters */

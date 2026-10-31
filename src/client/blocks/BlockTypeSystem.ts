@@ -1,6 +1,8 @@
 import * as Blockly from "blockly/core";
+import { updateHelpHint } from "./BlockWarningHelp";
 import { FIGURE_BLOCK_TYPES, FIGURE_CREATIONS, FIGURE_OUTPUT_TYPES, figureInputType } from "./FigureSpec";
 import { ADT_BLOCK_TYPES, ADT_CREATIONS, ADT_GET_TYPES } from "./AdtSpec";
+import { BL_OUTPUT_TYPES, blInputTypes } from "../bloeckly/BloecklySpec";
 import { B, COLLECTION_DECLARATIONS, COLLECTION_USES, isPartHat, PART_HATS, type Collections } from "./BlockTypes";
 import { addMember, attributesOf, collectionOfType, collectionType, findConstructor, findMethod, isClassType, isScalar, isSubclass, methodsOf, typeInfo, type ClassInfo, type ClassMap } from "./ClassModel";
 
@@ -122,6 +124,23 @@ export function classInfos(ws: Blockly.Workspace): ClassMap {
     return result;
 }
 
+// ------------------------------------------------------------------ Blöckly (Paket 18e)
+
+/** Variablen, die in jedem Skript gelten (in Figuren: die Variablen für alle Figuren aus der Bühne) */
+let fixedVariables = new Map<string, JType>();
+export function setFixedVariables(vars: Map<string, JType>) {
+    fixedVariables = vars;
+}
+
+/**
+ * Blöckly: Variablen für alle Figuren und die der Figur (feste Variablen; der Kopf der Klasse läuft unsichtbar mit).
+ * Steht der Kopf doch in der Fläche, zählen auch seine Variablen; die der Figur verdecken die anderen.
+ */
+function bloecklyVariables(ws: Blockly.Workspace): Map<string, JType> {
+    const header = mainWorkspace(ws).getTopBlocks(false).find((b) => b.type === B.blFigure);
+    return new Map([...fixedVariables, ...(header ? variablesOf(innerBlocks(header)) : [])]);
+}
+
 /** Klassenblock, in dem der Block steckt */
 export function enclosingClass(b: Blockly.Block): Blockly.Block | null {
     const root = b.getRootBlock();
@@ -135,7 +154,7 @@ const SCOPE_ROOTS = new Set<string>([B.start, ...PART_HATS, B.method, B.ctor, B.
 
 /** Ist der Block ein Hut (Hauptprogramm, Operation, Klasse)? */
 export function isHat(b: Blockly.Block | null | undefined): boolean {
-    return !!b && (b.type === B.start || isPartHat(b.type) || b.type === B.method || b.type === B.class);
+    return !!b && (b.type === B.start || isPartHat(b.type) || b.type === B.method || b.type === B.class || b.type === B.blFigure);
 }
 
 /** Geltungsbereich eines Blocks (Operation, Konstruktor, Hauptprogramm; direkt in der Klasse: die Klasse) */
@@ -169,7 +188,7 @@ function variablesOf(blocks: Blockly.Block[]): Map<string, JType> {
     for (const b of blocks) {
         const kind = COLLECTION_DECLARATIONS[b.type];
         if (kind) add(String(b.getFieldValue("NAME") ?? ""), collectionType(kind, kind === "dyn" ? null : String(b.getFieldValue("TYPE") ?? "int")));
-        else if (b.type === B.varDeclare || b.type === B.attribute) add(String(b.getFieldValue("NAME") ?? ""), String(b.getFieldValue("TYPE") ?? "int"));
+        else if (b.type === B.varDeclare || b.type === B.attribute || b.type === B.blVar) add(String(b.getFieldValue("NAME") ?? ""), String(b.getFieldValue("TYPE") ?? "int"));
         else if (FIGURE_CLASS_OF[b.type]) add(String(b.getFieldValue("NAME") ?? ""), FIGURE_CLASS_OF[b.type]);
         else if (b.type === B.for) add(String(b.getFieldValue("VAR") ?? ""), "int");
         else if (b.type === B.method || b.type === B.ctor || b.type === B.classMethod) for (const p of methodParamsOf(b)) add(p.name, p.type);
@@ -188,7 +207,7 @@ function variablesOf(blocks: Blockly.Block[]): Map<string, JType> {
 
 /** Deklarierte Variablen der ganzen Arbeitsfläche mit Typ (für die Werkzeugleiste) */
 export function collectVariables(ws: Blockly.Workspace): Map<string, JType> {
-    return variablesOf(ws.getAllBlocks(true));
+    return new Map([...bloecklyVariables(ws), ...variablesOf(ws.getAllBlocks(true))]);
 }
 
 /** Variablen eines Geltungsbereichs; in Klassen samt Attributen (auch geerbten), lokale verdecken sie */
@@ -197,7 +216,7 @@ export function scopeVariables(root: Blockly.Block): Map<string, JType> {
     const attributes = cls ? attributesOf(classInfos(root.workspace), String(cls.getFieldValue("NAME") ?? "")) : [];
     if (root.type === B.class) return new Map(attributes.map((a) => [a.name, a.type]));
     const own = variablesOf(innerBlocks(root));
-    const result = new Map(attributes.map((a) => [a.name, a.type] as [string, string]));
+    const result = new Map([...bloecklyVariables(root.workspace), ...attributes.map((a) => [a.name, a.type] as [string, string])]);
     // Programmteile (wenn Taste …, wenn ich Nachricht … usw.): auch die Variablen des Hauptprogramms
     const start = isPartHat(root.type) ? root.workspace.getTopBlocks(false).find((b) => b.type === B.start) : undefined;
     if (start) for (const [k, v] of variablesOf(innerBlocks(start))) result.set(k, v);
@@ -209,6 +228,183 @@ export function scopeVariables(root: Blockly.Block): Map<string, JType> {
 export function variablesFor(b: Blockly.Block): Map<string, JType> {
     const root = scopeRoot(b);
     return root ? scopeVariables(root) : collectVariables(mainWorkspace(b.workspace));
+}
+
+/**
+ * Variable, die ein Anweisungsblock für die folgenden Anweisungen anlegt (Deklaration, Reihung/Liste
+ * anlegen, Figur erstellen); Schleifen und Operationen legen ihre Variablen nur für innen an.
+ */
+export function declarationOf(b: Blockly.Block): [string, JType] | undefined {
+    if (b.type === B.for || b.type === B.forEach || b.type === B.method || b.type === B.ctor || b.type === B.classMethod) return undefined;
+    const kind = COLLECTION_DECLARATIONS[b.type];
+    if (!kind && b.type !== B.varDeclare && b.type !== B.attribute && !FIGURE_CLASS_OF[b.type]) return undefined;
+    const [entry] = variablesOf([b]);
+    return entry;
+}
+
+/** äußerste Variablen des Hauptprogramms (der Compiler macht sie zu Attributen; Programmteile sehen sie) */
+export function mainProgramVariables(ws: Blockly.Workspace): Map<string, JType> {
+    const result = new Map<string, JType>();
+    const start = mainWorkspace(ws).getTopBlocks(false).find((b) => b.type === B.start);
+    for (let x = start?.getInputTargetBlock("BODY") ?? null; x; x = x.getNextBlock()) {
+        const d = declarationOf(x);
+        if (d) result.set(d[0], d[1]);
+    }
+    return result;
+}
+
+/**
+ * Variablen, die an der Stelle eines Blocks gelten – mit den Regeln von Java: ab der Deklaration bis zum
+ * Ende der umschließenden Klammer; Zählvariable und Element von „für jedes“ nur in der Schleife;
+ * Parameter in der ganzen Operation; Attribute in der ganzen Klasse; in Programmteilen zusätzlich die
+ * äußersten Variablen des Hauptprogramms. Innere verdecken äußere. Lose Blöcke: alle Variablen.
+ */
+export function visibleVariables(b: Blockly.Block): Map<string, JType> {
+    const root = scopeRoot(b);
+    if (!root) return collectVariables(mainWorkspace(b.workspace));
+    // von innen nach außen sammeln, dann von außen nach innen eintragen (innere verdecken äußere)
+    const layers: ((outer: Map<string, JType>) => [string, JType][])[] = [];
+    for (let x: Blockly.Block = b; x !== root;) {
+        const p = x.getParent();
+        if (!p) break;
+        if (p.getNextBlock() === x) {
+            const d = declarationOf(p);   // p steht direkt vor x
+            if (d) layers.push(() => [d]);
+        } else if (p.type === B.for) {
+            const v = String(p.getFieldValue("VAR") ?? "");
+            if (v) layers.push(() => [[v, "int"]]);
+        } else if (p.type === B.forEach && p.getInputTargetBlock("DO") && isInside(x, p, "DO")) {
+            const v = String(p.getFieldValue("VAR") ?? "");
+            layers.push((outer) => {
+                const c = collectionOfType(outer.get(String(p.getFieldValue("LIST") ?? "")));
+                const type = c?.kind === "array2d" ? `${c.elem}[]` : c && c.kind !== "dyn" && c.elem ? c.elem : undefined;
+                return v && type ? [[v, type]] : [];
+            });
+        }
+        x = p;
+    }
+    const result = rootVariables(root);
+    for (const layer of layers.reverse()) for (const [k, v] of layer(result)) if (k) result.set(k, v);
+    return result;
+}
+
+/** steckt x (ein direktes Kind von p) im Eingang input von p? */
+function isInside(x: Blockly.Block, p: Blockly.Block, input: string): boolean {
+    return p.getInputTargetBlock(input) === x;
+}
+
+/** Variablen, die im ganzen Geltungsbereich gelten: Attribute, Parameter, in Programmteilen das Hauptprogramm */
+function rootVariables(root: Blockly.Block): Map<string, JType> {
+    const cls = enclosingClass(root);
+    const result = new Map<string, JType>(cls ? attributesOf(classInfos(root.workspace), String(cls.getFieldValue("NAME") ?? "")).map((a) => [a.name, a.type] as [string, JType]) : []);
+    for (const [k, v] of bloecklyVariables(root.workspace)) if (!result.has(k)) result.set(k, v);
+    if (isPartHat(root.type)) for (const [k, v] of mainProgramVariables(root.workspace)) result.set(k, v);
+    if (root.type === B.method || root.type === B.ctor || root.type === B.classMethod) for (const p of methodParamsOf(root)) if (p.name) result.set(p.name, p.type);
+    return result;
+}
+
+/** kurze Beschriftung eines Klammer-Blocks für Meldungen */
+const CONTAINER_LABEL: Record<string, string> = {
+    [B.if]: "falls …", [B.while]: "wiederhole …", [B.forever]: "wiederhole fortlaufend", [B.repeat]: "wiederhole … mal",
+    [B.for]: "wiederhole für …", [B.forEach]: "für jedes Element …",
+};
+
+/** legt der Block die Variable an (Deklaration oder Schleifenvariable)? */
+function declares(d: Blockly.Block, name: string): boolean {
+    if (d.type === B.for || d.type === B.forEach) return String(d.getFieldValue("VAR") ?? "") === name;
+    return declarationOf(d)?.[0] === name;
+}
+
+/** steckt b (über die umschließenden Klammern bzw. Eingänge) in c? Folgende Anweisungen zählen nicht. */
+function isInsideOf(b: Blockly.Block, c: Blockly.Block): boolean {
+    for (let x: Blockly.Block | null = b; x; x = x.getSurroundParent()) if (x === c) return true;
+    return false;
+}
+
+/**
+ * Warum gilt die Variable an dieser Stelle nicht? undefined: sie gilt. Erklärt, wo sie stattdessen
+ * angelegt ist (Paket 16b).
+ */
+export function scopeProblem(b: Blockly.Block, name: string): string | undefined {
+    const root = scopeRoot(b);
+    if (!root || visibleVariables(b).has(name)) return undefined;
+    const q = `„${name}“`;
+    const decl = innerBlocks(root).find((d) => declares(d, name));
+    if (decl) {
+        if (decl.type === B.for || decl.type === B.forEach) {
+            return `${q} ist die Variable der Schleife „${CONTAINER_LABEL[decl.type]}“ und gilt nur in dieser Schleife.`;
+        }
+        if (isInsideOf(b, decl)) return `${q} wird hier gerade erst angelegt – im Startwert kann sie noch nicht vorkommen.`;
+        const container = decl.getSurroundParent();
+        if (container && container !== root && !isInsideOf(b, container)) {
+            const label = CONTAINER_LABEL[container.type];
+            return `${q} wurde ${label ? `in „${label}“` : "in einer Klammer"} angelegt und gilt nur bis zum Ende dieser Klammer. ` +
+                "Soll sie auch hier gelten, zieh den Block „erstelle …“ vor die Klammer.";
+        }
+        return `${q} wird erst weiter unten angelegt. Eine Variable gilt erst ab dem Block, der sie anlegt – zieh ihn weiter nach oben.`;
+    }
+    const ws = mainWorkspace(b.workspace);
+    const start = ws.getTopBlocks(false).find((t) => t.type === B.start);
+    if (isPartHat(root.type) && start && innerBlocks(start).some((d) => declares(d, name))) {
+        return `${q} ist im Hauptprogramm innerhalb einer Klammer angelegt. Programmteile kennen nur Variablen, die im Hauptprogramm ganz außen (nicht in einer Schleife oder „falls“) angelegt sind – zieh den Block „erstelle …“ dorthin.`;
+    }
+    const where = root.type === B.start ? "das Hauptprogramm" : isPartHat(root.type) ? "dieser Programmteil" : root.type === B.ctor ? "dieser Konstruktor" : "diese Operation";
+    // Variable des Hauptprogramms in einer Operation: wie die Warnung in Java
+    if (start && (root.type === B.method || root.type === B.ctor || root.type === B.classMethod)) {
+        for (let d = start.getInputTargetBlock("BODY"); d; d = d.getNextBlock()) {
+            if (declares(d, name)) return `${q} ist eine Variable des Hauptprogramms. In Java kennt ${where} sie nicht – jede Operation hat ihre eigenen Variablen. Übergib den Wert als Parameter und gib ein Ergebnis mit „gib zurück“ zurück.`;
+        }
+    }
+    const owner = ws.getAllBlocks(false).find((d) => !d.isInFlyout && declares(d, name) && scopeRoot(d))
+        ?? ws.getAllBlocks(false).find((m) => (m.type === B.method || m.type === B.ctor || m.type === B.classMethod) && methodParamsOf(m).some((p) => p.name === name));
+    if (owner) {
+        const ownerRoot = SCOPE_ROOTS.has(owner.type) ? owner : scopeRoot(owner);
+        return `${q} gehört ${ownerRoot ? ownerName(ownerRoot) : "zu einer anderen Stelle des Programms"}. Jede Operation hat ihre eigenen Variablen – ${where} kennt ${q} nicht. Übergib den Wert als Parameter oder lege hier eine eigene Variable an.`;
+    }
+    return `Die Variable ${q} ist nirgends angelegt. Lege sie zuerst mit „erstelle neue Variable …“ an.`;
+}
+
+/**
+ * Legt der Block eine Variable an, die es an dieser Stelle schon gibt? Wie in Java: in derselben Klammer schon
+ * angelegt, Parameter bzw. Variable von weiter außen verdeckt, Attribut verdeckt (Paket 16).
+ */
+export function shadowProblem(d: Blockly.Block): string | undefined {
+    if (d.type === B.attribute || d.isInFlyout) return undefined;
+    const name = d.type === B.for || d.type === B.forEach ? String(d.getFieldValue("VAR") ?? "") : declarationOf(d)?.[0];
+    const root = scopeRoot(d);
+    if (!name || !root || !visibleVariables(d).has(name)) return undefined;
+    const q = `„${name}“`;
+    // nur die Blöcke davor in derselben Klammer (getPreviousBlock liefert beim ersten Block die Klammer selbst)
+    for (let x: Blockly.Block = d, p = d.getPreviousBlock(); p && p.getNextBlock() === x; x = p, p = p.getPreviousBlock()) {
+        if (declares(p, name)) return `${q} gibt es hier schon (weiter oben angelegt). Wähle einen anderen Namen – oder nimm „setze ${name} auf …“, um ihren Wert zu ändern.`;
+    }
+    if ((root.type === B.method || root.type === B.ctor || root.type === B.classMethod) && methodParamsOf(root).some((p) => p.name === name)) {
+        return `${q} ist schon ein Parameter dieser Operation. Wähle für die neue Variable einen anderen Namen.`;
+    }
+    const cls = enclosingClass(root);
+    if (cls) {
+        for (let a = cls.getInputTargetBlock("MEMBERS"); a; a = a.getNextBlock()) {
+            if (a.type === B.attribute && declares(a, name)) return `Die Variable ${q} verdeckt das Attribut ${q} der Klasse: Ab hier ist mit ${q} immer die neue Variable gemeint. Wähle besser einen anderen Namen.`;
+        }
+    }
+    return `Die Variable ${q} verdeckt die gleichnamige Variable von weiter außen: Bis zum Ende dieser Klammer ist mit ${q} immer die neue Variable gemeint. Wähle besser einen anderen Namen.`;
+}
+
+/** „zum Hauptprogramm“, „zur Operation „zeige““, „zum Konstruktor von Konto“ … (für Meldungen) */
+function ownerName(root: Blockly.Block): string {
+    const name = String(root.getFieldValue("NAME") ?? "");
+    const cls = enclosingClass(root);
+    const of = cls ? ` der Klasse „${cls.getFieldValue("NAME")}“` : "";
+    if (root.type === B.start) return "zum Hauptprogramm";
+    if (isPartHat(root.type)) return name ? `zum Programmteil „${name}“` : "zu einem Programmteil";
+    if (root.type === B.ctor) return `zum Konstruktor${of}`;
+    if (root.type === B.class) return `zur Klasse „${name}“`;
+    return `zur Operation „${name}“${of}`;
+}
+
+/** Reihungen und Listen, die an der Stelle eines Blocks gelten (für Auswahllisten) */
+export function visibleCollections(b: Blockly.Block): Collections {
+    return onlyCollections(visibleVariables(b));
 }
 
 // ------------------------------------------------------------------ Reihungen und Listen
@@ -519,6 +715,7 @@ export function outputType(b: Blockly.Block, vars: Map<string, JType>, memo = ne
         case B.treeTest: case B.adtIsEmpty: t = ["boolean"]; break;
         default:
             if (FIGURE_OUTPUT_TYPES[b.type]) t = [FIGURE_OUTPUT_TYPES[b.type] as JType];
+            else if (BL_OUTPUT_TYPES[b.type]) t = [BL_OUTPUT_TYPES[b.type] as JType];
             else if (ADT_GET_TYPES.has(b.type)) {
                 const type = String(b.getFieldValue("TYPE") ?? "Object");
                 t = type === "Object" ? null : [type as JType];
@@ -585,7 +782,7 @@ export function inputType(b: Blockly.Block, input: string, vars: Map<string, JTy
             const p = m ? callTarget(b, vars, memo)?.params[Number(m[1])] : undefined;
             return p ? acceptsForType(p.type) : null;
         }
-        case B.attribute: return acceptsForType(String(b.getFieldValue("TYPE") ?? "int"));
+        case B.attribute: case B.blVar: return acceptsForType(String(b.getFieldValue("TYPE") ?? "int"));
         case B.thisAttrSet: {
             const cls = enclosingClass(b);
             const a = cls ? attributesOf(classInfos(b.workspace), String(cls.getFieldValue("NAME") ?? "")).find((x) => x.name === b.getFieldValue("NAME")) : undefined;
@@ -604,6 +801,8 @@ export function inputType(b: Blockly.Block, input: string, vars: Map<string, JTy
         case B.arrayValues: return acceptsForType(String(b.getFieldValue("TYPE") ?? "int") as JType);
     }
     if (FIGURE_BLOCK_TYPES.has(b.type)) return figureInputType(b.type, input) as TypeSet;
+    const bl = blInputTypes(b.type, input);
+    if (bl !== undefined) return bl as TypeSet;
     if (ADT_BLOCK_TYPES.has(b.type)) return input === "T" ? ["BinTree"] : null;   // Inhalte: beliebige Werte (Object)
     if (COLLECTION_USES.includes(b.type)) {
         if (input !== "V") return ["int"];   // Position, Zeile, Spalte
@@ -696,7 +895,7 @@ function applyTypesNow(ws: Blockly.Workspace, vars: Map<string, JType>) {
         const isText = (x: Blockly.Block | null) => !!x && sameTypes(outputs.get(x), ["String"]);
         if (isText(a) && isText(c)) {
             if (!mismatches.has(b)) mismatches.set(b, []);
-            mismatches.get(b)!.push("Texte bitte mit dem Block „ist gleich“ vergleichen (.equals) – == prüft nur, ob es dasselbe Objekt ist.");
+            mismatches.get(b)!.push("Vergleiche Texte mit dem Block „ist gleich“ (.equals) – == prüft nur, ob es dasselbe Objekt ist.");
         }
     }
     // gib zurück / beende passend zur Operation
@@ -715,30 +914,54 @@ function applyTypesNow(ws: Blockly.Workspace, vars: Map<string, JType>) {
         }
         if (b.type === B.superCall && scopeRoot(b)?.type !== B.ctor) note(b, "„super(…)“ steht am Anfang eines Konstruktors.");
     }
+    // Gültigkeitsbereich: Variablen nur dort benutzen, wo sie gelten (Paket 16b)
+    for (const b of blocks) {
+        if (b.isInFlyout || !scopeRoot(b)) continue;
+        for (const input of b.inputList) for (const field of input.fieldRow) {
+            const name = (field as Blockly.Field & { variableRef?(): string | undefined }).variableRef?.();
+            const problem = name ? scopeProblem(b, name) : undefined;
+            if (problem) note(b, problem);
+        }
+        const shadow = shadowProblem(b);
+        if (shadow) note(b, shadow);
+    }
     // Programmteile: jede Taste nur einmal, Namen nicht doppelt
     const keyParts = blocks.filter((b) => b.type === B.keyStart && !b.isInFlyout);
     const parts = blocks.filter((b) => isPartHat(b.type) && !b.isInFlyout);
     const named = blocks.filter((b) => (isPartHat(b.type) || b.type === B.method) && !b.isInFlyout);
+    // Blöckly: je Taste zählt nur das erste Skript einer Figur
+    const blKeys = blocks.filter((b) => b.type === B.blKey && !b.isInFlyout)
+        .sort((a, c) => a.getRelativeToSurfaceXY().y - c.getRelativeToSurfaceXY().y);
+    for (const b of blKeys) {
+        const key = String(b.getFieldValue("KEY") ?? "").toLowerCase();
+        if (blKeys.find((o) => String(o.getFieldValue("KEY") ?? "").toLowerCase() === key) !== b) {
+            note(b, "Für diese Taste gibt es weiter oben schon ein Skript. Je Taste startet nur eins – hänge die Blöcke dort an oder wähle eine andere Taste.");
+        }
+    }
     for (const b of parts) {
+        if (!b.getField("NAME")) continue;   // Blöckly: Name unsichtbar, wird automatisch vergeben
         const key = String(b.getFieldValue("KEY") ?? "").toLowerCase(), name = String(b.getFieldValue("NAME") ?? "");
         const first = b.type === B.keyStart ? keyParts.find((o) => String(o.getFieldValue("KEY") ?? "").toLowerCase() === key) : undefined;
-        if (first && first !== b) note(b, `Diese Taste startet schon „${first.getFieldValue("NAME")}“. Jede Taste darf nur einen Programmteil starten – bitte eine andere wählen.`);
-        if (named.some((o) => o !== b && o.getFieldValue("NAME") === name)) note(b, `Den Namen „${name}“ gibt es schon (Programmteil oder Operation). Bitte einen anderen wählen.`);
+        if (first && first !== b) note(b, `Diese Taste startet schon „${first.getFieldValue("NAME")}“. Jede Taste darf nur einen Programmteil starten – wähle eine andere.`);
+        if (named.some((o) => o !== b && o.getFieldValue("NAME") === name)) note(b, `Den Namen „${name}“ gibt es schon (Programmteil oder Operation). Wähle einen anderen.`);
     }
     for (const b of blocks) {
         if (b.type !== B.return && b.type !== B.returnVoid) continue;
         const root = scopeRoot(b) ?? b.getRootBlock();
         const ret = enclosingReturnType(b);
-        if (b.type === B.return && root.type === B.start) note(b, "Das Hauptprogramm hat kein Ergebnis. Zum Beenden „beende die Operation“ nehmen.");
-        else if (b.type === B.return && isPartHat(root.type)) note(b, "Ein Programmteil hat kein Ergebnis. Zum Beenden „beende die Operation“ nehmen.");
-        else if (b.type === B.return && ret === "void") note(b, "Diese Operation liefert kein Ergebnis: oben einen Ergebnistyp wählen oder „beende die Operation“ nehmen.");
-        else if (b.type === B.returnVoid && ret && ret !== "void") note(b, "Diese Operation muss ein Ergebnis liefern: „gib zurück“ nehmen.");
+        if (b.type === B.return && root.type === B.start) note(b, "Das Hauptprogramm hat kein Ergebnis. Zum Beenden nimm „beende die Operation“.");
+        else if (b.type === B.return && isPartHat(root.type)) note(b, "Ein Programmteil hat kein Ergebnis. Zum Beenden nimm „beende die Operation“.");
+        else if (b.type === B.return && ret === "void") note(b, "Diese Operation liefert kein Ergebnis: Wähle oben einen Ergebnistyp oder nimm „beende die Operation“.");
+        else if (b.type === B.returnVoid && ret && ret !== "void") note(b, "Diese Operation muss ein Ergebnis liefern: Nimm „gib zurück“.");
     }
     for (const b of blocks) {
         const text = mismatches.get(b);
         if ((b as Blockly.Block & { gsgTypeWarning?: string }).gsgTypeWarning !== (text?.join("\n") ?? undefined)) {
             (b as Blockly.Block & { gsgTypeWarning?: string }).gsgTypeWarning = text?.join("\n");
-            if (b.rendered) b.setWarningText(text ? text.join("\n") : null, "typ");
+            if (b.rendered) {
+                b.setWarningText(text ? text.join("\n") : null, "typ");
+                updateHelpHint(b);   // Paket 17b: Hinweis auf das Handbuch
+            }
         }
     }
 

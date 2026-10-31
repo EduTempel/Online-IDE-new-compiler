@@ -16,6 +16,7 @@
     border-bottom: 1px solid var(--slider, #555);
 }
 .gsg-task-heading { font-weight: 700; font-size: 15px; margin-right: auto; }
+.gsg-task-head .gsg-task-button { white-space: nowrap; flex: none; }
 
 .gsg-task-content { padding: 10px 14px 18px; }
 .gsg-task-empty { opacity: .75; }
@@ -72,3 +73,85 @@
 .gsg-task-actions { display: flex; gap: 6px; margin-top: 8px; }
 .gsg-task-note { font-size: 12px; opacity: .7; margin: 6px 0 0; }
 .gsg-task-form > .gsg-task-button { align-self: flex-start; }
+
+/* ------------------------------------------------------------------ PRIMM: Erst vermuten, dann ausführen */
+
+.gsg-primm { margin-top: 16px; display: flex; flex-direction: column; gap: 10px; }
+.gsg-primm-intro { font-size: 13px; padding: 8px 10px; border-radius: 8px; background: rgba(69, 184, 47, .12); border: 1px solid rgba(69, 184, 47, .45); }
+.gsg-primm-blocked {
+    margin: 4px 0 10px; padding: 8px 10px; border-radius: 8px; font-weight: 600;
+    background: rgba(229, 115, 115, .16); border: 1px solid #e57373; animation: gsg-primm-pulse 1s ease-in-out 2;
+}
+@keyframes gsg-primm-pulse { 50% { background: rgba(229, 115, 115, .38); } }
+.gsg-primm-step { border: 1px solid var(--slider, #555); border-radius: 8px; padding: 8px 10px; }
+.gsg-primm-step[data-state=active] { border-color: var(--brand-accent, #45B82F); box-shadow: 0 0 0 1px var(--brand-accent, #45B82F) inset; }
+.gsg-primm-step[data-state=locked] { opacity: .6; }
+.gsg-primm-step-head { display: flex; align-items: center; gap: 8px; }
+.gsg-primm-num {
+    flex: none; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
+    font: 700 12px/1 Roboto, "Segoe UI", sans-serif; background: var(--brand-primary, #00376D); color: #fff;
+}
+.gsg-primm-step[data-state=done] .gsg-primm-num { background: var(--brand-accent, #45B82F); }
+.gsg-primm-title { font-weight: 700; }
+.gsg-primm-status { margin-left: auto; font-size: 12px; opacity: .75; }
+.gsg-primm-step-body { margin-top: 6px; display: flex; flex-direction: column; gap: 6px; }
+.gsg-primm-step-body > p { margin: 0; }
+.gsg-primm-question { font-weight: 600; }
+.gsg-primm-question.gsg-task-text { font-weight: 600; }
+.gsg-primm-answer {
+    font: 13px/1.4 Roboto, "Segoe UI", sans-serif; padding: 5px 7px; border: 1px solid var(--slider, #666); border-radius: 5px;
+    background: rgba(255, 255, 255, .94); color: #111; resize: vertical;
+}
+.gsg-primm-answer:disabled { background: rgba(127, 127, 127, .15); color: inherit; }
+.gsg-primm-choices { display: flex; flex-direction: column; gap: 3px; }
+.gsg-primm-choice { cursor: pointer; padding: 3px 6px; border-radius: 5px; }
+.gsg-primm-choice:hover { background: rgba(127, 127, 127, .15); }
+.gsg-primm-choice.chosen { background: rgba(69, 184, 47, .18); font-weight: 600; }
+.gsg-primm-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.gsg-primm-row .gsg-task-note { margin: 0; }
+.gsg-primm-item { border-top: 1px dashed var(--slider, #555); padding-top: 4px; }
+.gsg-primm-item:first-of-type { border-top: 0; }
+.gsg-primm-check { font-size: 12px; cursor: pointer; }
+.gsg-task-button:disabled { opacity: .5; cursor: default; }
+
+.gsg-primm-editor { border: 1px solid var(--slider, #666); border-radius: 6px; padding: 4px 10px 10px; margin-top: 10px; }
+.gsg-primm-editor legend { padding: 0 4px; }
+.gsg-primm-fields { display: flex; flex-direction: column; gap: 6px; }
+.gsg-primm-fields[hidden] { display: none; }
+
+/* Übersicht für Lehrkräfte */
+.gsg-primm-overlay { position: fixed; inset: 0; z-index: 2000; background: rgba(0, 0, 0, .55); display: grid; place-items: center; padding: 16px; }
+.gsg-primm-dialog {
+    width: min(1100px, 100%); max-height: calc(100vh - 32px); display: flex; flex-direction: column;
+    background: var(--backgroundLight, #1e1e1e); color: var(--fontColorNormal, #ddd); border-radius: 10px;
+    border: 1px solid var(--slider, #555); box-shadow: 0 10px 40px rgba(0, 0, 0, .5);
+    font: 14px/1.45 Roboto, "Segoe UI", sans-serif;
+}
+.gsg-primm-dialog-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 14px; border-bottom: 1px solid var(--slider, #555); }
+.gsg-primm-dialog-title { font-weight: 700; font-size: 16px; margin-right: auto; }
+.gsg-primm-dialog-head select { font: 13px Roboto, "Segoe UI", sans-serif; padding: 2px 4px; border-radius: 5px; max-width: 18rem; }
+.gsg-primm-dialog-body { overflow: auto; padding: 12px 16px 18px; }
+.gsg-primm-counts { margin: 0 0 10px; opacity: .85; }
+.gsg-primm-error { color: #e57373; }
+.gsg-primm-summary { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.gsg-primm-subhead { font-weight: 700; font-size: .85em; margin-top: 4px; }
+.gsg-primm-bars { display: flex; flex-direction: column; gap: 6px; }
+.gsg-primm-bar-row { display: grid; grid-template-columns: minmax(6rem, 16rem) 1fr 5.5rem; gap: 10px; align-items: center; }
+.gsg-primm-bar-label { overflow-wrap: anywhere; }
+.gsg-primm-bar-track { height: 18px; background: rgba(127, 127, 127, .18); border-radius: 4px; overflow: hidden; }
+.gsg-primm-bar { height: 100%; background: var(--brand-accent, #45B82F); border-radius: 4px; min-width: 2px; transition: width .3s; }
+.gsg-primm-bar-count { font-variant-numeric: tabular-nums; }
+.gsg-primm-texts { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 3px; }
+.gsg-primm-texts li { white-space: pre-line; overflow-wrap: anywhere; }
+.gsg-primm-times { margin-left: 8px; font-weight: 700; color: var(--brand-accent, #45B82F); }
+.gsg-primm-table-wrap { overflow: auto; }
+.gsg-primm-table { border-collapse: collapse; width: 100%; font-size: 13px; }
+.gsg-primm-table th, .gsg-primm-table td { border: 1px solid var(--slider, #555); padding: 4px 6px; text-align: left; vertical-align: top; white-space: pre-line; }
+.gsg-primm-table th { background: rgba(127, 127, 127, .15); position: sticky; top: 0; }
+.gsg-primm-table .gsg-primm-name { font-weight: 600; white-space: nowrap; }
+.gsg-primm-table .gsg-task-note { font-weight: 400; margin: 0; }
+.gsg-primm-pending td { opacity: .6; }
+.gsg-primm-dialog.beamer { width: 100%; height: calc(100vh - 32px); max-height: none; font-size: 22px; }
+.gsg-primm-dialog.beamer .gsg-primm-bar-track { height: 34px; }
+.gsg-primm-dialog.beamer .gsg-primm-bar-row { grid-template-columns: minmax(8rem, 22rem) 1fr 8rem; }
+.gsg-primm-dialog.beamer .gsg-primm-question { font-size: 1.1em; }

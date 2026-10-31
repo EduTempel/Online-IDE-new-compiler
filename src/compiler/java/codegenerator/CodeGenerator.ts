@@ -1,4 +1,5 @@
 import { SettingsStore } from "../../../client/settings/SettingsStore.ts";
+import { explainUnknownIdentifiers } from "./GsgScopeMessages";
 import { Program } from "../../common/interpreter/Program";
 import { Helpers, StepParams } from "../../common/interpreter/StepFunction.ts";
 import { EmptyRange } from "../../common/range/Range.ts";
@@ -40,6 +41,9 @@ export class CodeGenerator extends InnerClassCodeGenerator {
         if (this.module.hasDependencyInjectionAnnotations) {
             this.compileDependencyInjectionInstanceInitializersRecursively(this.module.ast);
         }
+
+        // GSG (Paket 16f): unbekannte Bezeichner erklären (jetzt sind alle Symboltabellen bekannt)
+        explainUnknownIdentifiers(this.module, this.gsgUnknownIdentifiers);
         // this.compileMainProgram();
     }
 

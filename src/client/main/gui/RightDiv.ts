@@ -19,6 +19,8 @@ import { addTraceTab } from '../../trace/TraceTab.js';
 import { addObjectsTab } from '../../objects/ObjectsTab.js';
 import { addVariablesTab } from '../../stage/VariablesTab.js';
 import { compactWhenNarrow, decorateTab, splitRightDiv, type RightSplit } from '../../rightpanel/RightPanel.js';
+import { Constants } from '../../Constants.js';
+import { addBloecklyTab } from '../../bloeckly/BloecklyPanel.js';
 
 
 export class RightDiv {
@@ -124,6 +126,7 @@ export class RightDiv {
     }
 
     initGUI() {
+        let figurenTab: Tab | undefined;
 
         // GSG: rechter Bereich in zwei Teilen – oben das Programm, unten Aufgabe und Handbuch
         let split: RightSplit | undefined;
@@ -195,6 +198,14 @@ export class RightDiv {
                 addObjectsTab(this.main, this.tabManager); // GSG: Objektdiagramm, Zurückblättern, Zeitlupe
                 addTraceTab(this.main, this.tabManager);  // GSG: Tracetabelle
                 // unten (bzw. ohne Teilung mit in der Reiterleiste)
+                // Blöckly: Figuren und Bühne (Paket 18d) – zuerst, damit der untere Bereich mit ihnen aufgeht
+                if (Constants.isBloecklyApp) {
+                    try {
+                        figurenTab = addBloecklyTab(this.main as never, split?.bottomTabs ?? this.tabManager, this.outputTab);
+                    } catch (e) {
+                        console.error(e);
+                    }
+                }
                 addTaskTab(this.main, split?.bottomTabs ?? this.tabManager);   // GSG: Aufgabenstellung mit Hilfen
                 addHandbookTab(this.main, split?.bottomTabs ?? this.tabManager); // GSG: Handbuch (Beispiele zu Blöcken und Java)
             } catch (e) {
@@ -210,6 +221,7 @@ export class RightDiv {
                 for (const tab of this.tabManager.tabs) decorateTab(tab);
                 compactWhenNarrow(this.tabManager);
                 split.finish();
+                if (figurenTab) split.bottomTabs.setActive(figurenTab);
             } catch (e) {
                 console.error(e);
             }

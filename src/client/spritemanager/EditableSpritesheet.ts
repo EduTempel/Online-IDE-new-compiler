@@ -114,6 +114,7 @@ export class EditableSpritesheet {
     async generateAndZipSpritesheet(filename: string = "spritesheet") {
         let sheetDimensions = potpack(this.spriteDataList, 1);
 
+        const gsgFiguren = this.spritesheet.pixiSpritesheetData?.meta?.gsgFiguren;   // GSG: eigene Figuren behalten (Paket 18i)
         this.spritesheet.pngImageData = new Uint8Array(sheetDimensions.w * sheetDimensions.h * 4);
         this.spritesheet.pixiSpritesheetData = {
             frames: {},
@@ -126,7 +127,8 @@ export class EditableSpritesheet {
                     "w": sheetDimensions.w,
                     "h": sheetDimensions.h
                 },
-                "scale": "1"
+                "scale": "1",
+                ...(gsgFiguren ? { gsgFiguren } : {})
             }
         }
 

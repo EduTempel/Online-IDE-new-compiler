@@ -110,6 +110,12 @@ export class Interpreter {
      */
     blocksMode = false;
 
+    /**
+     * GSG (PRIMM): Wird vor jedem neuen Programmstart gefragt (nicht beim Fortsetzen nach Pause). false: nicht starten –
+     * z. B. weil die Schülerin/der Schüler im Aufgaben-Reiter noch keine Vermutung festgehalten hat.
+     */
+    static gsgStartGuard?: () => boolean;
+
     constructor(
         printManager?: IPrintManager,
         private actionManager?: ActionManager,
@@ -188,7 +194,11 @@ export class Interpreter {
 
     }
 
+    /** GSG (Blöckly): bei jedem Takt (alle 33 ms) – die Bühne lässt dann wartende Schleifen ihre nächste Runde laufen */
+    gsgTakt?: () => void;
+
     timerFunction(timerIntervalMs: number) {
+        this.gsgTakt?.();
         this.actorManager.callActMethods(33);
         this.#loadController.tick(timerIntervalMs);
     }
@@ -199,6 +209,7 @@ export class Interpreter {
             if (this.scheduler.state == SchedulerState.not_initialized) {
                 return;
             }
+            if (Interpreter.gsgStartGuard && !Interpreter.gsgStartGuard()) return;   // GSG: PRIMM
             this.printManager.clear();
             this.resetRuntime();
 
@@ -369,6 +380,7 @@ export class Interpreter {
 
     start(fileToStart?: GUIFile, resetRuntime: boolean = true, showProgramPointerBeforeFirstStep: boolean = false) {
         // this.main.getBottomDiv()?.console?.clearErrors();
+        if (resetRuntime && this.scheduler.state != SchedulerState.paused && Interpreter.gsgStartGuard && !Interpreter.gsgStartGuard()) return;
 
         this.main?.getBottomDiv()?.errorManager?.hideAllErrorDecorations();
         this.keyboardManager?.clearPressedKeys();

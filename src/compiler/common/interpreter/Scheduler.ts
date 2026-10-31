@@ -371,6 +371,20 @@ export class Scheduler {
         this.#suspendedThreads.push(thread);
     }
 
+    /**
+     * GSG (Blöckly): Thread beenden, auch wenn er gerade wartet („lösche diesen Klon“, „stoppe andere Skripte“).
+     * Ein wartender Thread kommt in die Liste der laufenden, damit der Scheduler ihn dort abräumt.
+     */
+    killThread(thread: Thread) {
+        if (thread.state >= ThreadState.terminated) return;
+        const index = this.#suspendedThreads.indexOf(thread);
+        if (index >= 0) {
+            this.#suspendedThreads.splice(index, 1);
+            this.runningThreads.push(thread);
+        }
+        thread.state = ThreadState.terminated;
+    }
+
     restoreThread(thread: Thread) {
         if (thread.state >= ThreadState.terminated) return;
 

@@ -491,7 +491,11 @@ class Translator {
     todos = 0;
     private repeatDepth = 0;
 
-    constructor(private vars: Vars) { }
+    /** hoist: Variablen, die vor einem Element deklariert werden (Element-Kennung → Namen mit Typ) */
+    constructor(private vars: Vars, private hoist: Map<string, [string, string][]> = new Map()) { }
+
+    /** Variablen mit Typ nach der Übersetzung */
+    get variables(): Vars { return this.vars; }
 
     private emit(indent: string, line: string) { this.lines.push(indent + line); }
 
@@ -513,7 +517,14 @@ class Translator {
     }
 
     seq(nodes: ENode[], indent: string) {
-        for (const n of nodes) this.node(n, indent);
+        for (const n of nodes) {
+            for (const [name, type] of this.hoist.get(n.id) ?? []) {
+                if (this.vars.has(name)) continue;
+                this.vars.set(name, type);
+                this.emit(indent, `${type} ${name} = ${defaultValue(type)};`);
+            }
+            this.node(n, indent);
+        }
     }
 
     node(n: ENode, indent: string) {
@@ -842,13 +853,103 @@ export function parseSignature(title: string): Signature {
 
 export type JavaOutput = { code: string; todos: number; signature: Signature };
 
+/** Startwert für eine vorgezogene Deklaration */
+function defaultValue(type: string): string {
+    if (["int", "long", "short", "byte"].includes(type)) return "0";
+    if (type === "double" || type === "float") return "0.0";
+    if (type === "boolean") return "false";
+    if (type === "char") return "' '";
+    if (type === "String") return "\"\"";
+    return "null";
+}
+
+type Path = { list: ENode[]; index: number }[];
+
+/** Texte eines Elements (ohne innere Elemente) */
+function ownTexts(n: ENode): string[] {
+    switch (n.kind) {
+        case "stmt": return [n.text];
+        case "if": return [n.cond];
+        case "switch": return [n.subject, ...n.cases.map((c) => c.label)];
+        case "loop": return [n.head];
+        case "footloop": return [n.foot];
+    }
+}
+
+function childLists(n: ENode): ENode[][] {
+    switch (n.kind) {
+        case "stmt": return [];
+        case "if": return [n.yes, n.no];
+        case "switch": return [...n.cases.map((c) => c.body), ...(n.other ? [n.other] : [])];
+        case "loop": case "footloop": return [n.body];
+    }
+}
+
+/** Namen in einem Text (ohne Zeichenketten und Kommentare) */
+function namesIn(text: string): Set<string> {
+    const code = splitComment(text)[0].replace(/"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g, " ");
+    return new Set(code.match(/[\p{L}_$][\p{L}\p{N}_$]*/gu) ?? []);
+}
+
+/**
+ * Variablen, die zuerst in einer Klammer (Schleife, Zweig) zugewiesen, aber auch außerhalb davon benutzt
+ * werden: Element-Kennung → Namen, vor dem die Deklaration stehen muss (in der innersten Liste, die erste
+ * Zuweisung und alle Verwendungen enthält). Schleifenvariablen (für i von …) und Parameter bleiben außen vor.
+ */
+export function hoistedDeclarations(body: ENode[], known: Set<string> = new Set()): Map<string, string[]> {
+    const first = new Map<string, Path>();
+    const uses = new Map<string, Path[]>();
+    const loopVars = new Set<string>();
+    const visit = (list: ENode[], path: Path) => {
+        list.forEach((n, index) => {
+            const here: Path = [...path, { list, index }];
+            if (n.kind === "loop") {
+                const m = /^für\s+(?:alle\s+Elemente\s+|jedes\s+Element\s+)?([\p{L}_$][\p{L}\p{N}_$]*)\s+(?:von|aus|in)/iu.exec(splitComment(n.head)[0].trim());
+                if (m) loopVars.add(m[1]);
+            }
+            const assign = n.kind === "stmt" ? /^([\p{L}_$][\p{L}\p{N}_$]*)\s*←/u.exec(splitComment(n.text)[0].trim()) : null;
+            if (assign && !first.has(assign[1])) first.set(assign[1], here);
+            for (const t of ownTexts(n)) for (const name of namesIn(t)) {
+                if (!uses.has(name)) uses.set(name, []);
+                uses.get(name)!.push(here);
+            }
+            for (const c of childLists(n)) visit(c, here);
+        });
+    };
+    visit(body, []);
+    const result = new Map<string, string[]>();
+    for (const [name, firstPath] of first) {
+        if (known.has(name) || loopVars.has(name) || firstPath.length === 1) continue;
+        const paths = [firstPath, ...(uses.get(name) ?? [])];
+        // innerste gemeinsame Liste: so weit absteigen, wie alle Pfade durch dasselbe Element gehen
+        let level = 0;
+        while (paths.every((p) => p.length > level + 1 && p[level].list === paths[0][level].list && p[level].index === paths[0][level].index)) level++;
+        if (firstPath.length === level + 1) continue;   // erste Zuweisung steht direkt in dieser Liste: dort deklarieren
+        const list = firstPath[level].list;
+        const anchor = list[Math.min(...paths.map((p) => p[level].index))];
+        if (!result.has(anchor.id)) result.set(anchor.id, []);
+        result.get(anchor.id)!.push(name);
+    }
+    return result;
+}
+
 /** ganzes Struktogramm als Java (Hauptprogramm-Anweisungen bzw. eine Operation) */
 export function docToJava(doc: StructogramDoc): JavaOutput {
     const sig = parseSignature(doc.title);
     const vars: Vars = new Map(sig.kind === "main" ? [] : sig.params.map((p) => [p.name, p.type] as [string, string]));
     if (sig.kind === "method" && sig.ret !== "void") vars.set(sig.name + "()", sig.ret);
     if (sig.kind !== "main") for (const p of sig.params) if (p.elem) vars.set(p.name + "#elem", p.elem);
-    const t = new Translator(vars);
+    // Variablen gelten im ganzen Struktogramm: wer zuerst in einer Klammer zugewiesen und auch außerhalb
+    // benutzt wird, wird in Java vor dieser Klammer deklariert (Typ aus einem ersten Durchlauf)
+    const dry = new Translator(new Map(vars));
+    dry.seq(doc.body, "");
+    const hoist = new Map<string, [string, string][]>();
+    for (const [nodeId, names] of hoistedDeclarations(doc.body, new Set(vars.keys()))) {
+        const typed = names.map((n) => [n, dry.variables.get(n)] as [string, string | undefined])
+            .filter((x): x is [string, string] => !!x[1] && x[1] !== "var");
+        if (typed.length) hoist.set(nodeId, typed);
+    }
+    const t = new Translator(vars, hoist);
     if (sig.kind === "main") {
         t.seq(doc.body, "");
     } else {

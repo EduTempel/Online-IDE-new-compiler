@@ -2,7 +2,7 @@ import * as Blockly from "blockly/core";
 import { B, VAR_TYPES, type CollKind } from "./BlockTypes";
 import { FieldButton, hintLabel, mutate, type Mutable } from "./BlockMutators";
 import { FieldType } from "./BlockFields";
-import { collectionsFor, collectionsOf, defaultLiteral, TYPE_NAMES, type JType } from "./BlockTypeSystem";
+import { visibleCollections, collectionsOf, defaultLiteral, TYPE_NAMES, type JType } from "./BlockTypeSystem";
 import { adtExtraItems, defineAdtBlocks } from "./BlockAdt";
 import { isFigureClass } from "./FigureSpec";
 
@@ -37,11 +37,17 @@ export class FieldCollectionName extends Blockly.FieldDropdown {
         this.setValue(value);
     }
 
+    /** Name der Variablen, auf die das Feld verweist (für die Prüfung des Gültigkeitsbereichs) */
+    variableRef(): string | undefined {
+        const v = this.getValue();
+        return typeof v === "string" && v ? v : undefined;
+    }
+
     private collectionOptions(): [string, string][] {
         const block = this.getSourceBlock();
         const names = new Set<string>();
         const kinds = this.kinds ?? ["array"];   // im Konstruktor von FieldDropdown noch nicht gesetzt
-        if (block) for (const [name, c] of collectionsFor(block)) if (kinds.includes(c.kind) && (!this.figures || isFigureClass(c.elem))) names.add(name);
+        if (block) for (const [name, c] of visibleCollections(block)) if (kinds.includes(c.kind) && (!this.figures || isFigureClass(c.elem))) names.add(name);
         const current = this.getValue();
         if (typeof current === "string" && current) names.add(current);
         if (names.size === 0) names.add(DEFAULT_NAMES[kinds[0]]);

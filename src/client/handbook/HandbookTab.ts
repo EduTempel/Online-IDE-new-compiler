@@ -7,6 +7,10 @@ import { markdownToHtml } from "../task/Markdown";
 import { createFile, ensureLibraries, freeName } from "../structogram/ProjectFiles";
 import { setHandbookOpener, type HandbookEntry, type HandbookKind, type HandbookSection, type OpenOptions } from "./Handbook";
 import { BLOCK_HANDBOOK } from "./HandbookBlocks";
+import { BLOECKLY_HANDBOOK } from "./HandbookBloeckly";
+import { BUEHNEN_DATEI, BUEHNEN_KLASSE, liesFigur, variablenDerKlasse } from "../bloeckly/BloecklyProjekt";
+import { beispielProjektOeffnen } from "../bloeckly/BloecklyBeispiel";
+import { HELP_SCHEME, parseHelpUri } from "./HelpLinks";
 import { JAVA_HANDBOOK } from "./HandbookJava";
 import { STRUCTOGRAM_HANDBOOK } from "./HandbookStructogram";
 import { definedTypes, exampleFileName, findBlockEntry, structogramShape } from "./HandbookSearch";
@@ -51,10 +55,10 @@ export function addHandbookTab(base: MainBase, tabManager: TabManager) {
         return true;
     };
     const blocksAvailable = () => !Constants.isStructogramApp;
-    /** Handbücher, zwischen denen umgeschaltet werden kann */
+    /** Handbücher, zwischen denen umgeschaltet werden kann (Blöckly: keine Struktogramme) */
     const kinds = (): HandbookKind[] => [
         ...(blocksAvailable() ? ["blocks" as const] : []),
-        "struktogramm" as const,
+        ...(Constants.isBloecklyApp ? [] : ["struktogramm" as const]),
         ...(javaAvailable() ? ["java" as const] : []),
     ];
     const editingStructogram = () => {
@@ -72,13 +76,15 @@ export function addHandbookTab(base: MainBase, tabManager: TabManager) {
     };
     const hiddenCategories = (): string[] => {
         if (!Constants.isBlocksApp) return [];
-        const hidden = (main.user as { gsgFreigaben?: { bloeckeAusgeblendet?: unknown } } | undefined)?.gsgFreigaben?.bloeckeAusgeblendet;
+        const f = (main.user as { gsgFreigaben?: { bloeckeAusgeblendet?: unknown; bloecklyAusgeblendet?: unknown } } | undefined)?.gsgFreigaben;
+        const hidden = Constants.isBloecklyApp ? f?.bloecklyAusgeblendet : f?.bloeckeAusgeblendet;
         return Array.isArray(hidden) ? hidden.filter((h): h is string => typeof h === "string") : [];
     };
     const sections = (k: HandbookKind): HandbookSection[] => {
         if (k === "java") return JAVA_HANDBOOK;
         if (k === "struktogramm") return STRUCTOGRAM_HANDBOOK;
         const hidden = hiddenCategories();
+        if (Constants.isBloecklyApp) return BLOECKLY_HANDBOOK.filter((s) => !hidden.includes(s.id));   // Paket 18h
         return BLOCK_HANDBOOK.filter((s) => !hidden.includes(s.id) && !(s.parent && hidden.includes(s.parent)));
     };
 
@@ -129,7 +135,7 @@ export function addHandbookTab(base: MainBase, tabManager: TabManager) {
             }
             head.append(sw);
         } else {
-            head.append(el("span", "gsg-hb-title", k === "blocks" ? "Handbuch Blöcke" : k === "struktogramm" ? "Handbuch Struktogramme" : "Handbuch Java"));
+            head.append(el("span", "gsg-hb-title", k === "blocks" ? (Constants.isBloecklyApp ? "Handbuch Blöckly" : "Handbuch Blöcke") : k === "struktogramm" ? "Handbuch Struktogramme" : "Handbuch Java"));
         }
         const search = el("input", "gsg-hb-search");
         search.type = "search";
@@ -153,7 +159,9 @@ export function addHandbookTab(base: MainBase, tabManager: TabManager) {
 
     const intro = (k: HandbookKind): HTMLElement => {
         const p = el("p", "gsg-hb-intro");
-        p.innerHTML = k === "blocks"
+        p.innerHTML = k === "blocks" && Constants.isBloecklyApp
+            ? "Zu jeder Kategorie der Werkzeugleiste gibt es kleine Beispiele, dazu Beispielprojekte zum Weiterbauen. Mit <b>▶ Ausprobieren</b> wird ein Beispiel als eigenes Projekt angelegt – dein Projekt bleibt, wie es ist. Tipp: Rechtsklick auf einen Block → <b>Hilfe</b> führt direkt zum passenden Beispiel."
+            : k === "blocks"
             ? "Zu jeder Kategorie der Werkzeugleiste gibt es kleine Beispielprogramme. Mit <b>▶ Ausprobieren</b> wird ein Beispiel als neue Datei in deinem Projekt angelegt. Tipp: Rechtsklick auf einen Block → <b>Hilfe</b> führt direkt zum passenden Beispiel."
             : k === "struktogramm"
                 ? "Struktogramme in der Schreibweise der Ergänzenden Hinweise für das Abitur. Mit <b>▶ Ausprobieren</b> wird ein Beispiel als Struktogramm-Datei in deinem Projekt angelegt. Im Editor: Element anklicken, Text oben ändern, mit den Knöpfen unter „Einfügen“ neue Elemente dahinter einfügen. Ein Fragezeichen am Text heißt: Diese Formulierung kennt die Umwandlung in Java noch nicht."
@@ -188,7 +196,7 @@ export function addHandbookTab(base: MainBase, tabManager: TabManager) {
     };
 
     const entry = (k: HandbookKind, s: HandbookSection, e: HandbookEntry, index: number): HTMLElement => {
-        const box = el("div", "gsg-hb-entry");
+        const box = el("div", "gsg-hb-entry" + (e.solution ? " is-exercise" : ""));
         box.id = "gsg-hb-" + entryKey(k, s.id, index);
         box.append(el("h4", "gsg-hb-etitle", e.title));
         const text = el("div", "gsg-hb-text");
@@ -196,6 +204,17 @@ export function addHandbookTab(base: MainBase, tabManager: TabManager) {
         box.append(text);
         if (k === "struktogramm" && e.structogram) {
             box.append(drawStructogram(e.structogram));
+            if (javaAvailable()) box.append(javaDetails(e.code));
+        } else if (k === "blocks" && e.bloeckly) {
+            // Blöckly (Paket 18h): Skripte je Figur bzw. Bühne
+            for (const name of e.bloeckly.show) {
+                const file = e.bloeckly.files.find((f) => f.name === name);
+                if (!file) continue;
+                if (e.bloeckly.show.length > 1 || name === BUEHNEN_DATEI) box.append(el("div", "gsg-hb-figur", name === BUEHNEN_DATEI ? "🎭 Bühne" : "🐾 " + name));
+                const pic = el("div", "gsg-hb-blocks", "Blöcke werden gezeichnet …");
+                box.append(pic);
+                drawBloeckly(pic, e.bloeckly.files, file);
+            }
             if (javaAvailable()) box.append(javaDetails(e.code));
         } else if (k === "blocks") {
             const pic = el("div", "gsg-hb-blocks", "Blöcke werden gezeichnet …");
@@ -207,14 +226,37 @@ export function addHandbookTab(base: MainBase, tabManager: TabManager) {
             box.append(pre);
             colorize(pre, e.code);
         }
+        if (e.solution) box.append(solutionDetails(k, e.solution));
         const actions = el("div", "gsg-hb-actions");
         const tryIt = el("button", "gsg-hb-button gsg-hb-primary", "▶ Ausprobieren");
         tryIt.type = "button";
-        tryIt.title = k === "struktogramm" ? "Beispiel als Struktogramm-Datei in deinem Projekt anlegen und öffnen" : "Beispiel als neue Datei in deinem Projekt anlegen und öffnen";
+        tryIt.title = e.bloeckly ? "Beispiel als eigenes Projekt anlegen und öffnen" : k === "struktogramm" ? "Beispiel als Struktogramm-Datei in deinem Projekt anlegen und öffnen" : "Beispiel als neue Datei in deinem Projekt anlegen und öffnen";
         tryIt.addEventListener("click", () => tryExample(k, e));
         actions.append(tryIt);
         box.append(actions);
         return box;
+    };
+
+    /** Lösung einer Übung zum Aufklappen: Erklärung und Programm (Blöcke bzw. Java) */
+    const solutionDetails = (k: HandbookKind, solution: { text: string; code: string }): HTMLElement => {
+        const det = el("details", "gsg-hb-solution");
+        det.append(el("summary", undefined, "Lösung zeigen"));
+        det.addEventListener("toggle", () => {
+            if (!det.open || det.childElementCount > 1) return;
+            const text = el("div", "gsg-hb-text");
+            text.innerHTML = markdownToHtml(solution.text);
+            det.append(text);
+            if (k === "blocks") {
+                const pic = el("div", "gsg-hb-blocks", "Blöcke werden gezeichnet …");
+                det.append(pic);
+                drawBlocks(pic, solution.code);
+            } else {
+                const pre = el("pre", "gsg-hb-java");
+                det.append(pre);
+                colorize(pre, solution.code);
+            }
+        });
+        return det;
     };
 
     /** Java-Code zum Aufklappen (Blöcke, Struktogramme) */
@@ -273,9 +315,38 @@ export function addHandbookTab(base: MainBase, tabManager: TabManager) {
         }
     };
 
+    /** Blöckly: Skripte einer Datei des Beispiels zeichnen */
+    const drawBloeckly = async (target: HTMLElement, files: { name: string; text: string }[], file: { name: string; text: string }) => {
+        try {
+            const { bloecklySvg } = await import("./HandbookBlockRender");
+            const stage = files.find((f) => f.name === BUEHNEN_DATEI);
+            const isStage = file === stage;
+            const globals = stage ? variablenDerKlasse(stage.text, { stage: BUEHNEN_KLASSE, globals: {} }) : {};
+            const figuren = files.map((f) => liesFigur(f.text)).filter((f) => !!f);
+            const own = liesFigur(file.text);
+            const svg = await bloecklySvg(file.text, { stage: BUEHNEN_KLASSE, globals: isStage ? {} : globals }, {
+                stage: isStage, klasse: own?.klasse ?? BUEHNEN_KLASSE, aussehen: own?.figur ?? "", figuren: figuren.map((f) => f!.klasse), globals,
+            }, dark());
+            const img = el("img");
+            img.alt = "Beispiel als Blöcke";
+            img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+            const w = /width="(\d+)"/.exec(svg)?.[1];
+            if (w) img.style.width = `clamp(${Math.round(+w * 0.7)}px, 100%, ${w}px)`;
+            target.textContent = "";
+            target.append(img);
+        } catch (err) {
+            console.error(err);
+            target.textContent = "Die Blöcke konnten nicht gezeichnet werden.";
+        }
+    };
+
     // ------------------------------------------------------------------ Ausprobieren
 
     const tryExample = async (k: HandbookKind, e: HandbookEntry) => {
+        if (e.bloeckly) {
+            await beispielProjektOeffnen(main, e.title, e.bloeckly.files, e.bloeckly.show.find((n) => n !== BUEHNEN_DATEI) ?? e.bloeckly.show[0]);
+            return;
+        }
         const workspace = main.getCurrentWorkspace();
         if (!workspace) {
             alert("Bitte zuerst ein Projekt auswählen oder anlegen.");
@@ -324,7 +395,11 @@ export function addHandbookTab(base: MainBase, tabManager: TabManager) {
         const k = kind();
         const list = sections(k);
         let target: { section: string; index?: number } | undefined;
-        if (o.blockType && k === "blocks") target = findBlockEntry(list, o.blockType, o.section);
+        if (o.entry && o.section) {
+            const index = list.find((s) => s.id === o.section)?.entries.findIndex((e) => e.title === o.entry) ?? -1;
+            if (index >= 0) target = { section: o.section, index };
+        }
+        if (!target && o.blockType && k === "blocks") target = findBlockEntry(list, o.blockType, o.section);
         if (!target && o.section && list.some((s) => s.id === o.section)) target = { section: o.section };
         if (target) opened.add(`${k}:${target.section}`);
         tab.show();
@@ -354,4 +429,15 @@ export function addHandbookTab(base: MainBase, tabManager: TabManager) {
 
     setHandbookOpener(openAt);
     tab.onShow = () => render();
+
+    // Paket 17b: Link „📖 Mehr dazu im Handbuch“ im Hover einer Java-Meldung
+    monaco.editor.registerLinkOpener({
+        open(resource: monaco.Uri) {
+            if (resource.scheme !== HELP_SCHEME) return false;
+            const help = parseHelpUri(resource.toString(true));
+            if (!help) return false;
+            openAt({ kind: help.kind, section: help.target.section, entry: help.target.entry });
+            return true;
+        },
+    });
 }

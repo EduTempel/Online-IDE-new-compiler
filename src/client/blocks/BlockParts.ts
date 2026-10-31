@@ -1,6 +1,6 @@
 import * as Blockly from "blockly/core";
 import { B, isPartHat } from "./BlockTypes";
-import { mainWorkspace, variablesFor } from "./BlockTypeSystem";
+import { mainWorkspace, visibleVariables } from "./BlockTypeSystem";
 import { isFigureClass } from "./FigureSpec";
 
 /**
@@ -20,11 +20,17 @@ export const MESSAGE_COLOUR = "#c88330";
 export const DEFAULT_MESSAGE = "los";
 const NEW_MESSAGE = "\u0000neu";
 
-/** Alle Nachrichten, die auf der Arbeitsfläche vorkommen (empfangen oder gesendet) */
+/** Blöckly: Nachrichten der anderen Dateien des Projekts (andere Figuren, Bühne) */
+let projectMessages: string[] = [];
+export function setProjectMessages(names: string[]) {
+    projectMessages = names;
+}
+
+/** Alle Nachrichten, die auf der Arbeitsfläche (und in Blöckly im Projekt) vorkommen (empfangen oder gesendet) */
 export function usedMessages(ws: Blockly.Workspace): string[] {
-    const names = new Set<string>();
+    const names = new Set<string>(projectMessages);
     for (const b of mainWorkspace(ws).getAllBlocks(false)) {
-        if (b.type === B.msgStart || b.type === B.msgSend || b.type === B.msgSendWait) {
+        if (b.type === B.msgStart || b.type === B.blMsg || b.type === B.msgSend || b.type === B.msgSendWait) {
             const m = String(b.getFieldValue("MSG") ?? "");
             if (m) names.add(m);
         }
@@ -114,7 +120,7 @@ export function definePartBlocks(defineJson: (json: object[]) => void) {
                 if (e.type === Blockly.Events.BLOCK_CREATE && (e as Blockly.Events.BlockCreate).ids?.includes(this.id)) {
                     // „wenn … angeklickt wird“: eine Figur des Hauptprogramms vorschlagen
                     if (this.type === B.clickStart) {
-                        const figures = [...variablesFor(this)].filter(([, t]) => isFigureClass(t)).map(([n]) => n);
+                        const figures = [...visibleVariables(this)].filter(([, t]) => isFigureClass(t)).map(([n]) => n);
                         const fig = String(this.getFieldValue("FIG") ?? "");
                         if (figures.length && !figures.includes(fig)) this.setFieldValue(figures[0], "FIG");
                     }

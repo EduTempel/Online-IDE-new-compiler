@@ -1,4 +1,5 @@
 import { Main } from "../Main.js";
+import { bereichEinklappen } from './LeereBereiche.js';
 import { ClassData, UserData, Pruefung, PruefungCaptions, getUserDisplayName, GetClassesDataResponse, type GetSingleUseSessionTokenResponse, type GetPruefungenForLehrkraftResponse } from "../../communication/Data.js";
 import { ajaxAsync, csrfToken, SINGLEUSETOKEN } from "../../communication/AjaxHelper.js";
 import { Workspace } from "../../workspace/Workspace.js";
@@ -122,6 +123,8 @@ export class TeacherExplorer {
                 orderBy: "comparator"
             }
         );
+
+        bereichEinklappen(this.studentPanel, true);   // GSG: leer, bis eine Klasse gewählt ist
 
         this.studentPanel.nodeClickedCallback = (student: UserData) => {
             if (this.classPanelMode == "classes") {
@@ -277,6 +280,7 @@ export class TeacherExplorer {
         this.studentPanel.clear();
 
         this.studentPanel.setCaption(userDataList.length + " " + TeacherExplorerMessages.students());
+        bereichEinklappen(this.studentPanel, false);   // GSG
 
         userDataList.sort(this.studentPanel.config.comparator);
 
@@ -293,6 +297,7 @@ export class TeacherExplorer {
         this.studentPanel.clear();
         this.studentPanel.setCaption(TeacherExplorerMessages.students());
         this.classPanel.clear();
+        bereichEinklappen(this.studentPanel, true);   // GSG: noch keine Klasse gewählt
 
         classDataList.sort((a, b) => {
             return a.name.localeCompare(b.name);

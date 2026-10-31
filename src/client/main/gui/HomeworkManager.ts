@@ -68,6 +68,7 @@ export class HomeworkManager {
     showRevision(file: GUIFile) {
 
         jQuery('#editor').hide();
+        this.main.blockModeController?.korrekturAnsicht(true);   // GSG: statt Blöcken bzw. Struktogramm
         jQuery('#diffEditor').show();
 
         var originalModel = monaco.editor.createModel(file.text_before_revision, ProgrammingLanguageData.Java.monacoLanguageSelector);
@@ -98,6 +99,7 @@ export class HomeworkManager {
             this.diffEditor.dispose();
             this.diffEditor = null;
             jQuery('#editor').show();
+            this.main.blockModeController?.korrekturAnsicht(false);   // GSG: wieder Blöcke, wenn sie vorher zu sehen waren
 
             this.showRevisionActive = false;
             this.showHomeWorkRevisionButton();

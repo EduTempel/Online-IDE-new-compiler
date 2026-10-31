@@ -114,9 +114,10 @@ describe("Struktogramm -> Java", () => {
             "    int anzahlRot = 0;",
             "    do {",
             "        int z = Random.randint(1, 4);",
+            "        Pixel p = null;",
             "        switch (z) {",
             "            case 1:",
-            "                Pixel p = new Pixel(255, 0, 0);",
+            "                p = new Pixel(255, 0, 0);",
             "                anzahlRot = anzahlRot + 1;",
             "                break;",
             "            case 2:",
@@ -183,5 +184,56 @@ describe("Struktogramm -> Java", () => {
         expect(isRecognized("loop", "solange es regnet")).toBe(false);
         expect(isRecognized("if", "e = v")).toBe(true);
         expect(isRecognized("stmt", "// nur ein Kommentar")).toBe(true);
+    });
+});
+
+describe("Variablen gelten im ganzen Struktogramm (Paket 16e)", () => {
+    const loop = (head: string, ...body: ENode[]): ENode => ({ id: newId(), kind: "loop", head, body });
+    const wenn = (cond: string, yes: ENode[], no: ENode[]): ENode => ({ id: newId(), kind: "if", cond, yes, no });
+
+    test("erste Zuweisung in der Schleife bzw. in beiden Zweigen, Verwendung danach: vorher deklarieren", async () => {
+        const d = doc("Hauptprogramm", [
+            loop("wiederhole 3-mal", stmt("x ← 5")),
+            stmt("gib x aus"),
+            wenn("x > 3", [stmt("y ← 1")], [stmt("y ← 2")]),
+            stmt("gib y aus"),
+        ]);
+        const code = docToJava(d).code;
+        expect(code).toBe(lines(
+            "int x = 0;",
+            "for (int durchlauf = 1; durchlauf <= 3; durchlauf++) {",
+            "    x = 5;",
+            "}",
+            "println(x);",
+            "int y = 0;",
+            "if (x > 3) {",
+            "    y = 1;",
+            "} else {",
+            "    y = 2;",
+            "}",
+            "println(y);",
+        ));
+        expect((await runJava(code)).output.trim().split(/\s+/)).toEqual(["5", "1"]);
+    });
+
+    test("nur innen benutzt: Deklaration bleibt in der Klammer; Schleifenvariablen bleiben im Schleifenkopf", () => {
+        const d = doc("Hauptprogramm", [
+            loop("für i von 1 bis 3", stmt("q ← i * i"), stmt("gib q aus")),
+            stmt("text ← \"q ist fertig\""),
+            stmt("gib text aus"),
+        ]);
+        expect(docToJava(d).code).toBe(lines(
+            "for (int i = 1; i <= 3; i++) {",
+            "    int q = i * i;",
+            "    println(q);",
+            "}",
+            "String text = \"q ist fertig\";",
+            "println(text);",
+        ));
+    });
+
+    test("Text vor Zahl: Startwert passend zum Typ", () => {
+        const d = doc("Hauptprogramm", [wenn("1 < 2", [stmt("name ← \"Ida\"")], [stmt("name ← \"Ben\"")]), stmt("gib name aus")]);
+        expect(docToJava(d).code.split(NL)[0]).toBe("String name = \"\";");
     });
 });

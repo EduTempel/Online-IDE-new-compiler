@@ -1,4 +1,5 @@
 import { Main } from "../Main.js";
+import { toggleGrosseAnsicht } from './GrosseAnsicht.js';
 import { openHandbook } from "../../handbook/Handbook.js";
 import { UserData, type GetSingleUseSessionTokenResponse } from "../../communication/Data.js";
 import { PasswordChanger } from "./UserMenu.js";
@@ -11,7 +12,7 @@ import { WorkspaceExporter } from "../../workspace/WorkspaceImporterExporter.js"
 import { IssueReporter } from "./IssueReporter.js";
 import * as monaco from 'monaco-editor'
 import { GuiMessages } from "./language/GuiMessages.js";
-import { SCHOOL_ADMIN_URL, SCHOOL_CREDITS_URL, SCHOOL_IMPRINT_URL, SCHOOL_PRIVACY_URL } from "./SchoolBranding.js";
+import { SCHOOL_ADMIN_URL, SCHOOL_CREDITS_URL, SCHOOL_IMPRINT_URL, SCHOOL_PRIVACY_URL, SCHOOL_TEACHER_HANDBOOK_URL } from "./SchoolBranding.js";
 import { openSchoolStartPage } from "./SchoolStartPage.js";
 import { SettingsGUI } from "../../settings/SettingsGUI.js";
 import { ImportRepositoryGUI } from "./ImportRepositoryGUI.js";
@@ -194,7 +195,9 @@ export class MainMenu {
                                 action: () => {
                                     this.main.editor.setFontSize(14);
                                 }
-                            }
+                            },
+                            // GSG: größere Schrift, Zeilen und Knöpfe (Beamer, jüngere Schüler/innen)
+                            { identifier: "Große Ansicht ein/aus", action: () => { toggleGrosseAnsicht(this.main); } }
 
                         ]
                     }
@@ -354,6 +357,11 @@ export class MainMenu {
                     }
                 }
             )
+            // Lehrerhandbuch für die Block-Umgebung (Seite des eigenen Backends) oben im Hilfe-Menü
+            mainMenu.items.find((i) => i.identifier === GuiMessages.Help())?.subMenu?.items.unshift(
+                { identifier: "Lehrerhandbuch Blöcke ...", link: SCHOOL_TEACHER_HANDBOOK_URL },
+                { identifier: "-" },
+            );
         }
 
         // eigene Startseite: Anwendungen, Projekte per Link teilen

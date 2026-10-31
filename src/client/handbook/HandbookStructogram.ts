@@ -75,6 +75,13 @@ export const STRUCTOGRAM_HANDBOOK: HandbookSection[] = [
                 text: "`ganzzahlige Zufallszahl zwischen 1 und 6` würfelt (1 und 6 sind möglich). `x gerundet` rundet auf eine ganze Zahl.",
                 body: [s("wurf ← ganzzahlige Zufallszahl zwischen 1 und 6"), s("gib wurf aus"), s("x ← 2.7"), s("gib x gerundet aus")],
             }),
+            entry({
+                title: "Wo gilt eine Variable?", runs: true,
+                text: "Im Struktogramm gilt eine Variable **ab ihrer ersten Zuweisung im ganzen Struktogramm** – auch wenn sie zuerst in einem Zweig oder einer Schleife einen Wert bekommt. " +
+                    "In Java gilt eine Variable dagegen nur bis zum Ende der Klammer `}`, in der sie angelegt wird. Deshalb legt die Java-Übersetzung `note` hier **vor** der Verzweigung an. " +
+                    "Ausnahme: Die Zählvariable einer Zählschleife (`für i von …`) gilt nur in der Schleife.",
+                body: [s("punkte ← 17"), wenn("punkte ≥ 15", [s("note ← \"gut\"")], [s("note ← \"nicht ganz\"")]), s("gib note aus")],
+            }),
         ],
     },
     {

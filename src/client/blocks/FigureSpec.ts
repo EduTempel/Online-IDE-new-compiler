@@ -43,6 +43,8 @@ export const FIGURE_CALLS: FigureCall[] = [
     { block: B.figSetText, method: "setText", inputs: ["TEXT"], kinds: ["Text"] },
     { block: B.figSetImage, method: "setImageIndex", inputs: ["I"], kinds: ["Sprite"] },
     { block: B.figBounce, method: "bounceOffEdge", inputs: [] },
+    { block: B.figSay, method: "say", inputs: ["TEXT"] },
+    { block: B.figSayFor, method: "say", inputs: ["TEXT", "SECS"] },
 ];
 
 /** figAction: Feld ACTION -> Java-Aufruf */
@@ -136,6 +138,7 @@ export const FIGURE_OUTPUT_TYPES: Record<string, string> = {
 
 /** Was in die Löcher passt (alle übrigen Eingänge: Zahlen) */
 export function figureInputType(blockType: string, input: string): string[] | null {
+    if (input === "TEXT" && (blockType === B.figSay || blockType === B.figSayFor)) return ["String", "int", "double"];
     if (input === "TEXT") return ["String", "int", "double", "char"];
     if (input === "INDEX" || input === "I") return ["int"];
     if (input === "W" || input === "H") return ["int", "double"];

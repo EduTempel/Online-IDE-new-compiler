@@ -109,3 +109,22 @@
 .gsg-hb-button:hover { background: rgba(127, 127, 127, .2); }
 .gsg-hb-primary { background: var(--brand-primary, #00376D); border-color: var(--brand-primary, #00376D); color: #fff; }
 .gsg-hb-primary:hover { background: #0a4c8f; }
+
+/* Paket 16: Übungen „Finde den Fehler“ mit aufklappbarer Lösung */
+.gsg-hb-entry.is-exercise > .gsg-hb-etitle::before { content: "🔍 "; }
+.gsg-hb-solution {
+    margin: 6px 0 2px;
+    padding: 4px 10px;
+    border-left: 3px solid var(--brand-accent, #45B82F);
+    background: rgba(69, 184, 47, .07);
+    border-radius: 0 6px 6px 0;
+}
+.gsg-hb-solution > summary { cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--brand-accent, #45B82F); }
+
+/* Blöckly (Paket 18h): Name der Figur bzw. Bühne über ihren Skripten */
+.joeCssFence .gsg-hb-figur, .gsg-hb-figur {
+    margin: 10px 0 4px;
+    font-weight: 600;
+    font-size: 12px;
+    opacity: .85;
+}

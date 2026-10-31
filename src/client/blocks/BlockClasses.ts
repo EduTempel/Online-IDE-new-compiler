@@ -2,7 +2,8 @@ import * as Blockly from "blockly/core";
 import { B } from "./BlockTypes";
 import { FieldButton, hintLabel, mutate, type Mutable } from "./BlockMutators";
 import { defineArgsBlock, defineMethodBlock, resizeCall } from "./BlockOperations";
-import { FieldType, identifier, VISIBILITY_OPTIONS } from "./BlockFields";
+import { FieldType, identifier, visibilityOptions } from "./BlockFields";
+import { L, labelMode } from "./BlockLabels";
 import { classInfos, collectVariables, defaultLiteral, enclosingClass, receiverClass, type JType } from "./BlockTypeSystem";
 import { attributesOf, methodsOf } from "./ClassModel";
 
@@ -124,6 +125,8 @@ function syncConstructorChoice(block: Blockly.Block & { state?: { args?: number 
 }
 
 const classNames = (b: Blockly.Block) => [...classInfos(b.workspace).keys()];
+/** Paket 18g: Oberklassen aus der Bibliothek – Figuren aus Blöckly erben von Figur, die Bühne von Buehne */
+const LIBRARY_SUPERCLASSES = ["Figur", "Buehne"];
 const ownClass = (b: Blockly.Block) => String(enclosingClass(b)?.getFieldValue("NAME") ?? "");
 const superClass = (b: Blockly.Block) => String(enclosingClass(b)?.getFieldValue("SUPER") ?? "");
 const ownAttributes = (b: Blockly.Block) => attributesOf(classInfos(b.workspace), ownClass(b)).map((a) => a.name);
@@ -148,10 +151,10 @@ function defineClassBlock() {
         },
 
         build(this: ClassBlock) {
-            this.appendDummyInput("HEAD").appendField(this.state.isPublic ? "öffentliche Klasse" : "Klasse")
+            this.appendDummyInput("HEAD").appendField(this.state.isPublic ? L("öffentliche Klasse", "public class") : L("Klasse", "class"))
                 .appendField(new Blockly.FieldTextInput("MeineKlasse", identifier), "NAME")
-                .appendField("erbt von")
-                .appendField(new FieldNameChoice("-", (b) => classNames(b).filter((n) => n !== b.getFieldValue("NAME")), "", true), "SUPER")
+                .appendField(L("erbt von", "extends"))
+                .appendField(new FieldNameChoice("-", (b) => [...classNames(b), ...LIBRARY_SUPERCLASSES].filter((n) => n !== b.getFieldValue("NAME")), "", true), "SUPER")
                 .appendField(hintLabel("class … extends"));
             this.appendStatementInput("MEMBERS");
         },
@@ -177,12 +180,21 @@ function defineAttributeBlock() {
             this.setInputsInline(true);
             this.setTooltip("Eine Eigenschaft der Objekte dieser Klasse, z. B. private String name; "
                 + "„+ get/set“ fügt Operationen zum Lesen und Ändern hinzu (getName, setName).");
-            this.appendValueInput("VALUE").appendField("Attribut")
-                .appendField(new Blockly.FieldDropdown(VISIBILITY_OPTIONS), "VIS")
-                .appendField(new Blockly.FieldTextInput("name", identifier), "NAME")
-                .appendField("vom Datentyp")
-                .appendField(new FieldType("String", "full"), "TYPE")
-                .appendField("Startwert");
+            const value = this.appendValueInput("VALUE");
+            if (labelMode() === "java") {
+                // Paket 17d: private String name =
+                value.appendField(new Blockly.FieldDropdown(visibilityOptions()), "VIS")
+                    .appendField(new FieldType("String", "full"), "TYPE")
+                    .appendField(new Blockly.FieldTextInput("name", identifier), "NAME")
+                    .appendField("=");
+            } else {
+                value.appendField("Attribut")
+                    .appendField(new Blockly.FieldDropdown(visibilityOptions()), "VIS")
+                    .appendField(new Blockly.FieldTextInput("name", identifier), "NAME")
+                    .appendField("vom Datentyp")
+                    .appendField(new FieldType("String", "full"), "TYPE")
+                    .appendField("Startwert");
+            }
             this.appendDummyInput("TAIL")
                 .appendField(new FieldButton("+ get/set", (b) => addAccessors(b), "Operationen zum Lesen (get) und Ändern (set) des Attributs hinzufügen"));
             this.setFieldValue("private", "VIS");
@@ -292,7 +304,7 @@ export function defineClassBlocks(defineJson: (json: object[]) => void) {
         init(this: Blockly.Block) {
             this.setOutput(true);
             this.setColour(CLASSES_COLOUR);
-            this.appendDummyInput().appendField("Attribut")
+            this.appendDummyInput().appendField(L("Attribut", "this."))
                 .appendField(new FieldNameChoice("name", ownAttributes, "name"), "NAME")
                 .appendField(hintLabel("this."));
             this.setTooltip("Der Wert eines Attributs dieses Objekts (this.name).");
@@ -304,10 +316,10 @@ export function defineClassBlocks(defineJson: (json: object[]) => void) {
             this.setNextStatement(true);
             this.setColour(CLASSES_COLOUR);
             this.setInputsInline(true);
-            this.appendValueInput("V").appendField("setze Attribut")
+            this.appendValueInput("V").appendField(L("setze Attribut", "this."))
                 .appendField(new FieldNameChoice("name", ownAttributes, "name"), "NAME")
-                .appendField("auf");
-            this.appendDummyInput().appendField(hintLabel("this.… ="));
+                .appendField(L("auf", "="));
+            this.appendDummyInput().appendField(hintLabel("this.… =")).appendField(L("", ";"));
             this.setTooltip("Gibt einem Attribut dieses Objekts einen neuen Wert, z. B. this.name = name;");
         },
     };

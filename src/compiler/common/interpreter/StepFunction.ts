@@ -45,6 +45,7 @@ export class Helpers {
     static instanceof = StepParams.thread + "." + Thread.prototype.Instanceof.name;
     static toString = StepParams.thread + "." + Thread.prototype.ToString.name;
     static exit = StepParams.thread + "." + Thread.prototype.exit.name;
+    static gsgRunde = StepParams.thread + "." + Thread.prototype.GsgRunde.name;
     static enterFullspeedMode = StepParams.thread + "." + Thread.prototype.EnterFullspeedMode.name;
     static exitFullspeedMode = StepParams.thread + "." + Thread.prototype.ExitFullspeedMode.name;
     static assertionObservers = StepParams.thread + ".assertionObservers";

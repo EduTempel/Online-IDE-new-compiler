@@ -358,3 +358,221 @@
     color: var(--gsg-navy);
     font-weight: 600;
 }
+
+/* Java-Editor: Gültigkeitsbereich der Variablen unter dem Cursor (Paket 16d) */
+.monaco-editor .gsg-scope-gutter {
+    border-left: 4px solid #45B82F;
+    margin-left: 4px;
+}
+/* Paket 16: Bereich aus dem Reiter „Variablen“ kurz hinterlegt */
+.monaco-editor .gsg-scope-flash { background: rgba(69, 184, 47, .14); }
+
+/* Fehler-Reiter: Verweis auf das Handbuch (Paket 17b) */
+.gsg-error-help {
+    margin-left: 6px;
+    padding: 0 6px;
+    border: 1px solid currentColor;
+    border-radius: 9px;
+    background: transparent;
+    color: #45B82F;
+    font: inherit;
+    font-size: 90%;
+    cursor: pointer;
+}
+.gsg-error-help:hover { background: rgba(69, 184, 47, .15); }
+
+/* ------------------------------------------------------------------ Schulfarben in der IDE
+   Farben setzt SchoolBranding.ts je Theme (--gsg-sel-*, --gsg-focus, --gsg-start-*); die Werte hier sind nur Ersatz. */
+
+/* Auswahl in Datei-, Projekt- und Schülerlisten: Schulblau mit grünem Strich links */
+.joeCssFence .jo_treeviewNode.jo_treeview_selected,
+.joeCssFence .jo_treeviewNode.jo_treeview_focus {
+    background-color: var(--gsg-sel-bg, #00376D);
+    color: var(--gsg-sel-fg, #ffffff);
+    box-shadow: inset 3px 0 0 var(--gsg-sel-bar, #45B82F);
+}
+.joeCssFence .jo_treeviewNode.jo_treeview_focus { border-color: transparent; }
+.joeCssFence .jo_treeviewNode:hover.jo_treeview_focus,
+.joeCssFence .jo_treeviewNode:hover.jo_treeview_selected { background-color: var(--gsg-sel-hover, #0b4a8a); }
+.joeCssFence .jo_treeviewNode.jo_treeview_selected .jo_treeviewNode_caption { color: inherit; }
+
+/* aktiver Reiter: grüner Balken statt dünner Linie */
+.joeCssFence .jo_tabheading.jo_active {
+    border-bottom-color: transparent;
+    box-shadow: inset 0 -2px 0 var(--bottomdiv-tabheading-active, #45B82F);
+    color: var(--fontColorLight, inherit);
+}
+
+/* Tastatur-Fokus gut sichtbar */
+.joeCssFence button:focus-visible,
+.joeCssFence .jo_button:focus-visible,
+.joeCssFence .jo_tabheading:focus-visible {
+    outline: 2px solid var(--gsg-focus, #45B82F);
+    outline-offset: 1px;
+}
+
+/* Start, Pause und Stopp beschriftet statt winziger Symbole (Java-IDE, Blöckva, Struktogramme;
+   Blöckly hat eigene große Knöpfe an der Bühne) */
+html:not([data-gsg-app="bloeckly"]) .joeCssFence #controls > .img_start-dark,
+html:not([data-gsg-app="bloeckly"]) .joeCssFence #controls > .img_pause-dark,
+html:not([data-gsg-app="bloeckly"]) .joeCssFence #controls > .img_stop-dark {
+    background-image: none;
+    width: auto;
+    height: 20px;
+    margin: 0 3px;
+    padding: 0 10px;
+    border-radius: 10px;
+    font: 600 12px/20px Roboto, "Segoe UI", sans-serif;
+    white-space: nowrap;
+    box-sizing: border-box;
+    border: 1px solid var(--slider, #555);
+    color: var(--fontColorLight, #e7e7e7);
+    background-color: rgba(127, 127, 127, .14);
+}
+html:not([data-gsg-app="bloeckly"]) .joeCssFence #controls > .img_start-dark {
+    background-color: var(--gsg-start-bg, #45B82F);
+    border-color: var(--gsg-start-bg, #45B82F);
+    color: var(--gsg-start-fg, #0b1d2e);
+}
+html:not([data-gsg-app="bloeckly"]) .joeCssFence #controls > .img_start-dark::before { content: "▶ Start"; }
+html:not([data-gsg-app="bloeckly"]) .joeCssFence #controls > .img_pause-dark::before { content: "⏸ Pause"; }
+html:not([data-gsg-app="bloeckly"]) .joeCssFence #controls > .img_stop-dark::before { content: "■ Stopp"; }
+html:not([data-gsg-app="bloeckly"]) .joeCssFence #controls > .img_start-dark.jo_active:hover {
+    filter: none;
+    background-color: var(--gsg-start-hover, #6fd35b);
+}
+html:not([data-gsg-app="bloeckly"]) .joeCssFence #controls > .jo_button.jo_active:active { transform: scale(1.05); }
+/* nicht verfügbar (z. B. Stopp, solange nichts läuft): blass statt nur grau */
+html:not([data-gsg-app="bloeckly"]) .joeCssFence #controls > .jo_button:not(.jo_active) { opacity: .45; cursor: default; }
+
+/* wenig Platz neben dem Hauptmenü (HeaderFit.ts) */
+.joeCssFence #debugpanel.gsg-knapp #menupanel-username { display: none; }
+html:not([data-gsg-app="bloeckly"]) .joeCssFence #debugpanel.gsg-sehr-knapp #controls > .img_start-dark,
+html:not([data-gsg-app="bloeckly"]) .joeCssFence #debugpanel.gsg-sehr-knapp #controls > .img_pause-dark,
+html:not([data-gsg-app="bloeckly"]) .joeCssFence #debugpanel.gsg-sehr-knapp #controls > .img_stop-dark { padding: 0 7px; }
+html:not([data-gsg-app="bloeckly"]) .joeCssFence #debugpanel.gsg-sehr-knapp #controls > .img_start-dark::before { content: "▶"; }
+html:not([data-gsg-app="bloeckly"]) .joeCssFence #debugpanel.gsg-sehr-knapp #controls > .img_pause-dark::before { content: "⏸"; }
+html:not([data-gsg-app="bloeckly"]) .joeCssFence #debugpanel.gsg-sehr-knapp #controls > .img_stop-dark::before { content: "■"; }
+.joeCssFence #debugpanel.gsg-knapp #controls > .img_step-out-dark,
+.joeCssFence #debugpanel.gsg-knapp #controls > .img_goto-cursor-dark,
+.joeCssFence #debugpanel.gsg-knapp #controls > .img_restart-dark { display: none; }
+/* „Korrekturen zeigen“ bleibt: sonst sähen Schüler/innen in schmalen Fenstern die Korrektur der Lehrkraft nicht */
+.joeCssFence #debugpanel.gsg-mittel #view-mode > :not(.jo_homeworkRevisionButton) { display: none; }
+/* passt gar nicht neben das Menü: eigene Zeile über dem Editor */
+.joeCssFence #debugpanel.gsg-eigene-zeile {
+    position: static;
+    flex-shrink: 0;
+    justify-content: flex-start;
+    align-items: center;
+    min-height: 24px;
+    padding: 0 4px;
+    overflow: hidden;
+    border-bottom: 1px solid var(--slider, #414141);
+}
+.joeCssFence #menupanel-username { white-space: nowrap; }
+.joeCssFence #debugpanel.gsg-eigene-zeile > * { flex-shrink: 0; }
+.joeCssFence #debugpanel.gsg-winzig .jo_speedcontrol-outer,
+.joeCssFence #debugpanel.gsg-winzig #controls > .img_step-over-dark,
+.joeCssFence #debugpanel.gsg-winzig #controls > .img_step-into-dark,
+.joeCssFence #debugpanel.gsg-winzig #controls > .jo_start-test-button { display: none; }
+
+/* Leer-Ansicht über dem Editor (EmptyState.ts) */
+.joeCssFence .gsg-leer-host { position: relative; }
+.joeCssFence .gsg-leer {
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    box-sizing: border-box;
+    background: var(--backgroundDark, #1e1e1e);
+    overflow: auto;
+}
+.joeCssFence .gsg-leer[hidden] { display: none; }
+.joeCssFence .gsg-leer-karte {
+    max-width: 26em;
+    text-align: center;
+    font-family: Roboto, "Segoe UI", sans-serif;
+    color: var(--fontColorNormal, #c2cccc);
+}
+.joeCssFence .gsg-leer-symbol { font-size: 40px; line-height: 1; margin-bottom: 8px; }
+.joeCssFence .gsg-leer-karte h2 {
+    margin: 0 0 6px;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--fontColorLight, #e7e7e7);
+}
+.joeCssFence .gsg-leer-karte p { margin: 0 0 14px; font-size: 13px; line-height: 1.45; }
+.joeCssFence .gsg-leer-karte p:empty { display: none; }
+.joeCssFence .gsg-leer-knopf {
+    font: 600 14px/1 Roboto, "Segoe UI", sans-serif;
+    padding: 9px 18px;
+    border-radius: 18px;
+    border: 0;
+    cursor: pointer;
+    background: var(--gsg-start-bg, #45B82F);
+    color: var(--gsg-start-fg, #0b1d2e);
+}
+.joeCssFence .gsg-leer-knopf:hover { background: var(--gsg-start-hover, #6fd35b); }
+.joeCssFence .gsg-leer-karte .gsg-leer-hinweis {
+    margin: 22px 0 0;
+    padding: 8px 12px;
+    font-size: 12px;
+    border-radius: 8px;
+    border-left: 3px solid var(--gsg-sel-bar, #45B82F);
+    background: rgba(127, 127, 127, .12);
+    text-align: left;
+}
+
+/* Symbole der Knöpfe: im hellen Design kräftiger (Filter je Theme aus SchoolBranding.ts) */
+.joeCssFence .jo_button[class*="-dark"],
+.joeCssFence .jo_iconButton[class*="-dark"],
+.joeCssFence .jo_exandCollapseComponent[class*="-dark"] { filter: var(--gsg-icon-filter, none); }
+.joeCssFence .jo_button[class*="-dark"]:hover,
+.joeCssFence .jo_iconButton[class*="-dark"]:hover { filter: var(--gsg-icon-filter-hover, brightness(150%)); }
+.joeCssFence .jo_button[class*="-dark"]:not(.jo_active) { filter: var(--gsg-icon-filter-off, grayscale()); }
+/* beschriftete Start-/Pause-/Stopp-Knöpfe haben eigene Farben – kein Filter */
+html:not([data-gsg-app="bloeckly"]) .joeCssFence #controls > .img_start-dark,
+html:not([data-gsg-app="bloeckly"]) .joeCssFence #controls > .img_pause-dark,
+html:not([data-gsg-app="bloeckly"]) .joeCssFence #controls > .img_stop-dark { filter: none !important; }
+
+/* ---------- „Große Ansicht“ (Menü Ansicht → Große Ansicht ein/aus, GrosseAnsicht.ts) ----------
+   für Beamer und jüngere Schüler/innen: Menü, Listen, Reiter und Knöpfe größer; die Code-Schrift stellt GrosseAnsicht.ts ein */
+html.gsg-gross .joeCssFence #mainmenu { height: 38px; font-size: 12.5pt; }
+html.gsg-gross .joeCssFence .jo_mainmenuitem { padding: 9px 11px; }
+html.gsg-gross .joeCssFence .jo_submenu { font-size: 12.5pt; }
+html.gsg-gross .joeCssFence .jo_submenu>div, html.gsg-gross .joeCssFence .jo_submenu>a { padding-top: 6px; padding-bottom: 6px; }
+html.gsg-gross .joeCssFence .jo_leftpanelcaption { font-size: 15px; height: 30px; line-height: 30px !important; }
+html.gsg-gross .joeCssFence .jo_treeview_outer { font-size: 16px; }
+html.gsg-gross .joeCssFence .jo_treeview_caption { height: 28px; line-height: 28px; }
+html.gsg-gross .joeCssFence .jo_treeviewNode { line-height: 30px; }
+html.gsg-gross .joeCssFence .jo_tabheadings { font-size: 12.5pt; min-height: 31px; }
+html.gsg-gross .joeCssFence .jo_tabheading { line-height: 30px; padding: 0 8px; }
+html.gsg-gross .joeCssFence #menupanel-username { font-size: 14px; }
+html.gsg-gross .joeCssFence #debugpanel.gsg-eigene-zeile { min-height: 32px; }
+html.gsg-gross:not([data-gsg-app="bloeckly"]) .joeCssFence #controls > .img_start-dark,
+html.gsg-gross:not([data-gsg-app="bloeckly"]) .joeCssFence #controls > .img_pause-dark,
+html.gsg-gross:not([data-gsg-app="bloeckly"]) .joeCssFence #controls > .img_stop-dark {
+    height: 26px; border-radius: 13px; padding: 0 13px; font-size: 14px; line-height: 26px;
+}
+/* Symbol-Knöpfe in der Leiste und in den Listen etwas größer */
+html.gsg-gross .joeCssFence #controls > .jo_button,
+html.gsg-gross .joeCssFence .jo_treeview_caption .jo_button { zoom: 1.25; }
+html.gsg-gross .joeCssFence .gsg-leer h2 { font-size: 26px; }
+html.gsg-gross .joeCssFence .gsg-leer-karte p { font-size: 17px; }
+html.gsg-gross .joeCssFence .gsg-leer-knopf { font-size: 17px; padding: 10px 22px; }
+
+/* ---------- Schmale Fenster: Hauptmenü kompakter (die Programm-Leiste passt HeaderFit.ts an) ---------- */
+@media (max-width: 1000px) {
+    .joeCssFence .jo_mainmenuitem,
+    html.gsg-gross .joeCssFence .jo_mainmenuitem { padding-left: 5px; padding-right: 5px; }
+}
+@media (max-width: 760px) {
+    .joeCssFence #mainmenu { font-size: 9pt; }
+    html.gsg-gross .joeCssFence #mainmenu { font-size: 11pt; }
+    .joeCssFence .jo_mainmenuitem,
+    html.gsg-gross .joeCssFence .jo_mainmenuitem { padding-left: 3px; padding-right: 3px; }
+    .joeCssFence .jo_mainmenuitem { white-space: nowrap; }
+}

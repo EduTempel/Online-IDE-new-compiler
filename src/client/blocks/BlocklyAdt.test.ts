@@ -29,8 +29,8 @@ describe("ADT mit Blockly", () => {
     test("Namensauswahl passend zur Art; ist leer für alle drei", () => {
         const ws = load(ADT);
         expect(options(blocksOf(ws, B.stackPush)[0], "NAME")).toEqual(["stapel"]);
-        expect(options(blocksOf(ws, B.treeSetChild)[0], "NAME")).toEqual(["baum", "links"]);
-        expect(options(blocksOf(ws, B.adtIsEmpty)[0], "NAME")).toEqual(["baum", "links", "schlange", "stapel"]);
+        expect(options(blocksOf(ws, B.treeSetChild)[0], "NAME")).toEqual(["baum"]);   // „links“ wird erst danach angelegt
+        expect(options(blocksOf(ws, B.adtIsEmpty)[0], "NAME")).toEqual(["schlange", "stapel"]);   // Bäume werden erst danach angelegt
     });
 
     test("Typen: Lesen als Ganzzahl ist eine Zahl, Teilbaum ist ein Binärbaum", () => {

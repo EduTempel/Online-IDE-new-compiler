@@ -23,6 +23,9 @@ import "/assets/css/run.css";
 
 import spritesheetjson from '/assets/graphics/spritesheet.json.txt';
 import spritesheetpng from '/assets/graphics/spritesheet.png';
+import gsgFigurenJson from '/assets/graphics/gsg-figuren.json.txt';     // GSG: Blöckly-Figuren (Paket 18b)
+import gsgFigurenPng from '/assets/graphics/gsg-figuren.png';
+import { loadGsgFigurenSheet } from '../../compiler/java/runtime/graphics/GsgFigurenSheet.js';
 import { PixiSpritesheetData } from "../spritemanager/PixiSpritesheetData.js";
 import * as monaco from 'monaco-editor'
 
@@ -206,6 +209,7 @@ jQuery(function () {
     embeddedStarter.initGUI();
 
     loadSpritesheet();
+    loadGsgFigurenSheet(gsgFigurenJson, gsgFigurenPng);
 
     //@ts-ignore
     console.log("Online-IDE embedded Version " + APP_VERSION + " vom " + BUILD_DATE);

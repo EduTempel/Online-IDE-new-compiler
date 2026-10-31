@@ -36,7 +36,7 @@ describe("Werkzeugleiste: Kategorien je Lerngruppe ausblenden", () => {
         const top = (toolbox() as { contents: Item[] }).contents;
         const types = (id: string) => top.find((c) => c.toolboxitemid === id)!.contents!.filter((c) => c.kind === "block").map((c) => c.type);
         expect(top[0].toolboxitemid).toBe("start");
-        expect([...types("start")].sort()).toEqual([...PART_HATS].sort());
+        expect([...types("start")].sort()).toEqual(PART_HATS.filter((t) => !t.startsWith("bl_")).sort());   // Blöckly: eigene Werkzeugleiste
         expect(types("steuerung").filter((t) => PART_HATS.includes(t!))).toEqual([]);
         expect(types("steuerung")).toEqual(expect.arrayContaining([B.msgSend, B.msgSendWait]));
     });

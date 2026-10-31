@@ -1,4 +1,5 @@
 import { Constants } from "../../Constants.js";
+import { zeigeLeerAnsicht } from "./EmptyState.js";
 import jQuery from 'jquery';
 import { downloadFile } from "../../../tools/HtmlTools.js";
 import { dateToString } from "../../../tools/StringTools.js";
@@ -31,6 +32,7 @@ import { ProgrammingLanguage } from '../../../compiler/common/programminglanguag
 import { ProgrammingLanguageData } from '../../../compiler/common/programminglanguage/ProgrammingLanguageData.js';
 import { ByArchitecture } from '../../../compiler/assembly/byassembly/ByArchitecture.js';
 import { openSchoolStartPage } from './SchoolStartPage.js';
+import { bloeckvaMenuItems } from '../../bloeckly/BloecklyNachBloeckva.js';
 
 
 export class ProjectExplorer {
@@ -562,7 +564,16 @@ export class ProjectExplorer {
                                 openSchoolStartPage(workspace.id);
                             }
                         });
+                        // Paket 17f: Galerie der Lerngruppe
+                        cmiList.push({
+                            caption: "In die Galerie stellen ...",
+                            callback: () => {
+                                this.main.networkManager.sendUpdatesAsync(true);
+                                openSchoolStartPage(workspace.id, "galerie");
+                            }
+                        });
                     }
+                    cmiList.push(...bloeckvaMenuItems(this.main as Main, workspace));   // GSG (Paket 18g): Blöckly → Blöckva
 
                     if (this.main.user.is_teacher && this.main.teacherExplorer.classPanel.size(true) > 0) {
                         cmiList.push({ caption: '-', callback: () => { } });
@@ -776,6 +787,7 @@ export class ProjectExplorer {
 
             for (let file of files) {
 
+                if (this.isHiddenFile(file)) continue;   // GSG: Blöckly-Hauptprogramm für Schüler/innen unsichtbar
                 this.fileTreeview.addNode(file.isFolder, file.name,
                     file.isFolder ? undefined : FileTypeManager.filenameToFileType(file.name, this.main.getCurrentProgrammingLanguage()).iconclass, file);
 
@@ -860,6 +872,7 @@ export class ProjectExplorer {
             this.main.getMainEditor().setModel(null);
             this.fileTreeview.setCaption(ProjectExplorerMessages.selectWorkspace());
             this.synchronizedButton.setVisible(false);
+            this.main.bottomDiv?.errorManager?.clearErrors();   // GSG: keine Fehler des vorigen (z. B. gelöschten) Projekts stehen lassen
             this.setFileActive(null);
             this.renderFiles(w);
             return;
@@ -911,9 +924,20 @@ export class ProjectExplorer {
 
     lastOpenFile: GUIFile = null;
     dontScrollIntoViewOnNextSetActive: boolean = false;
+    /** GSG (Blöckly, Paket 18d): das Hauptprogramm entsteht von selbst; Schüler/innen sehen es nicht */
+    isHiddenFile(file: GUIFile): boolean {
+        if (!Constants.isBloecklyApp || file.isFolder || file.name !== "Hauptprogramm") return false;
+        const u = this.main.user;
+        return !(u && (u.is_teacher || u.is_admin || u.is_schooladmin));
+    }
+
     setFileActive(file: GUIFile) {
 
         if (file?.isFolder) return;
+
+        if (file && this.isHiddenFile(file)) {
+            file = this.main.getCurrentWorkspace()?.getFiles().find((f) => !f.isFolder && !this.isHiddenFile(f)) ?? file;
+        }
 
         this.main.bottomDiv.homeworkManager.hideRevision();
 
@@ -921,10 +945,14 @@ export class ProjectExplorer {
 
         this.lastOpenFile?.saveViewState(editor);
 
+        // GSG: Leer-Ansicht mit „Neues Projekt“ / „Neue Datei“ statt „Keine Datei vorhanden“
+        zeigeLeerAnsicht(this.main, file == null ? (this.main.getCurrentWorkspace() ? "datei" : "projekt") : null);
+
         if (file == null) {
             editor.setModel(monaco.editor.createModel(ProjectExplorerMessages.noFile(), "text"));
             editor.updateOptions({ readOnly: true });
-            this.fileTreeview.setCaption(ProjectExplorerMessages.noFile());
+            // GSG: Überschrift bleibt der Projektname (sonst stand dort nach der ersten neuen Datei weiter „Keine Datei“)
+            this.fileTreeview.setCaption(this.main.getCurrentWorkspace()?.name ?? ProjectExplorerMessages.noFile());
         } else {
             editor.updateOptions({ readOnly: this.main.getCurrentWorkspace()?.readonly && !this.main.user.is_teacher });
             this.dontScrollIntoViewOnNextSetActive = true;

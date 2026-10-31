@@ -301,6 +301,7 @@ export abstract class StatementCodeGenerator extends TermCodeGenerator {
 
             forLoopSnippet.addParts(statementSnippet);
 
+            forLoopSnippet.addParts(this.gsgRunde());
             forLoopSnippet.addParts(jumpToBeginSnippet);
             forLoopSnippet.addNextStepMark();
             forLoopSnippet.addParts(breakLabel);
@@ -353,6 +354,7 @@ export abstract class StatementCodeGenerator extends TermCodeGenerator {
 
             forLoopSnippet.addParts(statementSnippet);
 
+            forLoopSnippet.addParts(this.gsgRunde());
             forLoopSnippet.addParts(jumpToBeginSnippet);
             forLoopSnippet.addNextStepMark();
             forLoopSnippet.addParts(breakLabel);
@@ -410,6 +412,7 @@ export abstract class StatementCodeGenerator extends TermCodeGenerator {
 
             forLoopSnippet.addParts(statementSnippet);
 
+            forLoopSnippet.addParts(this.gsgRunde());
             forLoopSnippet.addParts(jumpToBeginSnippet);
             forLoopSnippet.addNextStepMark();
             forLoopSnippet.addParts(breakLabel);
@@ -504,6 +507,7 @@ export abstract class StatementCodeGenerator extends TermCodeGenerator {
             }
         }
 
+        forSnippet.addParts(this.gsgRunde());
         forSnippet.addParts(jumpToLabelBeforeCheckingCondition);
 
         forSnippet.addNextStepMark();
@@ -542,6 +546,7 @@ export abstract class StatementCodeGenerator extends TermCodeGenerator {
         doWhileSnippet.addParts(labelBeforeEvaluatingCondition);
         let sn1 = SnippetFramer.frame(condition, "if(§1){\n", this.voidType);
         doWhileSnippet.addParts(sn1);
+        doWhileSnippet.addParts(this.gsgRunde());
         doWhileSnippet.addParts(new JumpToLabelCodeSnippet(labelAtBeginOfDoWhileBlock));
         doWhileSnippet.addStringPart("}", undefined);
 
@@ -642,6 +647,7 @@ export abstract class StatementCodeGenerator extends TermCodeGenerator {
         whileSnippet.addParts(statementToRepeat);
         let jtls = new JumpToLabelCodeSnippet(labelAtBeginOfWhileBlock);
         jtls.range = Range.fromPositions(Range.getEndPosition(statementToRepeat.range!))
+        whileSnippet.addParts(this.gsgRunde());
         whileSnippet.addParts(jtls);
         whileSnippet.addNextStepMark();
         whileSnippet.addParts(labelAfterWhileBlock);
@@ -652,6 +658,21 @@ export abstract class StatementCodeGenerator extends TermCodeGenerator {
         return whileSnippet;
     }
 
+    /**
+     * GSG (Blöckly): Schleifen in Figuren und Bühnen (Unterklassen von Figur oder Buehne) melden das Ende jeder
+     * Runde – wie in Scratch läuft dann höchstens eine Runde je Bild, sobald sich auf der Bühne etwas verändert
+     * hat. Reine Rechenschleifen bleiben schnell; andere Klassen bekommen nichts.
+     */
+    gsgRunde(): CodeSnippet[] {
+        let klass = this.currentSymbolTable.classContext as { identifier?: string, getExtends?: () => unknown } | undefined;
+        for (let i = 0; klass && i < 100; i++) {
+            if (klass.identifier === "Figur" || klass.identifier === "Buehne") {
+                return [new StringCodeSnippet(`${Helpers.gsgRunde}();\n`)];
+            }
+            klass = klass.getExtends?.() as typeof klass;
+        }
+        return [];
+    }
 
     negateConditionIfPossible(node: ASTTermNode): { newNode: ASTTermNode, negationHappened: boolean } {
         if (!node) return undefined;
@@ -1043,6 +1064,9 @@ export abstract class StatementCodeGenerator extends TermCodeGenerator {
                     }
                 } else if (shadowedSymbol instanceof JavaField && shadowedSymbol.classEnum.isMainClass) {
                     if (shadowedVariableErrorLevel != "ignore") this.pushError(JCM.shadowedVariableError(variable.identifier, shadowedSymbolLine), shadowedVariableErrorLevel, node.identifierRange);
+                } else if (shadowedSymbol instanceof JavaField && this.codeGenerationMode == "normal") {
+                    // GSG (Paket 16f): lokale Variable mit dem Namen eines Attributs – ohne this. ist die lokale gemeint
+                    this.pushError(JCM.gsgLocalVariableShadowsField(variable.identifier, shadowedSymbol.classEnum.identifier), "warning", node.identifierRange);
                 }
             }
         }

@@ -153,3 +153,107 @@ for (int i = 0; i < 150; i++) {
         expect(list?.items[99]).toBe("99");
     });
 });
+
+describe("Gültigkeitsbereiche (Paket 16g)", () => {
+    /** Bereiche in Reihenfolge: „Titel: a=1, b=2“ (innere Blöcke mit „  “ eingerückt) */
+    const groups = (monitors: Monitor[]) => {
+        const result = new Map<string, string[]>();
+        for (const m of monitors) {
+            const title = (m.scope?.inner ? "  " : "") + (m.scope?.title ?? "?");
+            const key = (m.scope?.key ?? "?") + title;
+            if (!result.has(key)) result.set(key, [title + ":"]);
+            result.get(key)!.push(`${m.name}=${m.text}`);
+        }
+        return [...result.values()].map(([title, ...vars]) => `${title} ${vars.join(", ")}`);
+    };
+    function stepwiseGroups(interpreter: Interpreter, tracker: StageVariableTracker): string[][] {
+        const seen: string[][] = [];
+        interpreter.start();
+        interpreter.scheduler.runsSynchronously = true;
+        for (let i = 0; i < 400 && interpreter.scheduler.state == SchedulerState.running; i++) {
+            interpreter.scheduler.run(1);
+            tracker.poll(interpreter);
+            seen.push(groups(tracker.monitors));
+        }
+        return seen;
+    }
+    const PROGRAM = [
+        "int summe = 0;",
+        "for (int i = 1; i <= 2; i++) {",
+        "    int quadrat = i * i;",
+        "    summe += zeige(quadrat);",
+        "}",
+        "int zeige(int wert) {",
+        "    int doppelt = 2 * wert;",
+        "    return doppelt;",
+        "}"].join("\n") + "\n";
+    const has = (seen: string[][], expected: string[]) => seen.some((s) => JSON.stringify(s) === JSON.stringify(expected));
+
+    test("Hauptprogramm, Schleife und laufende Methode als eigene Bereiche; am Ende nur das Hauptprogramm", async () => {
+        const { interpreter, tracker } = await setup(PROGRAM);
+        const seen = stepwiseGroups(interpreter, tracker);
+        expect(has(seen, ["Hauptprogramm: summe=0", "  in der for-Schleife (Zeile 2–5): i=1, quadrat=1"])).toBe(true);
+        expect(has(seen, ["Hauptprogramm: summe=0", "  in der for-Schleife (Zeile 2–5): i=1, quadrat=1", "Methode zeige(): wert=1, doppelt=2"])).toBe(true);
+        expect(groups(tracker.monitors)).toEqual(["Hauptprogramm: summe=10"]);
+    });
+
+    test("Blöcke: Namen der Blöcke statt Java-Wörtern", async () => {
+        const { interpreter } = await setup(PROGRAM);
+        const tracker = new StageVariableTracker(() => { }, () => undefined, () => "blocks");
+        tracker.attach(interpreter);
+        const seen = stepwiseGroups(interpreter, tracker);
+        expect(has(seen, ["Hauptprogramm: summe=0", "  in „wiederhole für …“: i=1, quadrat=1", "Operation zeige: wert=1, doppelt=2"])).toBe(true);
+    });
+
+    test("Rekursion: jeder Aufruf hat seine eigenen Variablen", async () => {
+        const { interpreter, tracker } = await setup([
+            "int ergebnis = fak(3);",
+            "int fak(int n) {",
+            "    if (n <= 1) {",
+            "        return 1;",
+            "    }",
+            "    return n * fak(n - 1);",
+            "}"].join("\n") + "\n");
+        const seen = stepwiseGroups(interpreter, tracker);
+        expect(has(seen, ["Methode fak() – 1. Aufruf: n=3", "Methode fak() – 2. Aufruf: n=2", "Methode fak() – 3. Aufruf: n=1"])).toBe(true);
+        expect(groups(tracker.monitors)).toEqual(["Hauptprogramm: ergebnis=6"]);
+    });
+
+    test("Methode einer Klasse und Konstruktor", async () => {
+        const { interpreter, tracker } = await setup([
+            "Konto k = new Konto(5);",
+            "k.einzahlen(3);",
+            "class Konto {",
+            "    int stand;",
+            "    Konto(int start) {",
+            "        stand = start;",
+            "    }",
+            "    void einzahlen(int betrag) {",
+            "        stand += betrag;",
+            "    }",
+            "}"].join("\n") + "\n");
+        const titles = new Set(stepwiseGroups(interpreter, tracker).flat().map((g) => g.split(":")[0]));
+        expect(titles).toContain("Konstruktor von Konto");
+        expect(titles).toContain("Methode einzahlen() von Konto");
+    });
+
+    test("Programmteil (eigener Thread) als eigener Bereich", async () => {
+        const { interpreter, tracker } = await setup([
+            "int punkte = 0;",
+            "",
+            "@BeimStart",
+            "void zaehlen() {",
+            "    int schritt = 2;",
+            "    for (int k = 0; k < 2; k++) {",
+            "        punkte += schritt;",
+            "    }",
+            "}"].join("\n") + "\n");
+        const seen = stepwiseGroups(interpreter, tracker).flat();
+        expect(seen).toContain("Programmteil zaehlen() – @BeimStart: schritt=2");
+        expect(seen.some((g) => g.startsWith("  in der for-Schleife (Zeile 6–8): k="))).toBe(true);
+        const blocks = new StageVariableTracker(() => { }, () => undefined, () => "blocks");
+        const again = await setup(["int punkte = 0;", "@BeimStart", "void zaehlen() {", "    int schritt = 2;", "    punkte += schritt;", "}"].join("\n") + "\n");
+        blocks.attach(again.interpreter);
+        expect(stepwiseGroups(again.interpreter, blocks).flat()).toContain("Programmteil „wenn das Programm startet“: schritt=2");
+    });
+});

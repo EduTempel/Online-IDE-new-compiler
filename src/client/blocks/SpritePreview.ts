@@ -1,3 +1,4 @@
+import { gsgFigurenSheet } from "../../compiler/java/runtime/graphics/GsgFigurenSheet";
 import * as PIXI from "pixi.js";
 import type { Main } from "../main/Main";
 import { SpriteLibraryEnum } from "../../compiler/java/runtime/graphics/SpriteLibraryEnum";
@@ -82,11 +83,12 @@ export function createSpriteSource(main: Main): SpriteSource {
                     result = crop(sheetCanvas, ownFrame);
                 } else {
                     const sheet = PIXI.Assets.get("spritesheet") as PIXI.Spritesheet | undefined;
-                    const texture = sheet?.textures?.[key];
+                    const texture = sheet?.textures?.[key] ?? gsgFigurenSheet()?.textures?.[key];   // GSG: Blöckly-Figuren
                     const resource = texture?.source?.resource as CanvasImageSource | undefined;
                     if (texture && resource) {
                         const fr = texture.frame;
-                        result = crop(resource, { x: fr.x, y: fr.y, w: fr.width, h: fr.height });
+                        const r = texture.source.resolution || 1;   // Blöckly-Tafel: doppelte Auflösung
+                        result = crop(resource, { x: fr.x * r, y: fr.y * r, w: fr.width * r, h: fr.height * r });
                     }
                 }
             } catch {

@@ -5,7 +5,7 @@ let serverIP: string = 'localhost';
 // let serverIP: string = '172.30.95.53';
 
 /**
- * Entwicklung: Anwendungen "Blöcke" (/bloecke/) und "Struktogramme" (/struktogramme/) – dieselbe Seite
+ * Entwicklung: Anwendungen "Blöckva" (/bloecke/), "Struktogramme" (/struktogramme/) und "Blöckly" (/bloeckly/) – dieselbe Seite
  * wie die Java-IDE (im Betrieb liefert Caddy dafür die gebaute Java-IDE aus). Server-Aufrufe unter diesen
  * Pfaden gehen ans Backend.
  */
@@ -13,8 +13,8 @@ const bloeckeDev = {
     name: "gsg-bloecke-dev",
     configureServer(server: { middlewares: { use(fn: (req: { url?: string }, res: unknown, next: () => void) => void): void } }) {
         server.middlewares.use((req, _res, next) => {
-            if (req.url && /^\/(bloecke|struktogramme)(\/|$|\?)/.test(req.url) && !/^\/(bloecke|struktogramme)\/(servlet|sendUpdates|sprites)/.test(req.url)) {
-                req.url = req.url.replace(/^\/(bloecke|struktogramme)\/?/, "/");
+            if (req.url && /^\/(bloecke|struktogramme|bloeckly)(\/|$|\?)/.test(req.url) && !/^\/(bloecke|struktogramme|bloeckly)\/(servlet|sendUpdates|sprites)/.test(req.url)) {
+                req.url = req.url.replace(/^\/(bloecke|struktogramme|bloeckly)\/?/, "/");
             }
             next();
         });
@@ -80,14 +80,18 @@ export default {
             '/flaci': 'http://' + serverIP + ':5500',    // Anwendung FLACI (vom Backend ausgeliefert)
             '/branding': 'http://' + serverIP + ':5500',     // Logo und Schulfarben (Verwaltung → Aussehen)
             '/mitwirkende': 'http://' + serverIP + ':5500',  // Mitwirkende und Lizenzen
-            // Anwendung "Blöcke": relative Server-Aufrufe unter /bloecke/ ans Backend
+            '/lehrkraefte': 'http://' + serverIP + ':5500',  // Lehrerhandbuch Blöcke
+            // Anwendungen "Blöckva", "Struktogramme", "Blöckly": relative Server-Aufrufe unter ihrem Pfad ans Backend
             '/bloecke/servlet': { target: 'http://' + serverIP + ':5500', rewrite: (p: string) => p.replace(/^\/bloecke/, '') },
             '/bloecke/sendUpdates': { target: 'http://' + serverIP + ':5500', rewrite: (p: string) => p.replace(/^\/bloecke/, '') },
             '/struktogramme/servlet': { target: 'http://' + serverIP + ':5500', rewrite: (p: string) => p.replace(/^\/struktogramme/, '') },
             '/struktogramme/sendUpdates': { target: 'http://' + serverIP + ':5500', rewrite: (p: string) => p.replace(/^\/struktogramme/, '') },
+            '/bloeckly/servlet': { target: 'http://' + serverIP + ':5500', rewrite: (p: string) => p.replace(/^\/bloeckly/, '') },
+            '/bloeckly/sendUpdates': { target: 'http://' + serverIP + ':5500', rewrite: (p: string) => p.replace(/^\/bloeckly/, '') },
             // eigene Sprite-Bilder (Bildtafeln der Projekte)
             '/bloecke/sprites': { target: 'http://' + serverIP + ':5500', rewrite: (p: string) => p.replace(/^\/bloecke/, '') },
             '/struktogramme/sprites': { target: 'http://' + serverIP + ':5500', rewrite: (p: string) => p.replace(/^\/struktogramme/, '') },
+            '/bloeckly/sprites': { target: 'http://' + serverIP + ':5500', rewrite: (p: string) => p.replace(/^\/bloeckly/, '') },
             // '/servlet/subscriptionwebsocket': { target: 'ws://localhost:5500', ws: true },
         }, 
         port: 3000

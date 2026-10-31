@@ -1,7 +1,8 @@
 import * as Blockly from "blockly/core";
 import { B } from "./BlockTypes";
-import { collectVariables, variablesFor } from "./BlockTypeSystem";
+import { collectVariables, visibleVariables } from "./BlockTypeSystem";
 import { defineIfBlock, definePrintBlock, withoutJavaHints } from "./BlockMutators";
+import { defineLabelled } from "./BlockLabels";
 import { defineOperationBlocks, OPERATIONS_CATEGORY, OPERATIONS_COLOUR } from "./BlockOperations";
 import { defineFigureBlocks, FIGURES_CATEGORY, FIGURES_COLOUR, INPUT_CATEGORY, INPUT_COLOUR } from "./BlockFigures";
 import { ADT_CATEGORY, ADT_COLOUR, ARRAYS_CATEGORY, ARRAYS_COLOUR, defineCollectionBlocks, LISTS_CATEGORY, LISTS_COLOUR } from "./BlockCollections";
@@ -49,10 +50,16 @@ export class FieldVariableName extends Blockly.FieldDropdown {
         this.setValue(value);
     }
 
-    /** Variablen des eigenen Hauptprogramms bzw. der eigenen Operation (lose Blöcke: alle) */
+    /** Name der Variablen, auf die das Feld verweist (für die Prüfung des Gültigkeitsbereichs) */
+    variableRef(): string | undefined {
+        const v = this.getValue();
+        return typeof v === "string" && v ? v : undefined;
+    }
+
+    /** Variablen, die an dieser Stelle gelten (Gültigkeitsbereich wie in Java; lose Blöcke: alle) */
     private variableOptions(): [string, string][] {
         const block = this.getSourceBlock();
-        const names = new Set<string>(block ? [...variablesFor(block).keys()] : []);
+        const names = new Set<string>(block ? [...visibleVariables(block).keys()] : []);
         const current = this.getValue();
         if (typeof current === "string" && current) names.add(current);
         if (names.size === 0) names.add("zahl");
@@ -175,7 +182,8 @@ export function defineBlocks() {
     });
 
     // alle Blöcke ohne Java-Schnipsel (stehen im Tooltip)
-    const defineJson = (json: object[]) => Blockly.common.defineBlocksWithJsonArray(withoutJavaHints(json as Record<string, unknown>[]));
+    // Paket 17d: Beschriftung Deutsch oder Java (BlockLabels merkt sich die Definitionen zum Umschalten)
+    const defineJson = (json: object[]) => defineLabelled(withoutJavaHints(json as Record<string, unknown>[]));
 
     defineIfBlock(COLOURS.control);
     definePrintBlock(COLOURS.output);

@@ -31,21 +31,25 @@ export const SCHOOL_ADMIN_URL = "/verwaltung/";
 /** Seite „Mitwirkende und Lizenzen“ des eigenen Backends (Hilfe-Menü, Login-Seite) */
 export const SCHOOL_CREDITS_URL = "/mitwirkende/";
 
+/** Lehrerhandbuch zur Block-Umgebung (Hilfe-Menü für Lehrkräfte, Aufgaben-Reiter) */
+export const SCHOOL_TEACHER_HANDBOOK_URL = "/lehrkraefte/";
+
 /** Startseite des eigenen Backends: Anwendungen, Projekte per Link teilen */
 export const SCHOOL_START_URL = "/start/";
 
-/** Anwendungen "Blöcke" und "Struktogramme" (dieselbe IDE): Titel, Überschrift und IServ-Rücksprung anpassen */
+/** Anwendungen "Blöckva", "Struktogramme" und "Blöckly" (dieselbe IDE): Titel, Überschrift und IServ-Rücksprung anpassen */
+const APP_TITLES: { path: RegExp, title: string, app: string }[] = [
+    { path: /^\/bloecke(\/|$)/, title: "Blöckva", app: "bloecke" },
+    { path: /^\/struktogramme(\/|$)/, title: "Struktogramme", app: "struktogramme" },
+    { path: /^\/bloeckly(\/|$)/, title: "Blöckly", app: "bloeckly" },
+];
+
 function applyAppBranding() {
-    if (/^\/struktogramme(\/|$)/.test(location.pathname)) {
-        document.title = `Struktogramme · ${SCHOOL.short}`;
-        document.querySelectorAll<HTMLElement>(".gsg-login-title").forEach((el) => (el.textContent = "Struktogramme"));
-        document.querySelectorAll<HTMLAnchorElement>("a.gsg-iserv-button").forEach((a) => (a.href = "/auth/iserv/login?app=struktogramme"));
-        return;
-    }
-    if (!/^\/bloecke(\/|$)/.test(location.pathname)) return;
-    document.title = `Blöcke · ${SCHOOL.short}`;
-    document.querySelectorAll<HTMLElement>(".gsg-login-title").forEach((el) => (el.textContent = "Blöcke"));
-    document.querySelectorAll<HTMLAnchorElement>("a.gsg-iserv-button").forEach((a) => (a.href = "/auth/iserv/login?app=bloecke"));
+    const a = APP_TITLES.find((t) => t.path.test(location.pathname));
+    if (!a) return;
+    document.title = `${a.title} · ${SCHOOL.short}`;
+    document.querySelectorAll<HTMLElement>(".gsg-login-title").forEach((el) => (el.textContent = a.title));
+    document.querySelectorAll<HTMLAnchorElement>("a.gsg-iserv-button").forEach((link) => (link.href = `/auth/iserv/login?app=${a.app}`));
 }
 
 /**
@@ -111,9 +115,22 @@ function brandColors(): { [themeName: string]: { [cssVariable: string]: string }
             "--file-active-border": GREEN,
             "--contextmenu-hover-background": NAVY,
             "--error-line-ative": NAVY,
-            "--bottomdiv-tabheading-active": GREEN_LIGHT,
+            "--bottomdiv-tabheading-active": GREEN,
             "--speedcontrol-grip": GREEN,
             "--speedcontrol-grip-hover": GREEN_LIGHT,
+            // Auswahl in Datei- und Projektlisten, Fokus, Start-Knopf (gsg-branding.css)
+            "--gsg-sel-bg": NAVY,
+            "--gsg-sel-hover": NAVY_HOVER,
+            "--gsg-sel-fg": "#ffffff",
+            "--gsg-sel-bar": GREEN,
+            "--gsg-focus": GREEN_LIGHT,
+            "--gsg-start-bg": GREEN,
+            "--gsg-start-hover": GREEN_LIGHT,
+            "--gsg-start-fg": ON_GREEN,
+            // Symbole der Knöpfe (für dunklen Hintergrund gezeichnet): im dunklen Design unverändert
+            "--gsg-icon-filter": "none",
+            "--gsg-icon-filter-hover": "brightness(150%)",
+            "--gsg-icon-filter-off": "grayscale()",
             "--loginButtonBackground": NAVY,
             "--loginButtonBackgrond": NAVY,
             "--loginButtonFontColor": "#ffffff",
@@ -130,9 +147,21 @@ function brandColors(): { [themeName: string]: { [cssVariable: string]: string }
             "--file-active-border": GREEN,
             "--contextmenu-hover-color": NAVY,
             "--error-line-ative": NAVY_TINT,
-            "--bottomdiv-tabheading-active": NAVY,
+            "--bottomdiv-tabheading-active": GREEN_DARK,
             "--speedcontrol-grip": GREEN,
             "--speedcontrol-grip-hover": GREEN_DARK,
+            "--gsg-sel-bg": NAVY_TINT,
+            "--gsg-sel-hover": NAVY_TINT_LIGHT,
+            "--gsg-sel-fg": NAVY_DARK,
+            "--gsg-sel-bar": GREEN_DARK,
+            "--gsg-focus": GREEN_DARK,
+            "--gsg-start-bg": GREEN,
+            "--gsg-start-hover": GREEN_LIGHT,
+            "--gsg-start-fg": ON_GREEN,
+            // im hellen Design abdunkeln und kräftiger, sonst sind die hellen Symbole auf Weiß kaum zu sehen
+            "--gsg-icon-filter": "brightness(.55) saturate(1.8) contrast(1.2)",
+            "--gsg-icon-filter-hover": "brightness(.35) saturate(2)",
+            "--gsg-icon-filter-off": "brightness(.75) grayscale()",
             "--loginButtonBackground": NAVY,
             "--loginButtonBackgrond": NAVY,
             "--loginButtonFontColor": "#ffffff",
@@ -146,6 +175,8 @@ function brandColors(): { [themeName: string]: { [cssVariable: string]: string }
 }
 
 export function applySchoolBranding(themes: ThemeLike[]) {
+    // Anwendung für das Stylesheet (z. B. beschriftete Start-Knöpfe nur außerhalb von Blöckly)
+    document.documentElement.dataset.gsgApp = APP_TITLES.find((t) => t.path.test(location.pathname))?.app ?? "java";
     const colors = brandColors();
     for (const theme of themes) {
         const overrides = colors[theme.name];

@@ -90,6 +90,32 @@
 .gsg-blocks-bar button:hover { border-color: var(--slider, #555); background: rgba(127, 127, 127, .15); }
 .gsg-blocks-bar button:focus-visible { outline: 2px solid var(--brand-accent, #45B82F); }
 .gsg-blocks-bar button[hidden] { display: none; }
+/* Paket 17e: Puzzle */
+.gsg-blocks-bar button.gsg-puzzle-check { border-color: var(--brand-accent, #45B82F); }
+.gsg-puzzle-result {
+    position: absolute;
+    left: 50%;
+    bottom: 48px;
+    transform: translateX(-50%);
+    max-width: 80%;
+    z-index: 20;
+    background: #2f3b52;
+    color: #fff;
+    font: 13px/1.35 Roboto, "Segoe UI", sans-serif;
+    padding: 6px 14px;
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .35);
+    cursor: pointer;
+}
+.gsg-puzzle-result.correct { background: var(--brand-accent, #45B82F); font-weight: 600; }
+.gsg-puzzle-result[hidden] { display: none; }
+
+/* Paket 17d: Beschriftung Deutsch │ Java */
+.gsg-label-switch { display: inline-flex; align-items: center; gap: 2px; margin-left: 8px; color: var(--fontColorLight, #999); }
+.gsg-label-switch[hidden] { display: none; }
+.gsg-label-switch > span { margin-right: 2px; }
+.gsg-blocks-bar .gsg-label-switch button { padding: 1px 6px; border-color: var(--slider, #555); }
+.gsg-blocks-bar .gsg-label-switch button.active { background: var(--brand-accent, #45B82F); border-color: var(--brand-accent, #45B82F); color: #fff; }
 .gsg-blocks-keys { margin-left: auto; color: var(--fontColorLight, #999); font-size: 11px; }
 
 .gsg-blocks-notice {
@@ -270,4 +296,54 @@
     font: 14px/1.3 system-ui, "Segoe UI", sans-serif;
     box-shadow: 0 2px 8px rgba(0, 0, 0, .35);
     pointer-events: none;
+}
+
+/* Gültigkeitsbereich der ausgewählten Variablen (Paket 16c) */
+.gsg-scope-region {
+    fill: rgba(69, 184, 47, .08);
+    stroke: #45B82F;
+    stroke-width: 2;
+    stroke-dasharray: 7 4;
+}
+.gsg-scope-label text {
+    font: 600 12px Roboto, "Segoe UI", sans-serif;
+    fill: #ffffff;
+}
+.gsg-scope-label rect { fill: #3a9d27; }
+.gsg-scope-declaration { fill: none; stroke: #45B82F; stroke-width: 3; }
+.gsg-scope-use { fill: none; stroke: #f0b400; stroke-width: 3; }
+
+/* Wert eines angeklickten Werte-Blocks (Paket 17a, wie in Scratch) */
+.gsg-value-bubble {
+    position: absolute;
+    z-index: 1000;
+    transform: translateY(calc(-100% - 8px));
+    max-width: 320px;
+    padding: 5px 10px;
+    border-radius: 12px;
+    background: #ffffff;
+    color: #1f2430;
+    border: 2px solid #45B82F;
+    font: 600 14px/1.35 Roboto, "Segoe UI", sans-serif;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .3);
+    pointer-events: none;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+.gsg-value-bubble::after {
+    content: "";
+    position: absolute;
+    left: 14px;
+    bottom: -8px;
+    border: 7px solid transparent;
+    border-bottom: 0;
+    border-top-color: #45B82F;
+}
+.gsg-value-bubble.is-problem { border-color: #f0b400; font-weight: 400; }
+.gsg-value-bubble.is-problem::after { border-top-color: #f0b400; }
+.gsg-value-type {
+    margin-left: 8px;
+    font-weight: 400;
+    font-size: 12px;
+    color: #5b6170;
 }

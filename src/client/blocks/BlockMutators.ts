@@ -1,5 +1,6 @@
 import * as Blockly from "blockly/core";
 import { B } from "./BlockTypes";
+import { L, labelMode } from "./BlockLabels";
 
 /**
  * Blöcke, deren Form sich per Knopf ändert (wie in der Python-IDE):
@@ -156,20 +157,23 @@ export function defineIfBlock(colour: string) {
                     : "Führt die Blöcke unter „dann“ nur aus, wenn die Bedingung wahr ist.")
                 : "Prüft die Bedingungen der Reihe nach und führt die Blöcke beim ersten wahren Fall aus. "
                 + "„+ sonst falls“ fügt weitere Bedingungen hinzu, „+ sonst“ einen Teil für alle anderen Fälle, ✕ entfernt einen Teil.");
-            this.appendValueInput("COND").appendField("falls");
+            const java = labelMode() === "java";
+            this.appendValueInput("COND").appendField(L("falls", "if"));
             this.appendDummyInput("COND_HINT").appendField(hintLabel("if"));
-            this.appendStatementInput("DO").appendField("dann");
+            const then = this.appendStatementInput("DO");
+            if (!java) then.appendField("dann");
             for (let i = 1; i <= this.state.elseIfs; i++) {
                 const index = i;
                 this.appendValueInput("COND" + i).appendField(new FieldButton("✕", (b) => removeElseIf(b as Mutable<IfState>, index), "Diesen Zweig entfernen"))
-                    .appendField("sonst falls");
+                    .appendField(L("sonst falls", "else if"));
                 this.appendDummyInput("COND_HINT" + i).appendField(hintLabel("else if"));
-                this.appendStatementInput("DO" + i).appendField("dann");
+                const thenI = this.appendStatementInput("DO" + i);
+                if (!java) thenI.appendField("dann");
             }
             if (this.state.hasElse) {
                 const label = this.appendDummyInput("ELSE_LABEL");
                 if (!fixed) label.appendField(new FieldButton("✕", (b) => removeElse(b as Mutable<IfState>), "Den sonst-Teil entfernen"));
-                label.appendField("sonst").appendField(hintLabel("else"));
+                label.appendField(L("sonst", "else")).appendField(hintLabel("else"));
                 this.appendStatementInput("ELSE");
             }
             if (fixed) {
@@ -177,8 +181,8 @@ export function defineIfBlock(colour: string) {
                 return;
             }
             const add = this.appendDummyInput("ADD")
-                .appendField(new FieldButton("+ sonst falls", (b) => addElseIf(b as Mutable<IfState>), "Weitere Bedingung hinzufügen"));
-            if (!this.state.hasElse) add.appendField(new FieldButton("+ sonst", (b) => addElse(b as Mutable<IfState>), "sonst-Teil hinzufügen"));
+                .appendField(new FieldButton(L("+ sonst falls", "+ else if"), (b) => addElseIf(b as Mutable<IfState>), "Weitere Bedingung hinzufügen"));
+            if (!this.state.hasElse) add.appendField(new FieldButton(L("+ sonst", "+ else"), (b) => addElse(b as Mutable<IfState>), "sonst-Teil hinzufügen"));
             // Bedingung und Java-Hinweis in einer Zeile (Anweisungen stehen ohnehin in eigenen Zeilen)
             this.setInputsInline(true);
         },
@@ -236,12 +240,17 @@ export function definePrintBlock(colour: string) {
         },
 
         build(this: Mutable<PrintState>) {
-            this.appendValueInput("VALUE").appendField("gib aus");
-            for (let i = 1; i < this.state.items; i++) this.appendValueInput("VALUE" + i).appendField("und");
+            // Java (Paket 17d): println ( a + " " + b ) ;
+            const java = labelMode() === "java";
+            const first = this.appendValueInput("VALUE");
+            if (java) first.appendField(new Blockly.FieldDropdown([["println", "println"], ["print", "print"]]), "MODE").appendField("(");
+            else first.appendField("gib aus");
+            for (let i = 1; i < this.state.items; i++) this.appendValueInput("VALUE" + i).appendField(L("und", '+ " " +'));
             const tail = this.appendDummyInput("TAIL");
             if (this.state.items > 1) tail.appendField(new FieldButton("◂", (b) => setItems(b as Mutable<PrintState>, -1), "Letzten Wert entfernen"));
             tail.appendField(new FieldButton("▸", (b) => setItems(b as Mutable<PrintState>, +1), "Weiteren Wert hinzufügen"));
-            tail.appendField(new Blockly.FieldDropdown([["mit Zeilenumbruch", "println"], ["ohne Zeilenumbruch", "print"]]), "MODE");
+            if (java) tail.appendField(") ;");
+            else tail.appendField(new Blockly.FieldDropdown([["mit Zeilenumbruch", "println"], ["ohne Zeilenumbruch", "print"]]), "MODE");
         },
 
         saveExtraState(this: Mutable<PrintState>): PrintState | null {

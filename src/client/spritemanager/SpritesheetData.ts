@@ -9,6 +9,7 @@ import JSZip from 'jszip'
 import { SpritesheetDataMessages } from "./SpriteManagerLanguage.js";
 import { GetSpritesheetIdForWorkspaceRequest, GetSpritesheetIdForWorkspaceResponse } from "../communication/Data.js";
 import { JavaCompiler } from "../../compiler/java/JavaCompiler.js";
+import { eigeneFigurenSetzen } from "../../compiler/java/runtime/graphics/GsgEigeneFiguren.js";
 
 
 export class SpritesheetData {
@@ -60,6 +61,8 @@ export class SpritesheetData {
             }
         }
 
+
+        eigeneFigurenSetzen(newSpritesheetLoaded ? this.pixiSpritesheetData : undefined, this.pngImageData);    // GSG: eigene Figuren (Paket 18i)
 
         /**
          * See user-defined-spritesheets.md

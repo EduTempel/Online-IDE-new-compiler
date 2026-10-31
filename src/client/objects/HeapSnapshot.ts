@@ -26,7 +26,7 @@ export type HeapVariable = { name: string; value: HeapValue };
 export type HeapSnapshot = { vars: HeapVariable[]; nodes: HeapNode[]; truncated: boolean };
 
 /** Eingabe: Variable mit Laufzeitwert und (wenn bekannt) Java-Typ */
-export type RootVariable = { name: string; value: unknown; type?: string };
+export type RootVariable = { name: string; value: unknown; type?: string; scope?: import("./ScopeTitles").VariableScope };
 
 const BOXED = new Set(["String", "Integer", "Double", "Float", "Long", "Short", "Byte", "Character", "Boolean"]);
 const MAX_NODES = 30;

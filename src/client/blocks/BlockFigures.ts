@@ -1,6 +1,6 @@
 import * as Blockly from "blockly/core";
 import { B } from "./BlockTypes";
-import { variablesFor, collectVariables } from "./BlockTypeSystem";
+import { visibleVariables, collectVariables } from "./BlockTypeSystem";
 import { collectionOfType } from "./ClassModel";
 import {
     COLOURS, DEFAULT_FIGURE_NAME, FIGURE_ACTIONS, FIGURE_CLASSES, FIGURE_NAMES_DE, FIGURE_PROPS, FILLED, isFigureClass, KEYS, keyPartName, MOUSE_TARGET, EDGE_TARGET, ANY_TARGET,
@@ -84,11 +84,17 @@ export class FieldFigureName extends Blockly.FieldDropdown {
         this.setValue(value);
     }
 
+    /** Name der Variablen, auf die das Feld verweist (nicht Mauszeiger, Rand, irgendeine Figur) */
+    variableRef(): string | undefined {
+        const v = this.getValue();
+        return typeof v === "string" && v && v !== MOUSE_TARGET && v !== EDGE_TARGET && v !== ANY_TARGET ? v : undefined;
+    }
+
     private figureOptions(): [string, string][] {
         const kinds = this.kinds ?? [...FIGURE_CLASSES];
         const block = this.getSourceBlock();
         const names = new Set<string>();
-        if (block) for (const [name, type] of variablesFor(block)) if (isFigureClass(type) && kinds.includes(type)) names.add(name);
+        if (block) for (const [name, type] of visibleVariables(block)) if (isFigureClass(type) && kinds.includes(type)) names.add(name);
         const current = this.getValue();
         if (typeof current === "string" && current) names.add(current);
         names.delete(MOUSE_TARGET);
@@ -240,6 +246,16 @@ export function defineFigureBlocks(defineJson: (json: object[]) => void) {
             args0: [{ type: "field_dropdown", name: "ACTION", options: FIGURE_ACTIONS.map(([label, v]) => [label, v]) }, figure(), hint(".setVisible …")],
             ...statement, ...fig,
             tooltip: "zeige/verstecke: sichtbar oder unsichtbar machen; nach vorne/hinten: verdeckt andere bzw. wird verdeckt; entferne: Figur verschwindet ganz.",
+        },
+        {
+            type: B.figSay, message0: "%1 sage %2 %3", args0: [figure(), value("TEXT"), hint(".say")],
+            ...statement, ...fig,
+            tooltip: "Zeigt eine Sprechblase über der Figur (wie in Scratch). Sie bleibt, bis die Figur etwas anderes sagt; ein leerer Text \"\" entfernt sie.",
+        },
+        {
+            type: B.figSayFor, message0: "%1 sage %2 für %3 Sekunden %4", args0: [figure(), value("TEXT"), value("SECS"), hint(".say")],
+            ...statement, ...fig,
+            tooltip: "Zeigt die Sprechblase, wartet so viele Sekunden und entfernt sie dann wieder. Das Programm wartet so lange.",
         },
         {
             type: B.figSetText, message0: "setze Inhalt von %1 auf %2 %3", args0: [figure(["Text"]), value("TEXT"), hint(".setText")],
@@ -408,6 +424,8 @@ export function figuresFlyout(ws: Blockly.WorkspaceSvg): Blockly.utils.toolbox.F
         { kind: "block", type: B.figScale, fields: { NAME: any }, inputs: { F: num("1.5") } },
         { kind: "block", type: B.figColor, fields: { NAME: filled, COLOR: "red" } },
         { kind: "block", type: B.figAction, fields: { ACTION: "hide", NAME: any } },
+        { kind: "block", type: B.figSay, fields: { NAME: any }, inputs: { TEXT: txt("Hallo!") } },
+        { kind: "block", type: B.figSayFor, fields: { NAME: any }, inputs: { TEXT: txt("Hallo!"), SECS: num("2") } },
         { kind: "block", type: B.figSetText, fields: { NAME: firstOf(figs, ["Text"]) }, inputs: { TEXT: txt("Punkte: 1") } },
         { kind: "block", type: B.figSetImage, fields: { NAME: firstOf(figs, ["Sprite"]) }, inputs: { I: num("1") } },
         { kind: "label", text: "Werte und Bedingungen" },

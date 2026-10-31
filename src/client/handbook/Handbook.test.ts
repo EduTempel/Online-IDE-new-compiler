@@ -40,6 +40,7 @@ describe("Handbuch: Blöcke", () => {
 
     test.each(blockEntries.map((e) => [`${e.section}: ${e.title}`, e] as const))("%s: Blöcke ↔ Java unverändert", (_, e) => {
         expect(roundTrip(e.code)).toBe(e.code);
+        if (e.solution) expect(roundTrip(e.solution.code)).toBe(e.solution.code);
         if (e.section !== "java") expect(JSON.stringify(JavaBlockParser.parse(e.code).state)).not.toMatch(/j_java_(expr|stmt|raw)/);
     });
 
@@ -47,12 +48,15 @@ describe("Handbuch: Blöcke", () => {
         // nicht in der Werkzeugleiste: alte Formen, Java-Text aus dem Parser, nur für Struktogramme
         const notInToolbox: string[] = [B.varSub, B.varInc, B.varDec, B.dynIsEmpty, B.javaRaw, B.switch, B.doWhile];
         const used = new Set(blockEntries.flatMap((e) => [...blockTypesOf(e.code)]));
-        expect(Object.values(B).filter((t) => !used.has(t) && !notInToolbox.includes(t))).toEqual([]);
+        // Blöckly (bl_…) hat eine eigene Werkzeugleiste und kommt im Handbuch von Blöckva nicht vor
+        expect(Object.values(B).filter((t) => !used.has(t) && !notInToolbox.includes(t) && !t.startsWith("bl_"))).toEqual([]);
     });
 
     test.each(blockEntries.map((e) => [`${e.section}: ${e.title}`, e] as const))("%s: übersetzbar, ggf. lauffähig", async (_, e) => {
-        if (e.runs) expect((await runJava(e.code, e.libs)).errors).toEqual([]);
-        else expect(await compileJava(e.code, e.libs)).toEqual([]);
+        // Übung „Finde den Fehler“: die Lösung muss laufen
+        const code = e.solution?.code ?? e.code;
+        if (e.runs || e.solution) expect((await runJava(code, e.libs)).errors).toEqual([]);
+        else expect(await compileJava(code, e.libs)).toEqual([]);
     });
 });
 
@@ -66,11 +70,13 @@ describe("Handbuch: Java", () => {
 
     test.each(javaEntries.map((e) => [`${e.section}: ${e.title}`, e] as const))("%s: übersetzbar, ggf. lauffähig", async (_, e) => {
         expect(e.code.endsWith("\n")).toBe(true);
-        if (e.runs) {
-            const r = await runJava(e.code, e.libs);
+        // Übung „Finde den Fehler“: die Lösung muss laufen
+        const code = e.solution?.code ?? e.code;
+        if (e.runs || e.solution) {
+            const r = await runJava(code, e.libs);
             expect(r.errors).toEqual([]);
             expect(r.output).not.toMatch(/Exception|Fehler/);
-        } else expect(await compileJava(e.code, e.libs)).toEqual([]);
+        } else expect(await compileJava(code, e.libs)).toEqual([]);
     });
 });
 

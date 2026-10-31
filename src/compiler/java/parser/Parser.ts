@@ -485,7 +485,7 @@ export class Parser extends StatementParser {
 
         type = this.increaseArrayDimensionIfLeftRightSquareBracketsToCome(type);
 
-        let initialization = this.comesToken(TokenType.assignment, true) ? this.parseTerm() : undefined;
+        let initialization = this.comesToken(TokenType.assignment, true) ? this.parseInitialValue() : undefined;
 
         if (identifier.value != "" && type != null) {
             if(this.collectedAnnotations.some(a => a.identifier === "Inject")){

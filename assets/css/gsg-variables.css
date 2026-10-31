@@ -138,3 +138,37 @@
     text-align: center;
     border-top: 1px solid rgba(0, 0, 0, .12);
 }
+
+/* Paket 16g: je Gültigkeitsbereich ein Kasten (gestrichelt grün wie der Gültigkeitsbereich bei den Blöcken) */
+.gsg-vars-list { flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 8px; }
+.gsg-vars-group {
+    border: 1.5px dashed var(--brand-accent, #45B82F);
+    border-radius: 8px;
+    background: rgba(69, 184, 47, .06);
+    padding: 0 8px 8px;
+}
+.gsg-vars-group.is-inner { margin-left: 18px; }
+.gsg-vars-group.is-call { border-style: solid; border-color: #3a7bd5; background: rgba(58, 123, 213, .07); }
+.gsg-vars-group.is-part { border-style: solid; border-color: #c88a00; background: rgba(255, 191, 0, .08); }
+.gsg-vars-group.is-inner { border-style: dashed; }
+.gsg-vars-grouphead {
+    display: inline-block;
+    margin: -1px 0 6px;
+    padding: 1px 9px 2px;
+    border-radius: 0 0 7px 7px;
+    background: #3a9d27;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+}
+.gsg-vars-group.is-call > .gsg-vars-grouphead { background: #3a7bd5; }
+.gsg-vars-group.is-part > .gsg-vars-grouphead { background: #a87300; }
+.gsg-vars-groupbody {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 6px 8px;
+}
+/* Klick auf einen Kasten zeigt den Bereich im Programm */
+.gsg-vars-group.is-clickable { cursor: pointer; }
+.gsg-vars-group.is-clickable:hover { box-shadow: 0 0 0 2px rgba(69, 184, 47, .35); }

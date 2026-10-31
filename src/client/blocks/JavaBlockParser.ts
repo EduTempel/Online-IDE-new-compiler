@@ -5,6 +5,10 @@ import { attributesOf, collectionOfType, collectionType, findMethod, isClassType
 import { ANY_TARGET, EDGE_TARGET, FIGURE_ACTIONS, FIGURE_CALLS, FIGURE_CREATIONS, FIGURE_PROPS, FILLED, isFigureClass, MOUSE_TARGET, type FigureClass } from "./FigureSpec";
 import { ADT_CALLS, ADT_CREATIONS, ADT_GET_TYPES, getOp, isAdtClass, TREE_DELETES, TREE_SIDES, TREE_TESTS, type AdtClass } from "./AdtSpec";
 import { CLICK_PART_ANNOTATION, KEY_PART_ANNOTATION, MESSAGE_PART_ANNOTATION, START_PART_ANNOTATION } from "../../compiler/common/interpreter/GsgParts";
+import {
+    availableFor, BL_BLOCKS, BL_HATS, FIGURE_SUPER, formAvailable, isDefaultHatName, parsedForm, specialValues, STAGE_SUPER,
+    type BloecklyContext, type HeaderState,
+} from "../bloeckly/BloecklySpec";
 
 /**
  * Java -> Blöcke. Eigener kleiner Parser für den Teil von Java, den es als Blöcke gibt
@@ -62,6 +66,10 @@ export class JavaBlockParser {
     /** für Struktogramme: auch switch und do-while erkennen (dafür gibt es keine Blöcke) */
     /** Struktogramm: zusätzliche Formen (switch, do-while, Umwandlung in Klassen beim Lesen aus Abiturklassen) */
     extended = false;
+    /** Variablen, die jede Operation kennt (Blöckly: die der Figur) */
+    private baseVars = new Map<string, string>();
+    /** Blöckly (Paket 18e): Klasse einer Figur bzw. der Bühne */
+    private bl?: { cls: string; stage: boolean; stageClass: string; globals: Map<string, string> };
 
     constructor(private src: string) {
         const lineStarts = [0];
@@ -80,11 +88,244 @@ export class JavaBlockParser {
     }
 
     /** classes: Klassen aus anderen Dateien des Projekts (für Typen von Objekten) */
-    static parse(src: string, options: { classes?: ClassInfo[]; structogram?: boolean } = {}): ParseResult {
+    static parse(src: string, options: { classes?: ClassInfo[]; structogram?: boolean; bloeckly?: BloecklyContext } = {}): ParseResult {
         const parser = new JavaBlockParser(src);
         parser.extended = !!options.structogram;
         for (const c of options.classes ?? []) parser.classes.set(c.name, c);
+        if (options.bloeckly) {
+            const r = parser.parseBloeckly(options.bloeckly);
+            if (r) return r;
+        }
         return parser.parseProgram();
+    }
+
+    /**
+     * Blöckly (Paket 18e): eine Datei mit einer Klasse class X extends Figur (bzw. Buehne). Daraus werden der Kopf
+     * (Variablen der Figur; der Konstruktor bleibt unsichtbar), die Skripte (@BeimStart, @WennTaste … als Hüte)
+     * und eigene Blöcke (Methoden). Was nicht passt, bleibt Java-Text im Kopf. Keine solche Klasse: undefined.
+     */
+    private parseBloeckly(ctx: BloecklyContext): ParseResult | undefined {
+        const toks = this.toks;
+        let c = 0;
+        while (toks[c]?.tt === TokenType.comment) c++;
+        if (toks[c]?.tt !== TokenType.keywordClass || toks[c + 1]?.tt !== TokenType.identifier || toks[c + 2]?.tt !== TokenType.keywordExtends
+            || toks[c + 4]?.tt !== TokenType.leftCurlyBracket) return undefined;
+        const superName = String(toks[c + 3].value);
+        if (superName !== FIGURE_SUPER && superName !== STAGE_SUPER) return undefined;
+        const cls = String(toks[c + 1].value);
+        const stage = superName === STAGE_SUPER;
+        let end: number;
+        try {
+            end = this.matching(c + 4);
+        } catch {
+            return undefined;
+        }
+        this.scanSignatures();
+        this.bl = { cls, stage, stageClass: ctx.stage, globals: new Map(Object.entries(ctx.globals ?? {})) };
+        this.currentClass = cls;
+        // Variablen der Figur; auf der Bühne sind es die Variablen für alle Figuren
+        this.vars = new Map(attributesOf(this.classes, cls).map((a) => [a.name, a.type]));
+        this.baseVars = this.vars;
+        const vars: BlockState[] = [];
+        const hats: BlockState[] = [];
+        let ctor = "";
+        this.pos = c + 5;
+        while (this.pos < end) {
+            const begin = this.pos;
+            const t = this.peek()!;
+            if (t.tt === TokenType.comment) {
+                this.pos++;
+                vars.push(this.commentBlock(begin));
+                continue;
+            }
+            if (t.tt === TokenType.semicolon) {
+                this.pos++;
+                continue;
+            }
+            // Konstruktor: bleibt Text (Aussehen und Startposition pflegt die Figurenliste)
+            if (!ctor && t.tt === TokenType.identifier && t.value === cls && this.is(TokenType.leftBracket, 1)) {
+                try {
+                    const close = this.matching(begin + 1);
+                    if (toks[close + 1]?.tt === TokenType.leftCurlyBracket) {
+                        const bodyEnd = this.matching(close + 1);
+                        ctor = this.text(begin, bodyEnd + 1);
+                        this.pos = bodyEnd + 1;
+                        continue;
+                    }
+                } catch (e) {
+                    if (!(e instanceof Fail)) throw e;
+                }
+            }
+            const hat = this.tryBloecklyHat() ?? this.tryMethod();
+            if (hat) {
+                hat.x = 20;
+                hat.y = 20 + hats.length * 200;   // der Kopf ist in der Fläche unsichtbar
+                hats.push(hat);
+                continue;
+            }
+            vars.push(this.tryBloecklyVar() ?? this.rawStatement());
+        }
+        for (let i = vars.length - 2; i >= 0; i--) vars[i].next = { block: vars[i + 1] };
+        const state: HeaderState = {
+            klasse: cls, oberklasse: superName, ctor,
+            prefix: c > 0 ? this.text(0, c) : "",
+            suffix: end + 1 < toks.length ? this.text(end + 1, toks.length) : "",
+        };
+        const header: BlockState = { type: B.blFigure, id: "start", x: 20, y: 20, deletable: false, extraState: state };
+        this.ranges.push({ id: "start", startLine: toks[c].line, endLine: toks[end].endLine });
+        if (vars[0]) header.inputs = { VARS: { block: vars[0] } };
+        return { state: { blocks: { languageVersion: 0, blocks: [header, ...hats] } }, ranges: this.ranges };
+    }
+
+    /** Skript: @BeimStart, @WennTaste("a"), @WennAngeklickt, @WennNachricht("los"), @WennIchAlsKlonEntstehe vor void name() { … } */
+    private tryBloecklyHat(): BlockState | undefined {
+        const begin = this.pos;
+        if (!this.bl || !this.is(TokenType.at)) return undefined;
+        const annotation = String(this.peek(1)?.value ?? "");
+        const hat = BL_HATS.find((h) => h.annotation === annotation && availableFor(h, this.bl!.stage));
+        if (!hat) return undefined;
+        let at = 2;
+        const fields: Record<string, string> = {};
+        if (hat.trigger) {
+            if (!this.is(TokenType.leftBracket, 2) || !this.is(TokenType.stringLiteral, 3) || !this.is(TokenType.rightBracket, 4)) return undefined;
+            const trigger = String(this.peek(3)!.value);
+            if (!trigger) return undefined;
+            fields[hat.trigger] = trigger;
+            at = 5;
+        } else if (this.is(TokenType.leftBracket, 2)) return undefined;
+        if (!this.is(TokenType.keywordVoid, at) || !this.is(TokenType.identifier, at + 1) || !this.is(TokenType.leftBracket, at + 2)
+            || !this.is(TokenType.rightBracket, at + 3) || !this.is(TokenType.leftCurlyBracket, at + 4)) return undefined;
+        const name = String(this.peek(at + 1)!.value);
+        const rangeCount = this.ranges.length;
+        const outer = this.vars;
+        this.vars = new Map(this.baseVars);
+        try {
+            this.pos = begin + at + 5;
+            const body = this.statementList(true);
+            this.expect(TokenType.rightCurlyBracket);
+            const b = this.block(hat.type, begin, this.pos, Object.keys(fields).length ? { fields } : {});
+            if (!isDefaultHatName(name, hat.type, fields)) b.extraState = { name };
+            if (body) b.inputs = { BODY: { block: body } };
+            return b;
+        } catch (e) {
+            if (!(e instanceof Fail)) throw e;
+            this.pos = begin;
+            this.ranges.length = rangeCount;
+            return undefined;
+        } finally {
+            this.vars = outer;
+        }
+    }
+
+    /** Variable der Figur: int punkte = 0;  auf der Bühne (für alle Figuren): static int punkte = 0; */
+    private tryBloecklyVar(): BlockState | undefined {
+        const begin = this.pos;
+        let k = 0;
+        if (this.bl!.stage) {
+            if (!this.is(TokenType.keywordStatic)) return undefined;
+            k = 1;
+        }
+        const ty = this.typeAt(begin + k);
+        if (!ty || !(VAR_TYPES as readonly string[]).includes(ty.type) || this.toks[ty.next]?.tt !== TokenType.identifier) return undefined;
+        const name = String(this.toks[ty.next].value);
+        const after = this.toks[ty.next + 1]?.tt;
+        const fields = { NAME: name, TYPE: ty.type };
+        if (after === TokenType.semicolon) {
+            this.pos = ty.next + 2;
+            return this.block(B.blVar, begin, this.pos, { fields });
+        }
+        if (after !== TokenType.assignment) return undefined;
+        try {
+            const valueStart = ty.next + 2;
+            const end = this.findAtDepth0(TokenType.semicolon, valueStart);
+            if (end === valueStart) return undefined;
+            const value = this.expression(valueStart, end);
+            this.pos = end + 1;
+            const b = this.block(B.blVar, begin, this.pos, { fields });
+            b.inputs = { VALUE: { block: value } };
+            return b;
+        } catch (e) {
+            if (!(e instanceof Fail)) throw e;
+            this.pos = begin;
+            return undefined;
+        }
+    }
+
+    /** eigene Operation dieser Klasse mit dem Namen (verdeckt den Blöckly-Block) */
+    private ownMethod(name: string, args: number): boolean {
+        return !!this.classes.get(this.bl?.cls ?? "")?.methods.some((m) => m.name === name && m.params.length === args);
+    }
+
+    /**
+     * Blöckly-Block zu einem Aufruf name(…) an Position nameIndex (Anweisung bzw. Wert). Gibt den Block und die
+     * Position der schließenden Klammer zurück.
+     */
+    bloecklyCall(nameIndex: number, value: boolean, limit = this.toks.length): { block: BlockState; close: number } | undefined {
+        if (!this.bl) return undefined;
+        const nameTok = this.toks[nameIndex], open = nameIndex + 1;
+        if (nameTok?.tt !== TokenType.identifier || open >= limit || this.toks[open]?.tt !== TokenType.leftBracket) return undefined;
+        const close = this.matching(open);
+        if (close >= limit) return undefined;
+        const args = this.argBounds(open, close);
+        if (!args) return undefined;
+        const method = String(nameTok.value);
+        if (this.ownMethod(method, args.length)) return undefined;
+        for (const spec of BL_BLOCKS) {
+            if (!!spec.output !== value || !availableFor(spec, this.bl.stage)) continue;
+            for (const form of spec.forms) {
+                const p = parsedForm(form);
+                if (p.method !== method || p.params.length !== args.length || !formAvailable(spec, form, this.bl.stage)) continue;
+                const fields: Record<string, string> = { ...p.when };
+                let ok = true;
+                p.params.forEach((name, i) => {
+                    const arg = spec.args.find((a) => a.name === name);
+                    if (arg?.kind !== "choice") return;
+                    const [from, to] = args[i];
+                    const t = this.toks[from];
+                    if (to !== from + 1 || t.tt !== TokenType.stringLiteral || this.text(from, to).startsWith('"""')) ok = false;
+                    else if (specialValues(spec, name).has(String(t.value)) || String(t.value).startsWith("@")) ok = false;
+                    else fields[name] = String(t.value);
+                });
+                if (!ok) continue;
+                const inputs: Record<string, { block: BlockState }> = {};
+                p.params.forEach((name, i) => {
+                    if (spec.args.find((a) => a.name === name)?.kind !== "choice") inputs[name] = { block: this.expression(args[i][0], args[i][1]) };
+                });
+                const extra: Partial<BlockState> = {};
+                if (Object.keys(fields).length) extra.fields = fields;
+                if (Object.keys(inputs).length) extra.inputs = inputs;
+                const block = value ? this.valueBlock(spec.type, extra) : this.block(spec.type, nameIndex, close + 2, extra);
+                return { block, close };
+            }
+        }
+        return undefined;
+    }
+
+    /** Spiel.punkte: Variable für alle Figuren (in einer Figur, sofern keine eigene Variable so heißt) */
+    bloecklyGlobal(i: number): string | undefined {
+        if (!this.bl || this.bl.stage || this.toks[i]?.value !== this.bl.stageClass || this.toks[i + 1]?.tt !== TokenType.dot) return undefined;
+        const n = this.toks[i + 2];
+        if (n?.tt !== TokenType.identifier) return undefined;
+        const name = String(n.value);
+        return this.bl.globals.has(name) && !this.vars.has(name) ? name : undefined;
+    }
+
+    /** Wert-Block zu einem Blöckly-Aufruf bzw. einer Variablen für alle Figuren (für ExpressionParser) */
+    bloecklyValue(pos: number, to: number): { block: BlockState; next: number } | undefined {
+        if (!this.bl) return undefined;
+        const global = this.bloecklyGlobal(pos);
+        if (global !== undefined && pos + 2 < to) {
+            const after = pos + 3 < to ? this.toks[pos + 3] : undefined;
+            if (after?.tt === TokenType.leftBracket || after?.tt === TokenType.dot) return undefined;
+            return { block: this.valueBlock(B.varGet, { fields: { NAME: global } }), next: pos + 3 };
+        }
+        try {
+            const call = this.bloecklyCall(pos, true, to);
+            return call ? { block: call.block, next: call.close + 1 } : undefined;
+        } catch (e) {
+            if (!(e instanceof Fail)) throw e;
+            return undefined;
+        }
     }
 
     /**
@@ -323,6 +564,17 @@ export class JavaBlockParser {
             override = true;
             this.pos += 2;
         }
+        // Paket 18g: Programmteile einer Figur aus Blöckly (@BeimStart, @WennTaste("a") …) bleiben an der Operation
+        let annotation: string | undefined;
+        if (!override && this.is(TokenType.at) && this.is(TokenType.identifier, 1)) {
+            annotation = String(this.peek(1)!.value);
+            this.pos += 2;
+            if (this.is(TokenType.leftBracket)) {
+                if (!this.is(TokenType.stringLiteral, 1) || !this.is(TokenType.rightBracket, 2)) throw new Fail();
+                annotation += `(${JSON.stringify(String(this.peek(1)!.value))})`;
+                this.pos += 3;
+            }
+        }
         let vis = "";
         if (this.is(TokenType.keywordPublic) || this.is(TokenType.keywordPrivate) || this.is(TokenType.keywordProtected)) {
             vis = String(this.peek()!.value);
@@ -336,7 +588,7 @@ export class JavaBlockParser {
         };
         // Konstruktor
         if (this.is(TokenType.identifier) && this.peek()!.value === cls && this.is(TokenType.leftBracket, 1)) {
-            if (override) throw new Fail();
+            if (override || annotation) throw new Fail();
             const open = this.pos + 1, close = this.matching(open);
             const params = this.parseParams(open, close);
             this.pos = close + 1;
@@ -364,12 +616,14 @@ export class JavaBlockParser {
             this.pos = close + 1;
             const body = this.methodBody(params);
             const b = this.block(B.classMethod, begin, this.pos, { fields: { VIS: vis || "package", NAME: name, RETURN: ret, ...paramFields(params) } });
-            if (params.length || override) b.extraState = { ...(params.length ? { params } : {}), ...(override ? { override } : {}) };
+            if (params.length || override || annotation) {
+                b.extraState = { ...(params.length ? { params } : {}), ...(override ? { override } : {}), ...(annotation ? { annotation } : {}) };
+            }
             if (body) b.inputs = { BODY: { block: body } };
             return b;
         }
         // Attribut
-        if (override || ret === "void") throw new Fail();
+        if (override || annotation || ret === "void") throw new Fail();
         const fields = { VIS: vis || "package", NAME: name, TYPE: ret };
         this.vars.set(name, ret);
         if (this.is(TokenType.semicolon)) {
@@ -489,7 +743,7 @@ export class JavaBlockParser {
         // Typ name(...) ohne "{" danach ist ein Aufruf bzw. eine Deklaration, keine Operation
         const rangeCount = this.ranges.length;
         const outer = this.vars;
-        this.vars = new Map();
+        this.vars = new Map(this.baseVars);
         try {
             const close = this.matching(ret.next + 1);
             const params = this.parseParams(ret.next + 1, close);
@@ -1004,6 +1258,39 @@ export class JavaBlockParser {
         }
 
         const name = String(first.value);
+        // Blöckly: Spiel.punkte = …;  Spiel.punkte += …;  Spiel.punkte++;
+        const global = this.bloecklyGlobal(begin);
+        if (global !== undefined) {
+            const op = this.peek(3);
+            if (op?.tt === TokenType.plusPlus || op?.tt === TokenType.minusMinus) {
+                this.pos += 4;
+                this.expect(TokenType.semicolon);
+                const b = this.block(B.varChange, begin, this.pos, { fields: { OP: op.tt === TokenType.plusPlus ? "+" : "-", NAME: global } });
+                b.inputs = { VALUE: { block: this.valueBlock(B.number, { fields: { NUM: "1" } }) } };
+                return b;
+            }
+            if (op?.tt === TokenType.assignment || op?.tt === TokenType.plusAssignment || op?.tt === TokenType.minusAssignment) {
+                this.pos += 4;
+                const valueStart = this.pos;
+                const end = this.findAtDepth0(TokenType.semicolon, valueStart);
+                if (end === valueStart) throw new Fail();
+                this.pos = end + 1;
+                const type = op.tt === TokenType.assignment ? B.varSet : B.varChange;
+                const fields: Record<string, string> = { NAME: global };
+                if (type === B.varChange) fields.OP = op.tt === TokenType.minusAssignment ? "-" : "+";
+                const b = this.block(type, begin, this.pos, { fields });
+                b.inputs = { VALUE: { block: this.expression(valueStart, end) } };
+                return b;
+            }
+        }
+        // Blöckly: gehe(10);  geheZu("Pinguin");  …  (gemeint ist diese Figur)
+        if (this.bl && second.tt === TokenType.leftBracket) {
+            const call = this.bloecklyCall(begin, false);
+            if (call && this.toks[call.close + 1]?.tt === TokenType.semicolon) {
+                this.pos = call.close + 2;
+                return call.block;
+            }
+        }
         const figureType = this.vars.get(name);
         if (isFigureClass(figureType) && second.tt === TokenType.dot) {
             const f = this.figureStatement(name, figureType);
@@ -1599,6 +1886,11 @@ class ExpressionParser {
         if (t.tt === TokenType.identifier) {
             const special = this.knownCall();
             if (special) return special;
+            const bl = this.p.bloecklyValue(this.pos, this.to);
+            if (bl) {
+                this.pos = bl.next;
+                return this.postfix(bl.block, start);
+            }
             const coll = this.p.collection(String(t.value));
             if (coll) {
                 const c = this.collectionValue(String(t.value), coll.kind);

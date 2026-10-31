@@ -1,9 +1,18 @@
 import { IMain } from "../../common/IMain.ts";
 import { Range } from "../../common/range/Range.ts";
 import { JavaCompiledModule } from "../module/JavaCompiledModule.ts";
+import { BaseSymbol, BaseSymbolTable } from "../../common/BaseSymbolTable.ts";
+import { Position } from "../../common/range/Position.ts";
+import { JavaLocalVariable } from "../codegenerator/JavaLocalVariable.ts";
+import { JavaParameter } from "../types/JavaParameter.ts";
+import { JavaField } from "../types/JavaField.ts";
+import { mainVariableScopeRanges } from "./GsgScopeRanges.ts";
 import * as monaco from 'monaco-editor'
 
 export class JavaSymbolAndMethodMarker {
+
+    /** GSG: Gültigkeitsbereich am Rand zeigen? (Freigabe „Gültigkeitsbereich“ der Lerngruppe, beim Anmelden gesetzt) */
+    static gsgShowScope = true;
 
     decorations?: monaco.editor.IEditorDecorationsCollection;
 
@@ -51,6 +60,8 @@ export class JavaSymbolAndMethodMarker {
 
         let usagePositions = module.getUsagePositionsForSymbol(usagePosition?.symbol);
 
+        this.markScopeOfSymbol(module, usagePosition.symbol, position, decorations);
+
         if (!usagePositions) return;
 
         for (let up of usagePositions) {
@@ -66,6 +77,42 @@ export class JavaSymbolAndMethodMarker {
             })
         }
 
+    }
+
+    /**
+     * GSG (Paket 16d): Gültigkeitsbereich einer lokalen Variablen bzw. eines Parameters – von der Deklaration
+     * bis zur schließenden Klammer des Blocks, in dem sie angelegt ist – als grüner Balken am Rand.
+     */
+    private markScopeOfSymbol(module: JavaCompiledModule, symbol: BaseSymbol, cursor: monaco.Position, decorations: monaco.editor.IModelDeltaDecoration[]) {
+        if (!(module instanceof JavaCompiledModule) || !JavaSymbolAndMethodMarker.gsgShowScope) return;
+        // Variable des Hauptprogramms (für die Online-IDE ein statisches Attribut der Hauptklasse)
+        if (symbol instanceof JavaField && symbol._isStatic && (symbol.classEnum as { isMainClass?: boolean } | undefined)?.isMainClass) {
+            for (const r of mainVariableScopeRanges(module, symbol.identifierRange.startLineNumber)) decorations.push(this.scopeDecoration(r, symbol.identifier));
+            return;
+        }
+        if (!(symbol instanceof JavaLocalVariable || symbol instanceof JavaParameter)) return;
+        const declaration = symbol.identifierRange;
+        // Tabelle mit dem Symbol: von der Stelle des Cursors (liegt im Gültigkeitsbereich) bzw. der Deklaration nach außen
+        const tableOf = (line: number, column: number) => {
+            let t: BaseSymbolTable | undefined = module.findSymbolTableAtPosition(new Position(line, column));
+            while (t && t.identifierToSymbolMap.get(symbol.identifier) !== symbol) t = t.parent;
+            return t;
+        };
+        const table = tableOf(cursor.lineNumber, cursor.column) ?? tableOf(declaration.startLineNumber, declaration.startColumn);
+        if (!table) return;
+        decorations.push(this.scopeDecoration({ startLineNumber: declaration.startLineNumber, endLineNumber: table.range.endLineNumber }, symbol.identifier));
+    }
+
+    private scopeDecoration(r: { startLineNumber: number, endLineNumber: number }, identifier: string): monaco.editor.IModelDeltaDecoration {
+        return {
+            range: { startLineNumber: r.startLineNumber, startColumn: 1, endLineNumber: r.endLineNumber, endColumn: 1 },
+            options: {
+                isWholeLine: true,
+                linesDecorationsClassName: 'gsg-scope-gutter',
+                linesDecorationsTooltip: `Gültigkeitsbereich von ${identifier}`,
+                overviewRuler: { color: '#45B82F', position: monaco.editor.OverviewRulerLane.Right },
+            }
+        };
     }
 
     private markMethodUnderCursor(editor: monaco.editor.IStandaloneCodeEditor,

@@ -1,6 +1,6 @@
 import * as Blockly from "blockly/core";
 import { B } from "./BlockTypes";
-import { collectVariables, variablesFor } from "./BlockTypeSystem";
+import { collectVariables, visibleVariables } from "./BlockTypeSystem";
 import {
     ADT_CLASSES, ADT_GETS, ADT_NAMES_DE, DEFAULT_ADT_NAME, isAdtClass, READ_TYPES, TREE_SIDES,
     type AdtClass,
@@ -23,11 +23,17 @@ export class FieldAdtName extends Blockly.FieldDropdown {
         this.setValue(value);
     }
 
+    /** Name der Variablen, auf die das Feld verweist (für die Prüfung des Gültigkeitsbereichs) */
+    variableRef(): string | undefined {
+        const v = this.getValue();
+        return typeof v === "string" && v ? v : undefined;
+    }
+
     private adtOptions(): [string, string][] {
         const kinds = this.kinds ?? [...ADT_CLASSES];
         const block = this.getSourceBlock();
         const names = new Set<string>();
-        if (block) for (const [name, type] of variablesFor(block)) if (isAdtClass(type) && kinds.includes(type)) names.add(name);
+        if (block) for (const [name, type] of visibleVariables(block)) if (isAdtClass(type) && kinds.includes(type)) names.add(name);
         const current = this.getValue();
         if (typeof current === "string" && current) names.add(current);
         if (names.size === 0) names.add(DEFAULT_ADT_NAME[kinds[0]]);

@@ -10,7 +10,7 @@ import { SCHOOL_START_URL } from "./SchoolBranding.js";
  * Ist auf der Startseite schon jemand angemeldet (und ist die Anwendung freigegeben)? Dann gibt
  * das Backend ein Einmal-Token, mit dem sich die IDE ohne Passwort anmeldet.
  */
-export async function portalSingleUseToken(app: "java" | "sql" | "bloecke" | "struktogramme"): Promise<string | null> {
+export async function portalSingleUseToken(app: "java" | "sql" | "bloecke" | "struktogramme" | "bloeckly"): Promise<string | null> {
     try {
         const response = await fetch("/api/start/ide-anmeldung", {
             method: "POST",
@@ -28,11 +28,16 @@ export async function portalSingleUseToken(app: "java" | "sql" | "bloecke" | "st
 
 /**
  * Öffnet die Startseite in einem neuen Tab und meldet dort mit einem Einmal-Token an.
- * Mit workspaceId ist dort gleich das Formular "Projekt per Link teilen" für dieses Projekt offen.
+ * Mit workspaceId ist dort gleich das Formular "Projekt per Link teilen" (bzw. "In die Galerie stellen",
+ * Paket 17f) für dieses Projekt offen.
  * Der Tab wird sofort geöffnet (sonst blockiert der Browser ihn nach der Anfrage als Pop-up).
  */
-export async function openSchoolStartPage(workspaceId?: number) {
-    const hash = workspaceId != null ? "#teilen=" + workspaceId : "";
+export async function openSchoolStartPage(workspaceId?: number, target: "teilen" | "galerie" = "teilen") {
+    await openSchoolStartPageAt(workspaceId != null ? `#${target}=` + workspaceId : "");
+}
+
+/** Startseite mit Sprungziel öffnen, z. B. #oeffnen=bloecke:12 (Paket 18g: kopiertes Projekt in Blöckva öffnen) */
+export async function openSchoolStartPageAt(hash: string) {
     const tab = window.open("about:blank", "_blank");
     let url = SCHOOL_START_URL + hash;
     try {

@@ -17,6 +17,8 @@ import { Settings } from '../settings/Settings.js';
 import { ProgrammingLanguageData } from '../../compiler/common/programminglanguage/ProgrammingLanguageData.js';
 import { Constants } from '../Constants.js';
 import { SecureJSON } from '../../tools/SecureJSON.js';
+import { JavaSymbolAndMethodMarker } from '../../compiler/java/monacoproviders/JavaSymbolAndMethodMarker.js';
+import { blockPermissions } from '../blocks/BlockPermissions.js';
 
 export class Login {
 
@@ -107,7 +109,7 @@ export class Login {
     logout() {
         let isSilent = window.location.href.indexOf('silent') >= 0;
         if (!this.main.user || this.main.user.is_testuser) {
-            window.location.assign("/" + (isSilent ? "?silent=true" : ""));
+            window.location.assign("/start/" + (isSilent ? "?silent=true" : ""));   // GSG: allgemeine Anmeldung (Startseite) statt der Java-IDE
             return;
         }
 
@@ -140,7 +142,7 @@ export class Login {
 
                 } else {
                     jQuery('#bitteWartenText').html(LoginMessages.done());
-                    window.location.assign("/" + (isSilent ? "?silent=true" : ""));
+                    window.location.assign("/start/" + (isSilent ? "?silent=true" : ""));   // GSG: allgemeine Anmeldung (Startseite) statt der Java-IDE
                     // that.showLoginForm();
                 }
 
@@ -218,6 +220,8 @@ export class Login {
                 }
 
                 that.main.user = user;
+                // Freigabe der Lerngruppe: Gültigkeitsbereich im Java-Editor am Rand zeigen
+                JavaSymbolAndMethodMarker.gsgShowScope = blockPermissions(user).scope;
                 that.main.settings = new Settings(user,
                     user.settings, response.classSettings, response.schoolSettings);
 

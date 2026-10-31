@@ -9,6 +9,9 @@ import type * as monaco from 'monaco-editor'
 import { Range } from "../../../compiler/common/range/Range.js";
 import { Tab, TabManager } from "../../../tools/TabManager.js";
 import { ErrorManagerMessages } from "./language/GUILanguage.js";
+import { helpFor } from "../../handbook/HelpLinks.js";
+import { hasHandbook, openHandbook, type HandbookKind } from "../../handbook/Handbook.js";
+import { Constants } from "../../Constants.js";
 
 export class ErrorManager {
 
@@ -80,6 +83,19 @@ export class ErrorManager {
 
         $div.append($lineColumn).append($message);
 
+        // GSG (Paket 17b): Verweis auf den passenden Handbuch-Eintrag
+        const kind: HandbookKind = Constants.isBlocksApp ? "blocks" : "java";
+        const help = hasHandbook() ? helpFor(error.message, kind) : undefined;
+        if (help) {
+            const link = jQuery('<button type="button" class="gsg-error-help" title="Passendes Beispiel im Handbuch öffnen">📖 Mehr dazu</button>');
+            link.on("mousedown", (ev) => ev.stopPropagation());
+            link.on("click", (ev) => {
+                ev.stopPropagation();
+                openHandbook({ kind, section: help.section, entry: help.entry });
+            });
+            $message.append(" ").append(link);
+        }
+
         let that = this;
         $div.on("mousedown", (ev) => {
             this.$errorDiv.find('.jo_error-line').removeClass('jo_active');
@@ -136,7 +152,7 @@ export class ErrorManager {
 
     hideAllErrorDecorations() {
 
-        let files = this.main.getCurrentWorkspace()?.getFiles();
+        let files = this.main.getCurrentWorkspace()?.getFiles() ?? [];   // GSG: ohne offenes Projekt nichts zu tun
 
         for (let file of files) {
             let model = file.getMonacoModel();

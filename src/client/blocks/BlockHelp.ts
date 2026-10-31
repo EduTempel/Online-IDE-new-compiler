@@ -5,6 +5,13 @@ import { ADT_COLOUR, ARRAYS_COLOUR, LISTS_COLOUR } from "./BlockCollections";
 import { CLASSES_COLOUR, OBJECTS_COLOUR } from "./BlockClasses";
 import { FIGURES_COLOUR, INPUT_COLOUR } from "./BlockFigures";
 import { OPERATIONS_COLOUR } from "./BlockOperations";
+import { warningHelp } from "./BlockWarningHelp";
+import { blBlock, blHat } from "../bloeckly/BloecklySpec";
+
+/** Blöckly (Paket 18h): Kategorie aus der Beschreibung der Blöckly-Blöcke; Hüte gehören zu „Ereignisse“ */
+function bloecklyCategory(type: string): string | undefined {
+    return blBlock(type)?.cat ?? (blHat(type) ? (type === "bl_clone" ? "steuerung" : "ereignisse") : undefined);
+}
 
 /**
  * Rechtsklick auf einen Block → „Hilfe“: öffnet das Handbuch beim ersten Beispiel mit diesem Block,
@@ -43,13 +50,16 @@ export function registerBlockHelpMenu() {
     registry.register({
         id: "gsg_block_help",
         scopeType: Blockly.ContextMenuRegistry.ScopeType.BLOCK,
-        displayText: "Hilfe (Handbuch)",
+        // Paket 17b: hat der Block eine Warnung, führt die Hilfe zum passenden Eintrag
+        displayText: (scope) => (scope.block && warningHelp(scope.block) ? "Hilfe zur Meldung (Handbuch)" : "Hilfe (Handbuch)"),
         weight: 200,
         preconditionFn: () => (hasHandbook() ? "enabled" : "hidden"),
         callback: (scope) => {
             const block = scope.block;
             if (!block) return;
-            openHandbook({ kind: "blocks", blockType: block.type, section: categoryOfColour(block.getColour()) });
+            const help = warningHelp(block);
+            if (help) openHandbook({ kind: "blocks", section: help.section, entry: help.entry });
+            else openHandbook({ kind: "blocks", blockType: block.type, section: bloecklyCategory(block.type) ?? categoryOfColour(block.getColour()) });
         },
     });
 }

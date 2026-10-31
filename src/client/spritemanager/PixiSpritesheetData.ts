@@ -16,6 +16,8 @@ export type PixiSpritesheetData = {
         image: string,
         format: "RGBA8888",
         size: { w: number, h: number },
-        scale: string
+        scale: string,
+        /** GSG: eigene Figuren für Blöckly (Paket 18i) */
+        gsgFiguren?: { name: string, titel: string, kostueme: { id: string, titel: string }[] }[]
     }
 }

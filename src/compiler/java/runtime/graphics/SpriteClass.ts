@@ -1,3 +1,4 @@
+import { gsgFigurenSheet } from "./GsgFigurenSheet";
 import * as PIXI from 'pixi.js';
 import { convexhull } from '../../../../tools/ConvexHull';
 import { Thread } from "../../../common/interpreter/Thread";
@@ -339,6 +340,11 @@ export class SpriteClass extends ShapeClass {
 
         let nameWithIndex = spriteLibrary + "#" + imageIndex;
         let texture: PIXI.Texture | undefined = sheet.textures[nameWithIndex];
+        const gsgSheet = texture == null ? gsgFigurenSheet() : undefined;    // GSG: Blöckly-Figuren (eigene Tafel)
+        if (gsgSheet?.textures[nameWithIndex]) {
+            sheet = gsgSheet;
+            texture = sheet.textures[nameWithIndex];
+        }
         if (texture == null) {
             sheet = this.world.interpreter?.graphicsManager?.pixiUserSpritesheet;
             texture = sheet?.textures[nameWithIndex];
@@ -346,7 +352,7 @@ export class SpriteClass extends ShapeClass {
 
         if (texture != null) {
 
-            if (this.scaleModeOrdinal == ScaleMode.linear) {
+            if (this.scaleModeOrdinal == ScaleMode.linear && sheet !== gsgSheet) {   // GSG-Tafel ist schon weich skaliert
 
                 let t = SpriteClass.linearScalemodeTextures[nameWithIndex];
 

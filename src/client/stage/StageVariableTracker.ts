@@ -1,6 +1,7 @@
 import type { Interpreter } from "../../compiler/common/interpreter/Interpreter";
 import { SchedulerState } from "../../compiler/common/interpreter/SchedulerState";
-import { captureCurrentFrame, captureMainClassFields, mainProgramRunning, startedMainClass, type Pos } from "../objects/HeapCapture";
+import { captureCalls, captureCurrentFrame, captureParts, captureMainClassFields, mainProgramRunning, startedMainClass, type Pos } from "../objects/HeapCapture";
+import type { ScopeStyle, VariableScope } from "../objects/ScopeTitles";
 import type { RootVariable } from "../objects/HeapSnapshot";
 import { render, snapshot } from "../trace/TraceData";
 
@@ -10,12 +11,16 @@ import { render, snapshot } from "../trace/TraceData";
  *  - während des Laufs regelmäßig abfragen (poll)
  *  - am Programmende einmal vollständig lesen: auch Programme, die kürzer laufen als ein
  *    Abfrageintervall, zeigen so alle ihre Variablen mit den Endwerten
+ *  - jede Variable mit ihrem Gültigkeitsbereich (Paket 16g): Hauptprogramm, gerade laufende Operationen
+ *    (bei Rekursion jeder Aufruf), Schleifen und Zweige darin
  */
 
 const MAX_TEXT = 80;
 
-/** Reihungen und Listen haben zusätzlich ihre Elemente (für die Anzeige mit Positionen) und ihre Länge */
-export type Monitor = { name: string; text: string; list?: { items: string[]; length: number } };
+/** Reihungen und Listen haben zusätzlich ihre Elemente (für die Anzeige mit Positionen) und ihre Länge; scope: Gültigkeitsbereich */
+export type Monitor = { name: string; text: string; list?: { items: string[]; length: number }; scope?: VariableScope };
+
+const MAIN_SCOPE: VariableScope = { key: "main", title: "Hauptprogramm", inner: false };
 
 /** so viele Elemente zeigt die Listenanzeige höchstens (die Länge stimmt trotzdem) */
 export const MAX_LIST_ITEMS = 100;
@@ -102,7 +107,22 @@ export class StageVariableTracker {
     private runExecutable?: unknown;
     private attached = new WeakSet<Interpreter>();
 
-    constructor(private onChange: () => void, private suggestedModule: () => unknown = () => undefined) { }
+    /** zuletzt gelesene Zusatzvariablen (Blöckly: Bühne und Figuren) – die Bühne räumt beim Stopp auf */
+    private lastExtra: RootVariable[] = [];
+
+    /**
+     * extra: weitere Variablen, die nicht im Hauptprogramm stehen (Blöckly: für alle Figuren, je Figur und je Skript);
+     * withParts: Variablen der Programmteile (eigene Threads) selbst zeigen – in Blöckly ordnet extra sie den Figuren zu
+     */
+    constructor(private onChange: () => void, private suggestedModule: () => unknown = () => undefined, private style: () => ScopeStyle = () => "java",
+        private extra: (interpreter: Interpreter) => RootVariable[] = () => [], private withParts: () => boolean = () => true) { }
+
+    private extraRoots(interpreter: Interpreter, keepLast = false): RootVariable[] {
+        let roots: RootVariable[] = [];
+        try { roots = this.extra(interpreter); } catch { /* egal */ }
+        if (roots.length || !keepLast) this.lastExtra = roots;
+        return roots.length ? roots : keepLast ? this.lastExtra : roots;
+    }
 
     /** an die Ereignisse eines Interpreters hängen (einmal je Interpreter) */
     attach(interpreter: Interpreter) {
@@ -117,6 +137,7 @@ export class StageVariableTracker {
         this.lastPos = undefined;
         this.mainClass = undefined;
         this.runExecutable = interpreter.executable;
+        this.lastExtra = [];
         try {
             this.mainClass = captureCurrentFrame(interpreter, "main")?.mainClass ?? startedMainClass(interpreter, this.suggestedModule());
         } catch { /* noch nichts zu sehen */ }
@@ -129,10 +150,10 @@ export class StageVariableTracker {
         if (capture?.mainClass) {
             this.mainClass = capture.mainClass;
             this.lastPos = capture.pos;
-            this.set(capture.roots);
+            this.set([...capture.roots, ...this.extraRoots(interpreter), ...this.calls(interpreter), ...this.parts(interpreter)]);
         } else if (this.mainClass && interpreter.isRunningOrPaused() && !mainProgramRunning(interpreter)) {
             // Hauptprogramm ist durch, Figuren oder Timer laufen weiter: alle seine Variablen
-            this.set(captureMainClassFields(interpreter, this.mainClass));
+            this.set([...this.mainFields(interpreter), ...this.extraRoots(interpreter), ...this.parts(interpreter)]);
         }
         // sonst (Programm beendet oder gerade keine Stelle bekannt): Werte stehen lassen
     }
@@ -146,17 +167,41 @@ export class StageVariableTracker {
         const capture = this.capture(interpreter);
         if (capture?.mainClass) {
             // angehalten: das Hauptprogramm steht noch auf dem Stapel
-            this.set(capture.roots);
+            this.set([...capture.roots, ...this.extraRoots(interpreter, true), ...this.calls(interpreter)]);
             return;
         }
         // Hauptprogramm ist durchgelaufen: alle Variablen; nach einer Ausnahme nur die bis zur letzten Stelle
         const error = interpreter.scheduler.state === SchedulerState.error;
-        this.set(captureMainClassFields(interpreter, this.mainClass, error ? this.lastPos : undefined));
+        this.set([...this.mainFields(interpreter, error ? this.lastPos : undefined), ...this.extraRoots(interpreter, true)]);
+    }
+
+    /** Variablen des Hauptprogramms, wenn es nicht mehr läuft */
+    private mainFields(interpreter: Interpreter, pos?: Pos): RootVariable[] {
+        return captureMainClassFields(interpreter, this.mainClass, pos).map((r) => ({ ...r, scope: MAIN_SCOPE }));
+    }
+
+    /** Variablen der gerade laufenden Programmteile (eigene Threads) */
+    private parts(interpreter: Interpreter): RootVariable[] {
+        if (!this.withParts()) return [];
+        try {
+            return captureParts(interpreter, this.style());
+        } catch {
+            return [];
+        }
+    }
+
+    /** Variablen der gerade laufenden Operationen */
+    private calls(interpreter: Interpreter): RootVariable[] {
+        try {
+            return captureCalls(interpreter, this.style());
+        } catch {
+            return [];
+        }
     }
 
     private capture(interpreter: Interpreter) {
         try {
-            return captureCurrentFrame(interpreter, "main");
+            return captureCurrentFrame(interpreter, "main", this.style());
         } catch {
             return undefined;   // während des Übersetzens / Startens
         }
@@ -165,9 +210,12 @@ export class StageVariableTracker {
     private set(roots: RootVariable[]) {
         const next: Monitor[] = roots.filter((r) => r.name !== "this").map((r) => {
             const list = listMonitor(r.value, r.type);
-            return list ? { name: r.name, text: monitorText(r.value, r.type), list } : { name: r.name, text: monitorText(r.value, r.type) };
+            const m: Monitor = { name: r.name, text: monitorText(r.value, r.type) };
+            if (list) m.list = list;
+            if (r.scope) m.scope = r.scope;
+            return m;
         });
-        const key = (m: Monitor) => m.list ? JSON.stringify(m.list) : m.text;
+        const key = (m: Monitor) => (m.scope ? m.scope.key + "|" + m.scope.title + "|" : "") + (m.list ? JSON.stringify(m.list) : m.text);
         const changed = next.length !== this.monitors.length || next.some((m, i) => m.name !== this.monitors[i].name || key(m) !== key(this.monitors[i]));
         if (!changed) return;
         this.monitors = next;

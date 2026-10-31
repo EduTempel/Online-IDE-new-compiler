@@ -5,6 +5,7 @@ import type { Workspace } from "../workspace/Workspace";
 import type { BlockView } from "./BlockView";
 import type { StructogramEditor } from "../structogram/StructogramEditor";
 import { Constants } from "../Constants";
+import { puzzleSolution } from "./BlockPuzzle";
 import "/assets/css/gsg-blocks.css";
 
 /**
@@ -81,13 +82,20 @@ export class BlockModeController {
     }
 
     /**
-     * Java-Ansicht gesperrt? Lehrkräfte dürfen immer. In der Anwendung "Blöcke" nur, wenn die
-     * Lerngruppe es erlaubt (Freigabe "Java-Ansicht in Blöcke"); sonst nach Projekteinstellung.
+     * Java-Ansicht gesperrt? Lehrkräfte dürfen immer. In den Anwendungen "Blöckva" und "Blöckly" nur, wenn die
+     * Lerngruppe es erlaubt (Freigabe "Java-Ansicht in Blöckva" bzw. "Java in Blöckly"); sonst nach Projekteinstellung.
      */
     private javaLocked(): boolean {
         if (this.isStaff()) return false;
-        if (Constants.isBlocksApp && !(this.main.user as { gsgFreigaben?: { bloeckeJava?: boolean } } | undefined)?.gsgFreigaben?.bloeckeJava) return true;
+        if (this.isPuzzle()) return true;   // Paket 17e: Puzzle nur als Blöcke
+        const f = (this.main.user as { gsgFreigaben?: { bloeckeJava?: boolean; bloecklyJava?: boolean } } | undefined)?.gsgFreigaben;
+        if (Constants.isBlocksApp && !(Constants.isBloecklyApp ? f?.bloecklyJava : f?.bloeckeJava)) return true;
         return !!blockSettingsOf(this.main.getCurrentWorkspace()).javaLocked;
+    }
+
+    /** Datei ist ein Puzzle (Paket 17e) */
+    private isPuzzle(): boolean {
+        return puzzleSolution(this.main.getCurrentWorkspace()?.settings, this.file?.name) !== undefined;
     }
 
     private currentFile(): GUIFile | undefined {
@@ -129,6 +137,11 @@ export class BlockModeController {
         editor.show(file, !!workspace?.readonly && !this.main.user?.is_teacher);
     }
 
+    /** Paket 16: Bereich aus dem Reiter „Variablen“ in den Blöcken zeigen (false: Java-Ansicht oder nicht gefunden) */
+    showLinesInBlocks(fromLine: number, title: string): boolean {
+        return this.mode === "blocks" && !!this.view?.showLines(fromLine, title);
+    }
+
     /** aktuelle Ansicht (für das Handbuch: Blöcke oder Java zuerst zeigen) */
     getMode(): Mode {
         return this.mode;
@@ -160,13 +173,14 @@ export class BlockModeController {
         const file = this.currentFile();
         if (this.file && this.file !== file && this.mode === "blocks") this.view?.hide();
         this.file = file;
-        this.$toggle.css("display", file ? "" : "none");
+        // ohne Java-Ansicht (Freigabe der Lerngruppe, Projekteinstellung, Puzzle) gibt es nichts umzuschalten
+        this.$toggle.css("display", file && !this.javaLocked() ? "" : "none");
         if (!file) {
             this.apply("java");
             return;
         }
         const startInBlocks = Constants.isBlocksApp || !!blockSettingsOf(this.main.getCurrentWorkspace()).start;
-        let mode: Mode = this.chosenMode.get(file) ?? (startInBlocks ? "blocks" : "java");
+        let mode: Mode = this.chosenMode.get(file) ?? (startInBlocks || this.isPuzzle() ? "blocks" : "java");
         if (this.javaLocked()) mode = "blocks";
         this.apply(mode);
     }
@@ -179,6 +193,7 @@ export class BlockModeController {
             return;
         }
         this.chosenMode.set(this.file, mode);
+        this.main.bottomDiv?.homeworkManager?.hideRevision();   // Vergleich der Korrektur schließen
         this.apply(mode);
     }
 
@@ -188,7 +203,8 @@ export class BlockModeController {
         this.$javaButton.toggleClass("active", mode === "java").attr("aria-pressed", String(mode === "java"));
         const locked = this.javaLocked();
         this.$javaButton.prop("disabled", locked).attr("title", locked
-            ? (Constants.isBlocksApp ? "Die Java-Ansicht ist für deine Lerngruppe (noch) nicht freigegeben."
+            ? (this.isPuzzle() ? "Ein Puzzle löst man in der Blockansicht."
+                : Constants.isBlocksApp ? "Die Java-Ansicht ist für deine Lerngruppe (noch) nicht freigegeben."
                 : "Die Java-Ansicht ist für dieses Projekt von der Lehrkraft gesperrt.")
             : "Programm als Java-Text bearbeiten");
 
@@ -217,6 +233,31 @@ export class BlockModeController {
         const workspace = this.main.getCurrentWorkspace();
         const readOnly = !!workspace?.readonly && !this.main.user?.is_teacher;
         view.show(file, readOnly);
+    }
+
+    /**
+     * „Korrekturen zeigen“ (HomeworkManager): Der Vergleich mit dem Stand vor der Korrektur steht an der Stelle des
+     * Editors. In der Blockansicht und beim Struktogramm stand er sonst unter den Blöcken – darum diese ausblenden
+     * und danach wieder zeigen (die Blöcke bleiben dabei geladen).
+     */
+    korrekturAnsicht(an: boolean) {
+        if (an) {
+            this.host.style.display = "none";
+            this.structHost.style.display = "none";
+            return;
+        }
+        if (this.structFile) {
+            document.getElementById("editor")!.style.display = "none";
+            this.structHost.style.display = "";
+        } else if (this.file && this.mode === "blocks") {
+            document.getElementById("editor")!.style.display = "none";
+            this.host.style.display = "";
+        }
+    }
+
+    /** „Große Ansicht“: Zoom der Blöcke ändern (nur wenn die Blockansicht schon geladen ist) */
+    setBlockZoom(scale: number) {
+        this.view?.setZoom(scale);
     }
 
     private loadView(): Promise<BlockView> {

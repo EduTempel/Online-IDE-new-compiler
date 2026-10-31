@@ -2,7 +2,8 @@ import * as Blockly from "blockly/core";
 import { B, COLLECTION_DECLARATIONS, COLLECTION_USES, isPartHat, type Param } from "./BlockTypes";
 import { FieldButton, hintLabel, mutate, type Mutable } from "./BlockMutators";
 import { callSignatures, callTarget, classInfos, collectionsOf, defaultLiteral, enclosingClass, innerBlocks, methodParamsOf, methodSignatures, receiverClass, scopeRoot, scopeVariables, type JType } from "./BlockTypeSystem";
-import { FieldType, identifier, VISIBILITY_OPTIONS } from "./BlockFields";
+import { FieldType, identifier, visibilityOptions } from "./BlockFields";
+import { labelMode } from "./BlockLabels";
 import { attributesOf, isSubclass, methodsOf } from "./ClassModel";
 
 /**
@@ -55,7 +56,24 @@ export class FieldMethodName extends Blockly.FieldDropdown {
 
 // ------------------------------------------------------------------ Operation (Hut-Block)
 
-type MethodState = { params: Param[]; override?: boolean };
+type MethodState = { params: Param[]; override?: boolean; annotation?: string };
+
+/**
+ * Paket 18g: Programmteile einer Figur aus Blöckly – in Blöckva eine Operation der Klasse mit Annotation
+ * (@BeimStart, @WennTaste("Leertaste") …). Die Annotation bleibt erhalten; hier steht dazu, wann sie läuft.
+ */
+function annotationText(a: string): string {
+    const arg = /^\w+\("(.*)"\)$/.exec(a)?.[1];
+    const name = a.replace(/\(.*$/, "");
+    switch (name) {
+        case "BeimStart": return "läuft beim Start (🚩)";
+        case "WennTaste": return `läuft bei Taste „${arg ?? ""}“`;
+        case "WennNachricht": return `läuft bei Nachricht „${arg ?? ""}“`;
+        case "WennAngeklickt": return arg ? `läuft, wenn ${arg} angeklickt wird` : "läuft, wenn die Figur angeklickt wird";
+        case "WennIchAlsKlonEntstehe": return "läuft, wenn ein Klon entsteht";
+        default: return "";
+    }
+}
 type MethodKind = "method" | "classMethod" | "ctor";
 
 function unusedName(taken: Set<string>): string {
@@ -94,12 +112,29 @@ export function defineMethodBlock(type: string, kind: MethodKind, colour: string
 
         build(this: Mutable<MethodState>) {
             const head = this.appendDummyInput("HEAD");
-            if (kind === "ctor") {
-                head.appendField("Konstruktor").appendField(new Blockly.FieldDropdown(VISIBILITY_OPTIONS), "VIS").appendField(hintLabel("Klasse(…)"));
+            const java = labelMode() === "java";
+            if (java) {
+                // Paket 17d: Java-Beschriftung – [@Override] public int quadrat ( int x , … )
+                if (kind === "ctor") head.appendField(new Blockly.FieldDropdown(visibilityOptions()), "VIS").appendField("Konstruktor (");
+                else {
+                    if (this.state.override) head.appendField("@Override");
+                    if (this.state.annotation) head.appendField("@" + this.state.annotation);
+                    if (kind === "classMethod") head.appendField(new Blockly.FieldDropdown(visibilityOptions()), "VIS");
+                    head.appendField(new FieldType("void", "return"), "RETURN")
+                        .appendField(new Blockly.FieldTextInput("meineOperation", identifier), "NAME")
+                        .appendField("(");
+                }
+            } else if (kind === "ctor") {
+                head.appendField("Konstruktor").appendField(new Blockly.FieldDropdown(visibilityOptions()), "VIS").appendField(hintLabel("Klasse(…)"));
             } else {
                 if (this.state.override) head.appendField(hintLabel("@Override")).appendField("überschreibt:");
+                if (this.state.annotation) {
+                    const text = annotationText(this.state.annotation);
+                    head.appendField(hintLabel("@" + this.state.annotation));
+                    if (text) head.appendField(text + ":");
+                }
                 head.appendField("Operation");
-                if (kind === "classMethod") head.appendField(new Blockly.FieldDropdown(VISIBILITY_OPTIONS), "VIS");
+                if (kind === "classMethod") head.appendField(new Blockly.FieldDropdown(visibilityOptions()), "VIS");
                 head.appendField(new Blockly.FieldTextInput("meineOperation", identifier), "NAME")
                     .appendField("liefert")
                     .appendField(new FieldType("void", "return"), "RETURN")
@@ -107,29 +142,39 @@ export function defineMethodBlock(type: string, kind: MethodKind, colour: string
             }
             this.state.params.forEach((p, i) => {
                 const type = new FieldType(p.type, "full");
-                this.appendDummyInput("P" + i)
-                    .appendField(new FieldButton("✕", (b) => removeParam(b as Mutable<MethodState>, i), "Diesen Parameter entfernen"))
-                    .appendField("Parameter")
-                    .appendField(new Blockly.FieldTextInput(p.name, identifier), "PNAME" + i)
-                    .appendField("vom Datentyp")
-                    .appendField(type, "PTYPE" + i);
+                const row = this.appendDummyInput("P" + i)
+                    .appendField(new FieldButton("✕", (b) => removeParam(b as Mutable<MethodState>, i), "Diesen Parameter entfernen"));
+                if (java) {
+                    row.appendField(type, "PTYPE" + i).appendField(new Blockly.FieldTextInput(p.name, identifier), "PNAME" + i);
+                    if (i < this.state.params.length - 1) row.appendField(",");
+                } else {
+                    row.appendField("Parameter")
+                        .appendField(new Blockly.FieldTextInput(p.name, identifier), "PNAME" + i)
+                        .appendField("vom Datentyp")
+                        .appendField(type, "PTYPE" + i);
+                }
             });
-            this.appendDummyInput("ADD").appendField(new FieldButton("+ Parameter", (b) => addParam(b as Mutable<MethodState>),
+            const add = this.appendDummyInput("ADD").appendField(new FieldButton("+ Parameter", (b) => addParam(b as Mutable<MethodState>),
                 "Einen Wert hinzufügen, den die Operation beim Aufruf bekommt"));
+            if (java) add.appendField(")");
             this.appendStatementInput("BODY");
         },
 
         saveExtraState(this: Mutable<MethodState>): MethodState | null {
             const params = methodParamsOf(this);
-            if (!params.length && !this.state.override) return null;
-            return { ...(params.length ? { params } : {}), ...(this.state.override ? { override: true } : {}) } as MethodState;
+            if (!params.length && !this.state.override && !this.state.annotation) return null;
+            return {
+                ...(params.length ? { params } : {}), ...(this.state.override ? { override: true } : {}),
+                ...(this.state.annotation ? { annotation: this.state.annotation } : {}),
+            } as MethodState;
         },
 
         loadExtraState(this: Mutable<MethodState>, state: Partial<MethodState>) {
             const params = Array.isArray(state?.params)
                 ? state.params.map((p) => ({ name: String(p?.name ?? "wert"), type: String(p?.type ?? "int") }))
                 : [];
-            mutate(this, { params, override: !!state?.override }, (n) => n, false, (name) => !PARAM_FIELD.test(name));
+            const annotation = typeof state?.annotation === "string" && state.annotation ? state.annotation : undefined;
+            mutate(this, { params, override: !!state?.override, ...(annotation ? { annotation } : {}) }, (n) => n, false, (name) => !PARAM_FIELD.test(name));
         },
     };
 
@@ -150,7 +195,8 @@ export function defineMethodBlock(type: string, kind: MethodKind, colour: string
 type CallState = { args: number };
 
 /** Aufbau eines Aufruf-Blocks: Kopf (Text, Auswahl, Objekt), danach die Werte ARG0 … */
-export type ArgsSpec = { asValue: boolean; colour: string; tooltip: string; head: (b: CallBlock) => void; tail?: string; mit?: string };
+/** javaCall: mit Java-Beschriftung als name ( a , b ) (Paket 17d) */
+export type ArgsSpec = { asValue: boolean; colour: string; tooltip: string; head: (b: CallBlock) => void; tail?: string; mit?: string; javaCall?: boolean };
 
 /** Blöcke mit Werten für Parameter: Aufruf einer Operation, neues Objekt, super(…) … */
 export function defineArgsBlock(type: string, spec: ArgsSpec) {
@@ -172,12 +218,15 @@ export function defineArgsBlock(type: string, spec: ArgsSpec) {
 
         build(this: CallBlock) {
             spec.head(this);
+            const java = !!spec.javaCall && labelMode() === "java";
             for (let i = 0; i < this.state.args; i++) {
                 const input = this.appendValueInput("ARG" + i);
-                if (i === 0) input.appendField(spec.mit ?? "mit");
+                if (java) input.appendField(i === 0 ? "(" : ",");
+                else if (i === 0) input.appendField(spec.mit ?? "mit");
                 input.appendField(new Blockly.FieldLabel("", "gsg-param-label"), "L" + i);
             }
-            this.appendDummyInput("TAIL").appendField(hintLabel(spec.tail ?? "( )"));
+            const tail = this.appendDummyInput("TAIL").appendField(hintLabel(spec.tail ?? "( )"));
+            if (java) tail.appendField((this.state.args ? ")" : "( )") + (spec.asValue ? "" : " ;"));
             this.updateLabels();
         },
 
@@ -213,14 +262,15 @@ export function defineArgsBlock(type: string, spec: ArgsSpec) {
 }
 
 const callHead = (asValue: boolean) => (b: CallBlock) => {
-    b.appendDummyInput("HEAD").appendField(asValue ? "Ergebnis von" : "führe aus")
-        .appendField(new FieldMethodName("meineOperation", asValue), "NAME");
+    const head = b.appendDummyInput("HEAD");
+    if (labelMode() !== "java") head.appendField(asValue ? "Ergebnis von" : "führe aus");
+    head.appendField(new FieldMethodName("meineOperation", asValue), "NAME");
 };
 
 export function defineOperationBlocks(defineJson: (json: object[]) => void) {
     defineMethodBlock(B.method, "method", OPERATIONS_COLOUR);
-    defineArgsBlock(B.call, { asValue: false, colour: OPERATIONS_COLOUR, head: callHead(false), tooltip: "Führt die Operation aus, z. B. begruesse(\"Ada\");" });
-    defineArgsBlock(B.callExpr, { asValue: true, colour: OPERATIONS_COLOUR, head: callHead(true), tooltip: "Führt die Operation aus und liefert ihr Ergebnis, z. B. quadrat(5)." });
+    defineArgsBlock(B.call, { asValue: false, colour: OPERATIONS_COLOUR, head: callHead(false), javaCall: true, tooltip: "Führt die Operation aus, z. B. begruesse(\"Ada\");" });
+    defineArgsBlock(B.callExpr, { asValue: true, colour: OPERATIONS_COLOUR, head: callHead(true), javaCall: true, tooltip: "Führt die Operation aus und liefert ihr Ergebnis, z. B. quadrat(5)." });
     defineJson([
         {
             type: B.return, message0: "gib zurück %1 %2", args0: [{ type: "input_value", name: "VALUE" }, { type: "field_label", text: "return", class: "gsg-java-hint" }],

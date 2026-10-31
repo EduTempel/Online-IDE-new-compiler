@@ -2,6 +2,7 @@ import * as Blockly from "blockly/core";
 import { VAR_TYPES } from "./BlockTypes";
 import { FIGURE_CLASSES } from "./FigureSpec";
 import { classInfos, typeLabel } from "./BlockTypeSystem";
+import { labelMode } from "./BlockLabels";
 
 /**
  * Auswahl eines Datentyps (Paket 6): einfache Typen, Klassen des Projekts, Reihungen, Listen,
@@ -49,7 +50,7 @@ export class FieldType extends Blockly.FieldDropdown {
         const options: Blockly.MenuOption[] = [];
         groups.forEach((g, i) => {
             if (i > 0) options.push(Blockly.FieldDropdown.SEPARATOR as unknown as Blockly.MenuOption);
-            for (const t of g) options.push([t === "void" ? "nichts" : typeLabel(t), t]);
+            for (const t of g) options.push([labelMode() === "java" ? t : t === "void" ? "nichts" : typeLabel(t), t]);
         });
         return options;
     }
@@ -77,6 +78,13 @@ export function registerTypeField() {
 export const VISIBILITY_OPTIONS: [string, string][] = [
     ["öffentlich (+)", "public"], ["privat (-)", "private"], ["geschützt (#)", "protected"], ["ohne Angabe", "package"],
 ];
+
+/** Sichtbarkeit in der eingestellten Beschriftung (Paket 17d) */
+export function visibilityOptions(): [string, string][] {
+    return labelMode() === "java"
+        ? [["public", "public"], ["private", "private"], ["protected", "protected"], ["(ohne)", "package"]]
+        : VISIBILITY_OPTIONS;
+}
 
 /** Sichtbarkeit im Feld -> Java ("package" = ohne Angabe) */
 export function visibilityJava(v: string | undefined): string {

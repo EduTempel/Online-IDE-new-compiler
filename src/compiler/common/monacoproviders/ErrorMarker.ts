@@ -2,6 +2,7 @@ import { GUIFile } from "../../../client/workspace/File.ts";
 import { Error, ErrorLevel } from "../Error.ts";
 import { Module } from "../module/Module.ts";
 import * as monaco from 'monaco-editor'
+import { helpFor, helpUri } from "../../../client/handbook/HelpLinks.ts";
 
 export class ErrorMarker {
 
@@ -14,8 +15,9 @@ export class ErrorMarker {
             endLineNumber: error.range.endLineNumber,
             endColumn: error.range.endColumn,
             message: error.message,
-            severity: this.errorLevelToMarkerSeverity(error.level)
-
+            severity: this.errorLevelToMarkerSeverity(error.level),
+            // GSG (Paket 17b): Verweis auf den passenden Handbuch-Eintrag (Link im Hover)
+            code: this.helpCode(error.message),
         })
         );
 
@@ -38,6 +40,11 @@ export class ErrorMarker {
         let oldDecorations = this.monacoModelToDeltaDecorationsMap.get(monacoModel) || [];
         if(!monacoModel.isDisposed()) this.monacoModelToDeltaDecorationsMap.set(monacoModel, monacoModel.deltaDecorations(oldDecorations, decorations));
 
+    }
+
+    private helpCode(message: string): { value: string; target: monaco.Uri } | undefined {
+        const target = helpFor(message, "java");
+        return target ? { value: "📖 Mehr dazu im Handbuch", target: monaco.Uri.parse(helpUri("java", target)) } : undefined;
     }
 
     markErrorsOfModule(module: Module) {

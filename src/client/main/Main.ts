@@ -58,6 +58,8 @@ import { Repl } from '../../compiler/common/repl/Repl.js';
 import { Debugger } from '../../compiler/common/debugger/Debugger.js';
 import { AssemblyLanguageDebugger } from '../../compiler/assembly/debugger/AssemblyLanguageDebugger.js';
 import { initLeftPanelToggle } from './gui/LeftPanelToggle.js';
+import { initHeaderFit } from './gui/HeaderFit.js';
+import { initGrosseAnsicht } from './gui/GrosseAnsicht.js';
 
 
 export class Main implements MainBase {
@@ -200,7 +202,7 @@ export class Main implements MainBase {
         } else if (findGetParameter("abgemeldet") == null) {
             // auf der Startseite schon angemeldet? Dann ohne Passwort weiter (GSG)
             this.login.initGUI();
-            portalSingleUseToken(Constants.isBlocksApp ? "bloecke" : Constants.isStructogramApp ? "struktogramme" : "java").then((token) => {
+            portalSingleUseToken(Constants.appName).then((token) => {
                 if (token) this.login.loginWithVidisOrAutoLogin(token, false);
             });
         } else {
@@ -246,6 +248,8 @@ export class Main implements MainBase {
         this.editor = new Editor(this, true, false);
         this.editor.initGUI(jQuery('#editor'));
         this.blockModeController = new BlockModeController(this);   // Umschalter Blöcke | Java (GSG)
+        try { initGrosseAnsicht(); } catch (e) { console.error(e); }   // GSG: „Große Ansicht“ (Menü Ansicht)
+        try { initHeaderFit(() => window.dispatchEvent(new Event("resize"))); } catch (e) { console.error(e); }   // GSG: Leiste über dem Editor nicht übers Menü schieben
 
         let that = this;
         jQuery(window).on('resize', (event) => {

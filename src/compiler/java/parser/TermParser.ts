@@ -86,6 +86,16 @@ export abstract class TermParser extends TokenIterator {
 
     }
 
+    /** GSG: Startwert nach „=“ (int x = ;  ist ein Fehler) */
+    parseInitialValue(): ASTTermNode | undefined {
+        const found = "" + this.cct.value;
+        const errors = this.module.errors.length;
+        const term = this.parseTerm();
+        // nur, wenn parseTerm nicht schon selbst einen Fehler gemeldet hat
+        if (!term && this.module.errors.length === errors) this.pushError(JCM.initialValueExpected(found), "error");
+        return term;
+    }
+
     parseTermBinary(): ASTTermNode | undefined {
 
         let node: ASTTermNode | undefined = this.parsePraefixSuffix();

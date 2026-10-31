@@ -1,3 +1,4 @@
+import { GSG_SPRITESHEET_NAMES } from "./GsgFigurenLibrary";
 import { Klass } from '../../../common/interpreter/StepFunction.js';
 import { EmptyRange } from '../../../common/range/Range';
 import { TokenType } from '../../TokenType';
@@ -36,7 +37,10 @@ export class SpriteLibraryEnum extends EnumClass {
             }
         ).map((sle) => {
             return new SpriteLibraryEnum(sle.name, i++);
-        })
+        }).concat(
+            // GSG: Blöckly-Figuren und Bühnenbilder (eigene Bildtafel, Paket 18b)
+            GSG_SPRITESHEET_NAMES.map((name) => new SpriteLibraryEnum(name, i++))
+        )
     }
 
     private static getUserSpritesheetsForTypeId(typeId: number): Map<string, SpriteLibraryEnum> {

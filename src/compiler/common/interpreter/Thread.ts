@@ -704,6 +704,16 @@ export class Thread {
         return s == null ? "null" : s.value;
     }
 
+    /**
+     * GSG (Blöckly): Ende einer Schleifenrunde in einer Figur oder Bühne. Wie in Scratch wartet die Schleife
+     * dann aufs nächste Bild, wenn sich auf der Bühne etwas verändert hat (eingehängt von BuehneClass).
+     */
+    static gsgSchleifenRunde?: (t: Thread) => void;
+
+    GsgRunde() {
+        Thread.gsgSchleifenRunde?.(this);
+    }
+
     EnterFullspeedMode() {
         this.fullspeedCounter++;
     }

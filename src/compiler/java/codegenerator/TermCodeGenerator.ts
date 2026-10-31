@@ -1,8 +1,10 @@
 import { isBoxedPrimitive } from "util/types";
+import { PART_ANNOTATIONS } from "../../common/interpreter/GsgParts";
 import { BaseSymbol, SymbolOnStackframe } from "../../common/BaseSymbolTable";
 import { CodeReacedAssertion } from "../../common/interpreter/CodeReachedAssertions.ts";
 import { Helpers, StepParams } from "../../common/interpreter/StepFunction";
 import { EmptyRange, IRange, Range } from "../../common/range/Range";
+import type { Error as CompilerError } from "../../common/Error";
 import { TokenType, TokenTypeReadable } from "../TokenType";
 import { JCM } from "../language/JavaCompilerMessages.ts";
 import { JavaCompiledModule } from "../module/JavaCompiledModule";
@@ -437,7 +439,9 @@ export abstract class TermCodeGenerator extends BinopCastCodeGenerator {
              * must not be called before constructor is FULLY finished. We achieve this by setting the callback-function
              * of the constructor:
              */
-            let callRegisterListeners: string = (!klassType.isLibraryType && klassType.fastExtendsImplements("Actor")) ?
+            // GSG (Blöckly): Figuren und Bühne melden danach ihre Programmteile an (@BeimStart …)
+            let callRegisterListeners: string = (!klassType.isLibraryType && (klassType.fastExtendsImplements("Actor")
+                || klassType.fastExtendsImplements("Figur") || klassType.fastExtendsImplements("Buehne"))) ?
                 `() => {${StepParams.stack}[${StepParams.stack}.length - 1]._registerListeners(${StepParams.thread}); }` : "undefined";
 
             template += `${StepParams.thread}, ${callRegisterListeners}` + (parameterValues.length > 0 ? ", " : "");
@@ -719,6 +723,41 @@ export abstract class TermCodeGenerator extends BinopCastCodeGenerator {
     }
 
 
+    /** GSG (Paket 16f): unbekannte Bezeichner, deren Meldung nach dem Übersetzen erklärt wird */
+    gsgUnknownIdentifiers: { error: CompilerError, identifier: string, range: IRange }[] = [];
+
+    /** GSG (Paket 16f): name = name; ändert nichts – meist war this.name = name gemeint */
+    private gsgCheckSelfAssignment(ast: ASTBinaryNode) {
+        if (ast.operator != TokenType.assignment || ast.leftSide?.kind != TokenType.symbol || ast.rightSide?.kind != TokenType.symbol) return;
+        const identifier = (<ASTSymbolNode>ast.leftSide).identifier;
+        if ((<ASTSymbolNode>ast.rightSide).identifier != identifier) return;
+        const symbol = this.currentSymbolTable.findSymbol(identifier)?.symbol;
+        const classContext = this.currentSymbolTable.classContext;
+        const field = classContext && !(classContext as JavaClass).isMainClass ? classContext.getField(identifier, TokenType.keywordPrivate) : undefined;
+        this.pushError(JCM.gsgSelfAssignment(identifier, !!field && symbol !== field), "warning", ast.range);
+    }
+
+    /** GSG (Paket 16): je Methode und Variable nur eine Warnung */
+    private gsgWarnedMainVariables = new Set<string>();
+
+    /**
+     * GSG (Paket 16): Variablen des Hauptprogramms macht die Online-IDE zu statischen Attributen der Hauptklasse –
+     * deshalb kommen Methoden an sie heran. In echtem Java gehören sie zur main-Methode, andere Methoden kennen sie
+     * nicht: Warnung. Ausgenommen sind das Hauptprogramm selbst und die Programmteile (@WennTaste …), die
+     * ausdrücklich mit den Variablen des Hauptprogramms arbeiten.
+     */
+    private gsgCheckMainVariableInMethod(field: JavaField, node: ASTSymbolNode) {
+        const cls = field.classEnum as JavaClass | undefined;
+        if (!cls?.isMainClass || !field._isStatic) return;
+        const method = this.currentSymbolTable.methodContext;
+        if (!method || method.identifier == "$main" || method.identifier == "main" || method.classEnumInterface !== cls) return;
+        if (PART_ANNOTATIONS.some((a) => method.getAnnotation?.(a))) return;
+        const key = method.identifier + "/" + field.identifier + "/" + method.identifierRange?.startLineNumber;
+        if (this.gsgWarnedMainVariables.has(key)) return;
+        this.gsgWarnedMainVariables.add(key);
+        this.pushError(JCM.gsgMainVariableInMethod(field.identifier, method.identifier, field.identifierRange?.startLineNumber ?? 0), "warning", node);
+    }
+
     compileSymbolNode(node: ASTSymbolNode, isWriteAccess: boolean): CodeSnippet | undefined {
 
         // first try: symbol table (parameters, local variables, fields)
@@ -745,6 +784,7 @@ export abstract class TermCodeGenerator extends BinopCastCodeGenerator {
                     this.pushError(JCM.cantUseNonstaticFieldsToInitializeStaticOne(), "error", node);
                 }
 
+                this.gsgCheckMainVariableInMethod(field, node);
                 return this.compileFieldAccess(symbol, node.range, symbolInformation.outerClassLevel);
             }
 
@@ -795,12 +835,14 @@ export abstract class TermCodeGenerator extends BinopCastCodeGenerator {
         if (this.currentSymbolTable.classContext) {
             let invisibleField = this.currentSymbolTable.classContext.getField(node.identifier, Number.MAX_SAFE_INTEGER);
             if (invisibleField) {
-                this.pushError(JCM.attributeHasWrongVisibility(node.identifier, TokenTypeReadable[invisibleField.visibility]), "error", node);
+                this.pushError(JCM.attributeHasWrongVisibility(node.identifier, TokenTypeReadable[invisibleField.visibility], invisibleField.classEnum?.identifier), "error", node);
                 return undefined;
             }
         }
 
-        this.pushError(JCM.identifierNotKnown(node.identifier), "error", node);
+        const unknownIdentifierError = this.pushError(JCM.identifierNotKnown(node.identifier), "error", node);
+        // GSG (Paket 16f): nach dem Übersetzen erklären, wo die Variable stattdessen gilt (GsgScopeMessages)
+        this.gsgUnknownIdentifiers.push({ error: unknownIdentifierError, identifier: node.identifier, range: node.range });
         return undefined;
 
     }
@@ -916,6 +958,8 @@ export abstract class TermCodeGenerator extends BinopCastCodeGenerator {
     compileBinaryOperator(ast: ASTBinaryNode): CodeSnippet | undefined {
 
         if (ast.operator == TokenType.ternaryOperator) return this.compileTernaryOperator(ast);
+
+        this.gsgCheckSelfAssignment(ast);
 
         let leftOperand = this.compileTerm(ast.leftSide, this.isAssignmentOperator(ast.operator));
         if (ast.operator == TokenType.and) {
@@ -1138,7 +1182,7 @@ export abstract class TermCodeGenerator extends BinopCastCodeGenerator {
             let invisibleField = objectType.getField(node.attributeIdentifier, Number.MAX_SAFE_INTEGER);
 
             if (invisibleField) {
-                this.pushError(JCM.attributeHasWrongVisibility(node.attributeIdentifier, TokenTypeReadable[invisibleField.visibility]), "error", node);
+                this.pushError(JCM.attributeHasWrongVisibility(node.attributeIdentifier, TokenTypeReadable[invisibleField.visibility], invisibleField.classEnum?.identifier), "error", node);
             } else {
                 this.pushError(JCM.fieldUnknown(node.attributeIdentifier), "error", node);
             }
@@ -1422,7 +1466,7 @@ export abstract class TermCodeGenerator extends BinopCastCodeGenerator {
             let invisibleMethod = this.searchMethod(node.identifier, objectSnippet.type, parameterTypes, false, objectSnippet.type instanceof StaticNonPrimitiveType, false, node.identifierRange).best;
 
             if (invisibleMethod) {
-                this.pushError(JCM.methodHasWrongVisibility(node.identifier, TokenTypeReadable[invisibleMethod.visibility]), "error", node);
+                this.pushError(JCM.methodHasWrongVisibility(node.identifier, TokenTypeReadable[invisibleMethod.visibility], invisibleMethod.classEnumInterface?.identifier), "error", node);
             } else {
                 this.pushError(JCM.cantFindMethod(), "error", node.range);
             }
