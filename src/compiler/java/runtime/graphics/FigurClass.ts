@@ -9,7 +9,10 @@ import { LibraryDeclarations } from "../../module/libraries/DeclareType";
 import { NonPrimitiveType } from "../../types/NonPrimitiveType";
 import { ObjectClass } from "../system/javalang/ObjectClassStringClass";
 import { RuntimeExceptionClass } from "../system/javalang/RuntimeException";
-import { BuehneClass, klassenVon, text, type BuehnenFigur } from "./BuehneClass";
+import { BuehneClass, klassenVon, text, type BuehnenFigur, type FragendeFigur } from "./BuehneClass";
+import { ZEIT_DEKLARATIONEN } from "./GsgZeit";
+import { antwortAlsZahl } from "./GsgFrage";
+import { dickeBegrenzt, farbeAus, farbeVerschoben, farbnamen, kopieDesStifts, neuerStift } from "./GsgMalstift";
 import {
     abgeprallt, ansichtZurRichtung, ausGrafik, beruehrtRand, bilddrehung, BUEHNE_BREITE, BUEHNE_HOEHE, DREHSTILE,
     drehstilAus, eingezaeunt, type FigurZustand, gerundet, Kostueme, neuerZustand, richtungNach, richtungNormal,
@@ -33,7 +36,7 @@ export const MAX_KLONE = 300;
  * dreht sich nicht, sondern zeigt das Kostüm zur Blickrichtung (vorne, rechts, links, hinten); „laufen 1“ ist je
  * nach Richtung das passende Bild. Rechnungen: GsgBuehnenLogik; gezeichnet wird mit einem Sprite der IDE.
  */
-export class FigurClass extends ObjectClass implements PartOwner, BuehnenFigur {
+export class FigurClass extends ObjectClass implements PartOwner, BuehnenFigur, FragendeFigur {
     static __javaDeclarations: LibraryDeclarations = [
         { type: "declaration", signature: "class Figur extends Object", comment: "Eine Figur auf der Bühne (wie in Scratch). Eigene Figuren sind Unterklassen: class Waschbaer extends Figur. Koordinaten: Bühne 480 × 360, Mitte (0 | 0), y nach oben; Richtung 90 = nach rechts." },
         { type: "method", signature: "Figur()", java: FigurClass.prototype._cj$_constructor_$Figur$, comment: "Erzeugt die Figur in der Mitte der Bühne. Das Aussehen richtet sich nach dem Namen der Klasse (Waschbaer, RoterPanda, Roboter, Axolotl, Pinguin), sonst Waschbär." },
@@ -97,9 +100,26 @@ export class FigurClass extends ObjectClass implements PartOwner, BuehnenFigur {
         { type: "method", signature: "double mausX()", native: FigurClass.prototype._mausX, comment: "x-Koordinate des Mauszeigers auf der Bühne." },
         { type: "method", signature: "double mausY()", native: FigurClass.prototype._mausY, comment: "y-Koordinate des Mauszeigers auf der Bühne." },
         { type: "method", signature: "boolean mausGedrueckt()", native: FigurClass.prototype._mausGedrueckt, comment: "Wahr, solange die Maustaste über der Bühne gedrückt ist." },
+        { type: "method", signature: "void setzeZiehbar(boolean ziehbar)", native: FigurClass.prototype._setzeZiehbar, comment: "true: Die Figur lässt sich auf der Bühne mit der Maus ziehen, solange das Programm läuft (Klone erben das). „Wenn diese Figur angeklickt“ startet dann beim Loslassen, wenn sie nicht gezogen wurde." },
         { type: "method", signature: "boolean tasteGedrueckt(string taste)", native: FigurClass.prototype._tasteGedrueckt, comment: "Wahr, solange diese Taste gedrückt ist, z. B. \"ArrowUp\", \" \" (Leertaste) oder \"a\"." },
         { type: "method", signature: "double stoppuhr()", native: FigurClass.prototype._stoppuhr, comment: "Sekunden seit dem Start der Bühne oder seit setzeStoppuhrZurueck()." },
         { type: "method", signature: "void setzeStoppuhrZurueck()", native: FigurClass.prototype._setzeStoppuhrZurueck, comment: "Setzt die Stoppuhr auf 0." },
+        { type: "method", signature: "void frage(string frage)", java: FigurClass.prototype._mj$frage$void$string, comment: "Die Figur fragt (Sprechblase), unten auf der Bühne erscheint ein Eingabefeld. Wartet, bis jemand antwortet (Enter oder ✔); die Antwort liefert antwort()." },
+        { type: "method", signature: "string antwort()", native: FigurClass.prototype._antwort, comment: "Die letzte Antwort auf frage(…) als Text (gilt für alle Figuren und die Bühne)." },
+        { type: "method", signature: "double antwortAlsZahl()", native: FigurClass.prototype._antwortAlsZahl, comment: "Die letzte Antwort als Zahl (3,5 oder 3.5); ist sie keine Zahl: 0." },
+        ...ZEIT_DEKLARATIONEN,
+        { type: "method", signature: "Figur figur(string name)", native: FigurClass.prototype._figur, comment: "Die Figur mit diesem Namen (Name ihrer Klasse, z. B. \"Pinguin\"; das Original, nicht ein Klon) – für ihre Werte: figur(\"Pinguin\").xPosition(); eigene Variablen: ((Pinguin) figur(\"Pinguin\")).punkte." },
+        { type: "method", signature: "string buehnenbildName()", native: FigurClass.prototype._buehnenbildName, comment: "Name des Bühnenbildes, z. B. \"Schulhof\" (ohne Bühnenbild: \"\")." },
+
+        // Malstift (Paket 19g)
+        { type: "method", signature: "void loescheAlles()", native: FigurClass.prototype._loescheAlles, comment: "Entfernt alles, was die Figuren gezeichnet und gestempelt haben." },
+        { type: "method", signature: "void stempel()", native: FigurClass.prototype._stempel, comment: "Druckt ein Bild der Figur auf die Bühne (hinter alle Figuren)." },
+        { type: "method", signature: "void stiftRunter()", native: FigurClass.prototype._stiftRunter, comment: "Setzt den Stift ab: Ab jetzt zeichnet die Figur bei jeder Bewegung eine Linie." },
+        { type: "method", signature: "void stiftHoch()", native: FigurClass.prototype._stiftHoch, comment: "Hebt den Stift an: Die Figur zeichnet nicht mehr." },
+        { type: "method", signature: "void setzeStiftfarbe(string farbe)", native: FigurClass.prototype._setzeStiftfarbe, comment: "Farbe des Stifts, z. B. \"rot\", \"grün\", \"blau\" oder \"#ff8800\"." },
+        { type: "method", signature: "void aendereStiftfarbeUm(double wert)", native: FigurClass.prototype._aendereStiftfarbeUm, comment: "Verschiebt die Stiftfarbe im Farbkreis (100 = einmal rundherum)." },
+        { type: "method", signature: "void setzeStiftdicke(double dicke)", native: FigurClass.prototype._setzeStiftdicke, comment: "Dicke des Stifts (mindestens 1)." },
+        { type: "method", signature: "void aendereStiftdickeUm(double wert)", native: FigurClass.prototype._aendereStiftdickeUm, comment: "Macht den Stift dicker (bzw. dünner bei negativem Wert)." },
 
         // Steuerung
         { type: "method", signature: "void warte(double sekunden)", java: FigurClass.prototype._mj$warte$void$double, comment: "Wartet so viele Sekunden." },
@@ -120,6 +140,11 @@ export class FigurClass extends ObjectClass implements PartOwner, BuehnenFigur {
     figEbene = 0;
     figIstKlon = false;
     figGeloescht = false;
+    /** Paket 19i: mit der Maus ziehbar; figZiehAbstand: Mitte der Figur minus Mausposition beim Anfassen */
+    figZiehbar = false;
+    /** Paket 19g: Malstift der Figur */
+    figStift = neuerStift();
+    figZiehAbstand = { x: 0, y: 0 };
     /** beim letzten Zeichnen sichtbar – auch Verstecken und Löschen brauchen ein neues Bild */
     figZuletztSichtbar = false;
     /** was die Figur gerade sagt oder denkt (auch ohne Grafik) */
@@ -201,18 +226,78 @@ export class FigurClass extends ObjectClass implements PartOwner, BuehnenFigur {
         const sichtbar = this.figZustand.sichtbar && !this.figGeloescht;
         if (sichtbar || this.figZuletztSichtbar) this.figBuehne?.bildAnfordern();
         this.figZuletztSichtbar = sichtbar;
+        this.figStiftZiehen();
         const sprite = this.figSprite;
         if (!sprite || sprite.isDestroyed || sprite.container?.destroyed) return;
         const z = this.figZustand;
         sprite.setTexture(this.figKostueme.figur.name, this.figKostueme.bildnummer(z.ansicht, z.pose));
         const c = sprite.container as PIXI.Sprite;
         const w = c.texture.width, h = c.texture.height;
+        c.setFromMatrix(this.figLage(w, h));
+        // Umriss für Klicks und Berühren: mit der neuen Lage (nicht der beim letzten Bild) – sonst trifft ein Klick
+        // auf eine gerade bewegte oder gezogene Figur ins Leere
+        c.updateLocalTransform();
+        sprite.setWorldTransformAndHitPolygonDirty();
+        c.visible = z.sichtbar && !this.figGeloescht;
+    }
+
+    /** Lage des Bildes (Breite w, Höhe h) in der Grafik: Mitte an der Stelle der Figur, Größe, Drehung */
+    private figLage(w: number, h: number): PIXI.Matrix {
+        const z = this.figZustand;
         const f = z.groesse / 100;
         const p = zurGrafik(z.x, z.y);
-        const m = new PIXI.Matrix().translate(-w / 2, -h / 2).scale(f, f).rotate(bilddrehung(z) * Math.PI / 180).translate(p.x, p.y);
-        c.setFromMatrix(m);
-        sprite.hitPolygonDirty = true;
-        c.visible = z.sichtbar && !this.figGeloescht;
+        return new PIXI.Matrix().translate(-w / 2, -h / 2).scale(f, f).rotate(bilddrehung(z) * Math.PI / 180).translate(p.x, p.y);
+    }
+
+    // —— Malstift (Paket 19g) ——
+
+    /** nach jeder Änderung: Ist der Stift unten und die Figur woanders, zeichnet sie eine Linie dorthin */
+    private figStiftZiehen() {
+        const s = this.figStift, z = this.figZustand;
+        if (s.x === z.x && s.y === z.y) return;
+        if (s.unten && this.figBuehne && !this.figGeloescht) this.figBuehne.stiftLinie(s.x, s.y, z.x, z.y, s);
+        s.x = z.x;
+        s.y = z.y;
+    }
+
+    _stiftRunter() {
+        const s = this.figStift;
+        s.unten = true;
+        s.x = this.figZustand.x;
+        s.y = this.figZustand.y;
+        this.figBuehne?.stiftLinie(s.x, s.y, s.x, s.y, s);    // ein Punkt, wie in Scratch
+    }
+
+    _stiftHoch() {
+        this.figStift.unten = false;
+    }
+
+    _setzeStiftfarbe(farbe: string) {
+        const f = farbeAus(text(farbe));
+        if (!f) throw new RuntimeExceptionClass(`Eine Stiftfarbe „${text(farbe)}“ gibt es nicht. Farben: ${farbnamen()} oder z. B. "#ff8800".`);
+        this.figStift.farbe = f;
+    }
+
+    _aendereStiftfarbeUm(wert: number) {
+        this.figStift.farbe = farbeVerschoben(this.figStift.farbe, wert);
+    }
+
+    _setzeStiftdicke(dicke: number) {
+        this.figStift.dicke = dickeBegrenzt(dicke);
+    }
+
+    _aendereStiftdickeUm(wert: number) {
+        this.figStift.dicke = dickeBegrenzt(this.figStift.dicke + wert);
+    }
+
+    _stempel() {
+        const c = this.figSprite && !this.figSprite.isDestroyed ? this.figSprite.container as PIXI.Sprite : undefined;
+        const textur = c?.texture;
+        this.figBuehne?.stempel(textur, textur ? this.figLage(textur.width, textur.height) : undefined);
+    }
+
+    _loescheAlles() {
+        this.figBuehne?._loescheAlles();
     }
 
     private figPosition(x: number, y: number) {
@@ -539,8 +624,39 @@ export class FigurClass extends ObjectClass implements PartOwner, BuehnenFigur {
         return this.figBuehne._stoppuhr();
     }
 
+    _figur(name: string): FigurClass {
+        return this.figBuehne.figurMitNamen(text(name)) as FigurClass;
+    }
+
+    _buehnenbildName(): string {
+        return this.figBuehne._buehnenbildName();
+    }
+
     _setzeStoppuhrZurueck() {
         this.figBuehne._setzeStoppuhrZurueck();
+    }
+
+    // —— frage … und warte (Paket 19a) ——
+
+    _mj$frage$void$string(t: Thread, callback: CallbackParameter, frage: string) {
+        this.figBuehne.frage(t, text(frage), this);
+        if (callback) callback();
+    }
+
+    frageZeigen(frage: string) {
+        this.figSage(frage, false);
+    }
+
+    frageBeendet(frage: string) {
+        if (this.figBlase && !this.figBlase.denken && this.figBlase.text === frage) this.figSage("", false);
+    }
+
+    _antwort(): string {
+        return this.figBuehne.antwortText;
+    }
+
+    _antwortAlsZahl(): number {
+        return antwortAlsZahl(this.figBuehne.antwortText);
     }
 
     // —— Steuerung ——
@@ -575,6 +691,8 @@ export class FigurClass extends ObjectClass implements PartOwner, BuehnenFigur {
         klon.figInterpreter = this.figInterpreter;
         klon.figKostueme = this.figKostueme;
         klon.figZustand = { ...this.figZustand };
+        klon.figZiehbar = this.figZiehbar;
+        klon.figStift = kopieDesStifts(this.figStift);
         klon.figIstKlon = true;
         this.figBuehne.figurHinzu(klon);
         klon.figBuehne = this.figBuehne;
@@ -644,6 +762,28 @@ export class FigurClass extends ObjectClass implements PartOwner, BuehnenFigur {
 
     gsgPartsOrder(): number {
         return this.figEbene;
+    }
+
+    // —— Ziehen mit der Maus (Paket 19i) ——
+
+    _setzeZiehbar(ziehbar: boolean) {
+        this.figZiehbar = !!ziehbar;
+    }
+
+    gsgPartsZiehbar(): boolean {
+        return this.figZiehbar && !this.figGeloescht && this.figSichtbar();
+    }
+
+    /** Koordinaten der Welt; beim Anfassen kommt die Figur nach vorne (wie in Scratch) */
+    gsgPartsZiehen(x: number, y: number, anfang: boolean) {
+        const p = ausGrafik(x, y);
+        if (anfang) {
+            this.figZiehAbstand = { x: this.figZustand.x - p.x, y: this.figZustand.y - p.y };
+            this._geheGanzNachVorne();
+            return;
+        }
+        // ganze Zahlen wie in Scratch (sonst zeigt „x-Position“ lange Kommazahlen)
+        this.figPosition(Math.round(p.x + this.figZiehAbstand.x), Math.round(p.y + this.figZiehAbstand.y));
     }
 
     gsgPartsIsStage(): boolean {

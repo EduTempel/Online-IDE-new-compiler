@@ -1,5 +1,6 @@
 import * as Blockly from "blockly/core";
 import { B, isPartHat } from "./BlockTypes";
+import { tip } from "./BlockTooltips";
 import { mainWorkspace, visibleVariables } from "./BlockTypeSystem";
 import { isFigureClass } from "./FigureSpec";
 
@@ -30,7 +31,8 @@ export function setProjectMessages(names: string[]) {
 export function usedMessages(ws: Blockly.Workspace): string[] {
     const names = new Set<string>(projectMessages);
     for (const b of mainWorkspace(ws).getAllBlocks(false)) {
-        if (b.type === B.msgStart || b.type === B.blMsg || b.type === B.msgSend || b.type === B.msgSendWait) {
+        if (b.type === B.msgStart || b.type === B.blMsg || b.type === B.msgSend || b.type === B.msgSendWait
+            || b.type === B.blMsgData || b.type === B.blSendWith || b.type === B.blSendWithWait) {
             const m = String(b.getFieldValue("MSG") ?? "");
             if (m) names.add(m);
         }
@@ -149,41 +151,44 @@ export function definePartBlocks(defineJson: (json: object[]) => void) {
             args0: [{ type: "field_gsg_message", name: "MSG", value: DEFAULT_MESSAGE }, { type: "field_input", name: "NAME", text: "beiLos" }, hint("@WennNachricht")],
             message1: "%1", args1: [{ type: "input_statement", name: "BODY" }],
             colour: PART_COLOUR, hat: "cap", extensions: ["gsg_identifier", "gsg_part"],
-            tooltip: "Ein Programmteil, den eine Nachricht startet („sende Nachricht …“, auch aus einem anderen Programmteil). "
-                + "Mehrere Programmteile dürfen dieselbe Nachricht empfangen. " + tail
-                + " Java: @WennNachricht(\"los\") void beiLos() { … }",
+            tooltip: tip("Ein Programmteil, den eine Nachricht startet („sende Nachricht …“, auch aus einem anderen Programmteil). "
+                + "Mehrere Programmteile dürfen dieselbe Nachricht empfangen. " + tail, "@WennNachricht(\"los\") void beiLos() { … }"),
         },
         {
             type: B.msgSend, message0: "sende Nachricht %1 %2",
             args0: [{ type: "field_gsg_message", name: "MSG", value: DEFAULT_MESSAGE }, hint("Nachricht.sende")],
             ...statement, colour: MESSAGE_COLOUR,
-            tooltip: "Startet alle Programmteile „wenn ich Nachricht … empfange“ mit dieser Nachricht. Das Programm läuft "
-                + "sofort weiter. Java: Nachricht.sende(\"los\");",
+            tooltip: tip("Startet alle Programmteile „wenn ich Nachricht … empfange“ mit dieser Nachricht. Das Programm läuft "
+                + "sofort weiter.", "Nachricht.sende(\"los\");",
+                "Sendet die Nachricht an alle Figuren und die Bühne: Alle Skripte „Wenn ich … empfange“ mit dieser Nachricht "
+                + "starten. Dieses Skript läuft sofort weiter."),
         },
         {
             type: B.msgSendWait, message0: "sende Nachricht %1 und warte %2",
             args0: [{ type: "field_gsg_message", name: "MSG", value: DEFAULT_MESSAGE }, hint("Nachricht.sendeUndWarte")],
             ...statement, colour: MESSAGE_COLOUR,
-            tooltip: "Startet alle Programmteile „wenn ich Nachricht … empfange“ mit dieser Nachricht und wartet, bis sie "
-                + "alle fertig sind. Java: Nachricht.sendeUndWarte(\"los\");",
+            tooltip: tip("Startet alle Programmteile „wenn ich Nachricht … empfange“ mit dieser Nachricht und wartet, bis sie "
+                + "alle fertig sind.", "Nachricht.sendeUndWarte(\"los\");",
+                "Sendet die Nachricht an alle Figuren und die Bühne und wartet, bis alle Skripte „Wenn ich … empfange“ "
+                + "mit dieser Nachricht fertig sind."),
         },
         {
             type: B.clickStart, message0: "wenn %1 angeklickt wird: %2 %3",
             args0: [{ type: "field_gsg_figure", name: "FIG", text: "ball" }, { type: "field_input", name: "NAME", text: "ballAngeklickt" }, hint("@WennAngeklickt")],
             message1: "%1", args1: [{ type: "input_statement", name: "BODY" }],
             colour: PART_COLOUR, hat: "cap", extensions: ["gsg_identifier", "gsg_part"],
-            tooltip: "Ein Programmteil, der bei jedem Mausklick auf die Figur startet (eine Figur-Variable des Hauptprogramms). "
+            tooltip: tip("Ein Programmteil, der bei jedem Mausklick auf die Figur startet (eine Figur-Variable des Hauptprogramms). "
                 + "Versteckte und entfernte Figuren lassen sich nicht anklicken. Das Programm wartet auf Klicks, bis „Stopp“ "
-                + "gedrückt wird. " + tail + " Java: @WennAngeklickt(\"ball\") void ballAngeklickt() { … }",
+                + "gedrückt wird. " + tail, "@WennAngeklickt(\"ball\") void ballAngeklickt() { … }"),
         },
         {
             type: B.progStart, message0: "wenn das Programm startet: %1 %2",
             args0: [{ type: "field_input", name: "NAME", text: "beimStart" }, hint("@BeimStart")],
             message1: "%1", args1: [{ type: "input_statement", name: "BODY" }],
             colour: PART_COLOUR, hat: "cap", extensions: ["gsg_identifier", "gsg_part"],
-            tooltip: "Ein Programmteil, der beim Programmstart mitläuft – z. B. eine Figur, die dauernd blinkt. Er beginnt, "
+            tooltip: tip("Ein Programmteil, der beim Programmstart mitläuft – z. B. eine Figur, die dauernd blinkt. Er beginnt, "
                 + "sobald das Hauptprogramm seine Figuren erstellt hat: wenn es zum ersten Mal wartet („warte …“) oder fertig ist. "
-                + tail + " Java: @BeimStart void beimStart() { … }",
+                + tail, "@BeimStart void beimStart() { … }"),
         },
     ]);
 }

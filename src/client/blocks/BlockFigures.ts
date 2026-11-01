@@ -250,7 +250,7 @@ export function defineFigureBlocks(defineJson: (json: object[]) => void) {
         {
             type: B.figSay, message0: "%1 sage %2 %3", args0: [figure(), value("TEXT"), hint(".say")],
             ...statement, ...fig,
-            tooltip: "Zeigt eine Sprechblase über der Figur (wie in Scratch). Sie bleibt, bis die Figur etwas anderes sagt; ein leerer Text \"\" entfernt sie.",
+            tooltip: "Zeigt eine Sprechblase über der Figur (wie in Scratch). Sie bleibt, bis die Figur etwas anderes sagt; ein leerer Text entfernt sie.",
         },
         {
             type: B.figSayFor, message0: "%1 sage %2 für %3 Sekunden %4", args0: [figure(), value("TEXT"), value("SECS"), hint(".say")],
@@ -259,7 +259,7 @@ export function defineFigureBlocks(defineJson: (json: object[]) => void) {
         },
         {
             type: B.figSetText, message0: "setze Inhalt von %1 auf %2 %3", args0: [figure(["Text"]), value("TEXT"), hint(".setText")],
-            ...statement, ...fig, tooltip: "Ändert, was der Text anzeigt, z. B. \"Punkte: \" + punkte.",
+            ...statement, ...fig, tooltip: "Ändert, was der Text anzeigt, z. B. „Punkte: “ verbunden mit der Variablen punkte.",
         },
         {
             type: B.figSetImage, message0: "setze Bildnummer von %1 auf %2 %3", args0: [figure(["Sprite"]), value("I"), hint(".setImageIndex")],

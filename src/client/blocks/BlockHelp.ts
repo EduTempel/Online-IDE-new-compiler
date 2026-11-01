@@ -7,6 +7,7 @@ import { FIGURES_COLOUR, INPUT_COLOUR } from "./BlockFigures";
 import { OPERATIONS_COLOUR } from "./BlockOperations";
 import { warningHelp } from "./BlockWarningHelp";
 import { blBlock, blHat } from "../bloeckly/BloecklySpec";
+import { zeigeHilfeKarte } from "./BlockHilfeKarte";
 
 /** Blöckly (Paket 18h): Kategorie aus der Beschreibung der Blöckly-Blöcke; Hüte gehören zu „Ereignisse“ */
 function bloecklyCategory(type: string): string | undefined {
@@ -14,7 +15,7 @@ function bloecklyCategory(type: string): string | undefined {
 }
 
 /**
- * Rechtsklick auf einen Block → „Hilfe“: öffnet das Handbuch beim ersten Beispiel mit diesem Block,
+ * Rechtsklick auf einen Block → „Hilfe“: zeigt die Hilfe-Karte (Paket 19j), von dort das Handbuch beim ersten Beispiel mit diesem Block,
  * bevorzugt in der Kategorie, zu der der Block gehört (erkannt an seiner Farbe).
  */
 
@@ -51,15 +52,20 @@ export function registerBlockHelpMenu() {
         id: "gsg_block_help",
         scopeType: Blockly.ContextMenuRegistry.ScopeType.BLOCK,
         // Paket 17b: hat der Block eine Warnung, führt die Hilfe zum passenden Eintrag
-        displayText: (scope) => (scope.block && warningHelp(scope.block) ? "Hilfe zur Meldung (Handbuch)" : "Hilfe (Handbuch)"),
+        displayText: (scope) => (scope.block && warningHelp(scope.block) ? "Hilfe zur Meldung (Handbuch)" : "Hilfe"),
         weight: 200,
         preconditionFn: () => (hasHandbook() ? "enabled" : "hidden"),
         callback: (scope) => {
             const block = scope.block;
             if (!block) return;
             const help = warningHelp(block);
-            if (help) openHandbook({ kind: "blocks", section: help.section, entry: help.entry });
-            else openHandbook({ kind: "blocks", blockType: block.type, section: bloecklyCategory(block.type) ?? categoryOfColour(block.getColour()) });
+            if (help) {
+                openHandbook({ kind: "blocks", section: help.section, entry: help.entry });
+                return;
+            }
+            // Paket 19j: erst die Hilfe-Karte neben dem Block, von dort „Mehr im Handbuch“
+            const section = bloecklyCategory(block.type) ?? categoryOfColour(block.getColour());
+            zeigeHilfeKarte(block, section, () => openHandbook({ kind: "blocks", blockType: block.type, section }));
         },
     });
 }

@@ -150,6 +150,7 @@ export const JAVA_LABELS: Record<string, JavaLabel> = {
     [B.listSet]: S("{NAME} .set( {I} , {V} ) ;"),
     [B.listSize]: S("{NAME} .size()"),
     [B.listContains]: S("{NAME} .contains( {V} )"),
+    [B.listIndexOf]: S("{NAME} .indexOf( {V} )"),
     [B.collIsEmpty]: S("{NAME} .isEmpty()"),
     [B.dynNew]: S("DynArray {NAME} = new DynArray() ;"),
     [B.dynAppend]: S("{NAME} .append( {V} ) ;"),

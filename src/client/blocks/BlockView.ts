@@ -28,10 +28,15 @@ import { bloecklyPuzzleLine, checkPuzzle, puzzleMessage, puzzleSolution, scrambl
 import { updateHelpHint } from "./BlockWarningHelp";
 import { ensureLibraries } from "../structogram/ProjectFiles";
 import { autoCollapseLeftPanel } from "../main/gui/LeftPanelToggle";
-import { bloecklyToolbox, defineBloecklyBlocks, registerBloecklyToolbox, setBloecklyUi } from "../bloeckly/BloecklyBlocks";
-import { BUEHNEN_KLASSE, globaleStellen, globaleUmbenannt, liesBuehne, liesFigur, liesProjekt, mitVariable, ohneVariable, startwert, variablenDerKlasse } from "../bloeckly/BloecklyProjekt";
-import type { BloecklyContext } from "../bloeckly/BloecklySpec";
+import { bloecklyToolbox, defineBloecklyBlocks, fuerFigurUndBuehne, registerBloecklyToolbox, setBloecklyUi } from "../bloeckly/BloecklyBlocks";
+import { BUEHNEN_KLASSE, globaleStellen, globaleUmbenannt, liesBuehne, liesFigur, liesProjekt, mitVariable, neueKopfVariable, ohneVariable, variablenDerKlasse } from "../bloeckly/BloecklyProjekt";
+import { setFigurVariablen, type BloecklyContext } from "../bloeckly/BloecklySpec";
 import { setProjectMessages } from "./BlockParts";
+import {
+    alleBloeckeZeigen, beiMikroweltAenderung, filtereEintraege, mikroweltDerAufgabe, mikroweltToolbox, setzeAlleBloeckeZeigen, setzeKatalogQuelle, vereinigeKataloge,
+    type KatalogKategorie, type Mikrowelt, type ToolboxEintrag,
+} from "./BlockMikrowelt";
+import { katalogAus } from "./BlockMikroweltKatalog";
 
 /**
  * Blockansicht einer Java-Datei: links die Blöcke (Blockly), rechts der daraus erzeugte
@@ -56,6 +61,9 @@ export class BlockView {
     private wsHidden = "";
     /** Puzzle (Paket 17e): ohne Werkzeugleiste, Blöcke nur verschiebbar */
     private wsPuzzle = false;
+    /** Mikrowelt (Paket 19k): erlaubte Blöcke der Aufgabe, mit der die Werkzeugleiste gebaut wurde (JSON) */
+    private wsWelt = "null";
+    private weltButton!: HTMLButtonElement;
 
     private file?: GUIFile;
     private model?: monaco.editor.ITextModel;
@@ -98,6 +106,12 @@ export class BlockView {
         registerRenderer();
         registerBlockImageMenu(() => this.file?.name);   // Rechtsklick: Blöcke als Bild speichern
         registerBlockHelpMenu();                         // Rechtsklick: Hilfe (Handbuch)
+        // Paket 19k: Mikrowelten – Auswahl der Aufgabe geändert: Werkzeugleiste neu bauen
+        setzeKatalogQuelle(() => this.katalog());
+        beiMikroweltAenderung(() => {
+            this.updateWeltButton();
+            if (this.file && this.ws && this.wsWelt !== JSON.stringify(this.mikrowelt() ?? null)) this.show(this.file, this.wsReadOnly);
+        });
 
         host.innerHTML = "";
         const area = document.createElement("div");
@@ -150,7 +164,11 @@ export class BlockView {
         this.puzzleResult.setAttribute("role", "status");
         this.puzzleResult.hidden = true;
         this.puzzleResult.addEventListener("click", () => (this.puzzleResult.hidden = true));
-        bar.append(this.toolboxButton, this.resetButton, this.puzzleCheckButton, this.puzzleMakeButton, this.puzzleEndButton,
+        // Paket 19k: Lehrkräfte sehen auf Wunsch alle Blöcke, auch wenn die Aufgabe nur einige anbietet
+        this.weltButton = this.barButton("🧭 Alle Blöcke zeigen", "Die Aufgabe bietet nur ausgewählte Blöcke an – als Lehrkraft alle Blöcke zeigen",
+            () => setzeAlleBloeckeZeigen(!alleBloeckeZeigen()));
+        this.weltButton.hidden = true;
+        bar.append(this.toolboxButton, this.resetButton, this.weltButton, this.puzzleCheckButton, this.puzzleMakeButton, this.puzzleEndButton,
             slowMotionButton(this.main, "gsg-blocks-slow"), this.labelSwitch, keys);
         area.append(bar, this.blocklyDiv, this.notice, this.puzzleResult);
 
@@ -201,7 +219,8 @@ export class BlockView {
         // neu aufbauen, wenn sich Ansicht, Thema, Beschriftung oder Freigaben (andere Anmeldung) geändert haben
         const puzzle = this.solutionOf(file) !== undefined;
         if (!this.ws || this.wsReadOnly !== readOnly || this.wsDark !== dark || this.wsHidden !== this.hiddenCategories().join(",")
-            || this.wsPuzzle !== puzzle || this.wsLabels !== labelMode() || this.wsScope !== perms.scope) {
+            || this.wsPuzzle !== puzzle || this.wsLabels !== labelMode() || this.wsScope !== perms.scope
+            || this.wsWelt !== JSON.stringify(this.mikrowelt() ?? null)) {
             this.createWorkspace(readOnly, dark, puzzle);
         }
 
@@ -216,6 +235,7 @@ export class BlockView {
         this.resetButton.hidden = readOnly;
         this.toolboxButton.hidden = readOnly || puzzle;
         this.updatePuzzleBar();
+        this.updateWeltButton();
         if (puzzle && !readOnly) {
             this.showPuzzleResult("🧩 Puzzle: Bring die Blöcke in die richtige Reihenfolge und prüfe mit „🧩 Prüfen“. "
                 + "Du ziehst immer einen Block – mit gedrückter Strg-Taste kommen die Blöcke darunter mit.");
@@ -524,19 +544,67 @@ export class BlockView {
         return Array.isArray(hidden) ? hidden.filter((h): h is string => typeof h === "string") : [];
     }
 
+    // ------------------------------------------------------------------ Mikrowelten (Paket 19k)
+
+    /** Werkzeugleiste ohne Mikrowelt (mit den von der Lerngruppe ausgeblendeten Kategorien) */
+    private fullToolbox(): Blockly.utils.toolbox.ToolboxDefinition {
+        return Constants.isBloecklyApp ? bloecklyToolbox(this.hiddenCategories()) : toolbox(this.hiddenCategories());
+    }
+
+    /** erlaubte Blöcke der Aufgabe – außer eine Lehrkraft lässt sich alle zeigen */
+    private mikrowelt(): Mikrowelt | undefined {
+        if (!Constants.isBlocksApp || (this.isStaff() && alleBloeckeZeigen())) return undefined;
+        return mikroweltDerAufgabe(this.main.getCurrentWorkspace()?.settings);
+    }
+
+    private updateWeltButton() {
+        const eingeschraenkt = Constants.isBlocksApp && !!mikroweltDerAufgabe(this.main.getCurrentWorkspace()?.settings);
+        this.weltButton.hidden = !eingeschraenkt || !this.isStaff() || this.wsReadOnly || this.wsPuzzle;
+        this.weltButton.textContent = alleBloeckeZeigen() ? "🧭 Nur Blöcke der Aufgabe" : "🧭 Alle Blöcke zeigen";
+        this.weltButton.title = alleBloeckeZeigen()
+            ? "Die Werkzeugleiste wieder so zeigen, wie sie die Schüler/innen sehen"
+            : "Die Aufgabe bietet nur ausgewählte Blöcke an – als Lehrkraft alle Blöcke zeigen";
+    }
+
+    /** Inhalt der geöffneten Kategorie auf die erlaubten Blöcke kürzen (dynamische Kategorien hier auflösen) */
+    private mitWelt(welt: Mikrowelt | undefined, tb: Blockly.Toolbox, contents: Blockly.utils.toolbox.FlyoutDefinition | string) {
+        if (!welt || !this.ws) return contents;
+        const id = tb.getSelectedItem()?.getId() ?? "";
+        let items: unknown = contents;
+        if (typeof contents === "string") items = this.ws.getToolboxCategoryCallback(contents)?.(this.ws);
+        if (!Array.isArray(items)) return contents;
+        return filtereEintraege(items as ToolboxEintrag[], welt[id] ?? []) as unknown as Blockly.utils.toolbox.FlyoutItemInfoArray;
+    }
+
+    /** Katalog für den Aufgaben-Editor: alle Blöcke je Kategorie (aus der vollen Werkzeugleiste) */
+    private katalog(): KatalogKategorie[] {
+        const ws = this.ws;
+        if (!ws || !Constants.isBlocksApp) return [];
+        const katalog = () => katalogAus(this.fullToolbox() as { contents?: unknown }, (c) => {
+            let items: unknown = c.contents;
+            if (typeof c.custom === "string") items = ws.getToolboxCategoryCallback(c.custom)?.(ws);
+            else if (!Constants.isBloecklyApp && c.toolboxitemid === "variablen") items = variablesFlyout(ws);
+            return Array.isArray(items) ? (items as ToolboxEintrag[]).filter((e) => e.kind !== "category") : [];
+        }, Constants.isBloecklyApp);
+        // Blöckly: Figuren und Bühne haben verschiedene Blöcke – die Aufgabe gilt für alle Dateien
+        return Constants.isBloecklyApp ? vereinigeKataloge(...fuerFigurUndBuehne(katalog)) : katalog();
+    }
+
     private createWorkspace(readOnly: boolean, dark: boolean, puzzle = this.wsPuzzle) {
         this.ws?.dispose();
         this.wsReadOnly = readOnly;
         this.wsDark = dark;
         this.wsPuzzle = puzzle;
         this.wsHidden = this.hiddenCategories().join(",");
+        const welt = this.mikrowelt();
+        this.wsWelt = JSON.stringify(welt ?? null);
         this.wsLabels = labelMode();
         this.wsScope = this.permissions().scope;
         // Rechtsklick-Menüs, Auswahllisten und Tooltips bleiben in der Blockfläche (Blockly-Standard): Blockly 13
         // schließt eine Auswahlliste sofort wieder, wenn sie außerhalb der Fläche hängt (Fokus verlässt die Fläche),
         // und der Block klebt dann am Mauszeiger. Damit nichts abgeschnitten wird, gilt overflow: visible (gsg-blocks.css).
         this.ws = Blockly.inject(this.blocklyDiv, {
-            toolbox: readOnly || puzzle ? undefined : Constants.isBloecklyApp ? bloecklyToolbox(this.hiddenCategories()) : toolbox(this.hiddenCategories()),
+            toolbox: readOnly || puzzle ? undefined : mikroweltToolbox(this.fullToolbox() as { contents?: unknown }, welt) as Blockly.utils.toolbox.ToolboxDefinition,
             readOnly,
             theme: theme(dark),
             renderer: "gsg",
@@ -587,7 +655,7 @@ export class BlockView {
                 showing = true;
                 try {
                     toolboxFlyout.autoClose = false;
-                    show(contents);
+                    show(this.mitWelt(welt, toolboxObject, contents));
                 } finally {
                     showing = false;
                 }
@@ -626,6 +694,12 @@ export class BlockView {
         if (toolboxDiv) {
             this.toolboxObserver = new ResizeObserver(() => injection.style.setProperty("--gsg-toolbox-width", toolboxDiv.offsetWidth + "px"));
             this.toolboxObserver.observe(toolboxDiv);
+            // … und Blockly rechnet auch mit dieser Breite: sonst steht der Rollbalken der Leiste außerhalb der Fläche
+            const flyout = this.ws.getToolbox()?.getFlyout();
+            if (flyout) {
+                const breite = flyout.getWidth.bind(flyout);
+                flyout.getWidth = () => Math.min(breite(), Math.max(0, injection.clientWidth - toolboxDiv.offsetWidth));
+            }
         }
     }
 
@@ -717,6 +791,9 @@ export class BlockView {
         const own = liesFigur(text);
         const ownVars = isStage || !own ? {} : variablenDerKlasse(text, { stage: stageClass, globals });
         setFixedVariables(new Map(Object.entries({ ...globals, ...ownVars })));
+        // Paket 19b: eigene Variablen aller Figuren (für „[punkte ▾] von [Pinguin ▾]“)
+        setFigurVariablen(Object.fromEntries(p.figuren.map((f) => [f.info.klasse,
+            f.datei === this.file ? ownVars : variablenDerKlasse(f.datei.getText(), { stage: stageClass, globals })])));
         // „Wenn 🚩 angeklickt“ gibt es nur einmal im ganzen Projekt
         this.flagElsewhere = undefined;
         for (const f of [...(p.buehne ? [p.buehne] : []), ...p.figuren]) {
@@ -740,7 +817,7 @@ export class BlockView {
         const messages = new Set<string>();
         for (const f of files) {
             if (f === this.file) continue;
-            for (const m of f.getText().matchAll(/@WennNachricht\(\s*"([^"\\]*)"\s*\)|Nachricht\.sende(?:UndWarte)?\(\s*"([^"\\]*)"\s*\)/g)) {
+            for (const m of f.getText().matchAll(/@WennNachricht\(\s*"([^"\\]*)"\s*\)|Nachricht\.sende(?:UndWarte)?\(\s*"([^"\\]*)"\s*[,)]/g)) {
                 const name = m[1] ?? m[2];
                 if (name) messages.add(name);
             }
@@ -756,7 +833,7 @@ export class BlockView {
         if (!stage) return;
         if (stage.datei === this.file && this.blHeader) {
             // gerade offen ist die Bühne: Variable im unsichtbaren Kopf ergänzen und zurückschreiben
-            const neu: BlockState = { type: B.blVar, fields: { NAME: name, TYPE: typ }, inputs: { VALUE: { block: startwert(typ) } } };
+            const neu = neueKopfVariable(name, typ);
             let last = this.blHeader.inputs?.VARS?.block;
             while (last?.next) last = last.next.block;
             if (last) last.next = { block: neu };

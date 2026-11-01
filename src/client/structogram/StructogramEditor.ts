@@ -258,7 +258,7 @@ export class StructogramEditor {
         // Hinweis, ob der Text in Java umgewandelt werden kann
         const sig = parseSignature(this.doc.title);
         if (isTitle) {
-            this.hint.textContent = sig.kind === "main" ? "Hauptprogramm – oder Signatur wie istGerade(x: Ganzzahl): Wahrheitswert" : "";
+            this.hint.textContent = sig.kind === "main" ? "Hauptprogramm (mit Namen: Hauptprogramm „Ballspiel“) – oder Signatur wie istGerade(x: Ganzzahl): Wahrheitswert" : "";
         } else if (node) {
             const vars = new Map(sig.kind === "main" ? [] : sig.params.map((p) => [p.name, p.type] as [string, string]));
             this.hint.textContent = isRecognized(node.kind, textOf(node), vars) ? "" : "wird in Java ein TODO (Formulierung nicht erkannt)";
@@ -372,13 +372,16 @@ export class StructogramEditor {
         const name = this.baseName() + ".java";
         const folder = this.file.parent_folder_id ?? null;
         const header = `// erzeugt aus dem Struktogramm „${this.file.name}“${todos ? ` – ${todos} Stelle(n) mit TODO zum Ausprogrammieren` : ""}\n`;
+        // der Name des Hauptprogramms muss die erste Zeile bleiben
+        const nameLine = /^\/\/ Hauptprogramm „[^\n]*\n/.exec(code)?.[0] ?? "";
+        const text = nameLine + header + code.slice(nameLine.length);
         const existing = findFile(this.main, name, folder);
         if (existing) {
             if (!confirm(`Die Datei „${name}“ gibt es schon. Ihren Inhalt durch den Code aus dem Struktogramm ersetzen?`)) return;
-            replaceText(this.main, existing, header + code);
+            replaceText(this.main, existing, text);
             this.main.projectExplorer.setFileActive(existing);
         } else {
-            await createFile(this.main, name, header + code, folder);
+            await createFile(this.main, name, text, folder);
         }
     }
 

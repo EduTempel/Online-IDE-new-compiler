@@ -1,5 +1,6 @@
 import * as Blockly from "blockly/core";
 import { B } from "./BlockTypes";
+import { tip } from "./BlockTooltips";
 import { collectVariables, visibleVariables } from "./BlockTypeSystem";
 import {
     ADT_CLASSES, ADT_GETS, ADT_NAMES_DE, DEFAULT_ADT_NAME, isAdtClass, READ_TYPES, TREE_SIDES,
@@ -63,7 +64,7 @@ export function defineAdtBlocks(defineJson: (json: object[]) => void, colour: st
     const c = { colour, inputsInline: true };
     const nameField = (cls: AdtClass) => ({ type: "field_input", name: "NAME", text: DEFAULT_ADT_NAME[cls] });
     const ops = (cls: AdtClass) => ADT_GETS.find((g) => g.cls === cls)!.ops;
-    const readTip = " Zum Rechnen „als Ganzzahl“ usw. wählen – in Java z. B. (int) stapel.top()";
+    const readTip = " Zum Rechnen „als Ganzzahl“ usw. wählen.";
     defineJson([
         // ------------------------------------------------------------ Stapel
         {
@@ -83,7 +84,7 @@ export function defineAdtBlocks(defineJson: (json: object[]) => void, colour: st
             type: B.stackGet, message0: "%1 Stapel %2 %3 %4",
             args0: [{ type: "field_dropdown", name: "OP", options: ops("Stack") }, adt(STACK), readType, hint(".top()")],
             output: null, ...c,
-            tooltip: "„oberstes Element“: nur ansehen. „entnimm“: ansehen und vom Stapel nehmen." + readTip,
+            tooltip: tip("„oberstes Element“: nur ansehen. „entnimm“: ansehen und vom Stapel nehmen." + readTip, "(int) stapel.top()"),
         },
         // ------------------------------------------------------------ Schlange
         {
@@ -103,7 +104,7 @@ export function defineAdtBlocks(defineJson: (json: object[]) => void, colour: st
             type: B.queueGet, message0: "%1 Schlange %2 %3 %4",
             args0: [{ type: "field_dropdown", name: "OP", options: ops("Queue") }, adt(QUEUE), readType, hint(".head()")],
             output: null, ...c,
-            tooltip: "„erstes Element“: nur ansehen. „entnimm“: ansehen und aus der Schlange nehmen." + readTip,
+            tooltip: tip("„erstes Element“: nur ansehen. „entnimm“: ansehen und aus der Schlange nehmen." + readTip, "(int) schlange.head()"),
         },
         // ------------------------------------------------------------ Binärbaum
         {
@@ -118,7 +119,7 @@ export function defineAdtBlocks(defineJson: (json: object[]) => void, colour: st
         {
             type: B.treeItem, message0: "%1 Binärbaum %2 %3 %4",
             args0: [{ type: "field_dropdown", name: "OP", options: ops("BinTree") }, adt(TREE), readType, hint(".getItem()")],
-            output: null, ...c, tooltip: "Der Inhalt der Wurzel." + readTip.replace("stapel.top()", "baum.getItem()"),
+            output: null, ...c, tooltip: tip("Der Inhalt der Wurzel." + readTip, "(int) baum.getItem()"),
         },
         {
             type: B.treeSetChild, message0: "setze %1 Teilbaum von %2 auf %3 %4",

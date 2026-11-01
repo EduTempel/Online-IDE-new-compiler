@@ -62,6 +62,8 @@ export class MouseClass extends ObjectClass {
             case "mouseenter": case "mousemove": s.inside = true; break;
             case "mouseleave": s.inside = false; s.down = false; break;
         }
+        // GSG (Paket 19i): Figuren mit der Maus ziehen
+        if (kind === "mousemove" || kind === "mouseup" || kind === "mouseleave") for (const listener of gsgClickListeners) listener(x, y, kind);
     }
 
     static _isDown(): boolean {

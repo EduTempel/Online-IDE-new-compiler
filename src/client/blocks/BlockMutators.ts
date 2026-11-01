@@ -1,5 +1,6 @@
 import * as Blockly from "blockly/core";
 import { B } from "./BlockTypes";
+import { javaInTooltips, tip } from "./BlockTooltips";
 import { L, labelMode } from "./BlockLabels";
 
 /**
@@ -97,7 +98,8 @@ export const hintLabel = (text: string): Blockly.FieldLabel => new JavaHintLabel
 
 /**
  * Blockdefinitionen (JSON) ohne die Java-Schnipsel (Felder der Klasse gsg-java-hint): aus der Beschriftung
- * entfernt, stattdessen am Ende des Tooltips („Java: .setFillColor“) – für Neugierige und Lehrkräfte.
+ * entfernt, stattdessen am Ende des Tooltips („Java: .setFillColor“) – für Neugierige und Lehrkräfte; nur in der
+ * Java-IDE, Blöckly und Blöckva zeigen kein Java.
  */
 export function withoutJavaHints<T extends Record<string, unknown>>(json: T[]): T[] {
     return json.map((def) => {
@@ -122,7 +124,7 @@ export function withoutJavaHints<T extends Record<string, unknown>>(json: T[]): 
             if (keep.length) d[`args${i}`] = keep;
             else delete d[`args${i}`];
         }
-        if (hints.length && (d.tooltip === undefined || typeof d.tooltip === "string")) {
+        if (hints.length && javaInTooltips() && (d.tooltip === undefined || typeof d.tooltip === "string")) {
             d.tooltip = `${d.tooltip ? d.tooltip + "\n" : ""}Java: ${hints.join(" ")}`;
         }
         return d as T;
@@ -234,8 +236,9 @@ export function definePrintBlock(colour: string) {
             this.setNextStatement(true);
             this.setColour(colour);
             this.setInputsInline(true);
-            this.setTooltip("Schreibt Werte in die Ausgabe, mehrere durch Leerzeichen getrennt. "
-                + "▸ fügt einen Wert hinzu, ◂ entfernt den letzten. println beginnt danach eine neue Zeile.");
+            this.setTooltip(tip("Schreibt Werte in die Ausgabe, mehrere durch Leerzeichen getrennt. "
+                + "▸ fügt einen Wert hinzu, ◂ entfernt den letzten. „mit Zeilenumbruch“ beginnt danach eine neue Zeile.",
+                "println(…) bzw. print(…)"));
             this.build();
         },
 

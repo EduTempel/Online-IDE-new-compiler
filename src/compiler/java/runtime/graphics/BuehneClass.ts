@@ -8,6 +8,10 @@ import { LibraryDeclarations } from "../../module/libraries/DeclareType";
 import { NonPrimitiveType } from "../../types/NonPrimitiveType";
 import { ObjectClass } from "../system/javalang/ObjectClassStringClass";
 import { RuntimeExceptionClass } from "../system/javalang/RuntimeException";
+import { ZEIT_DEKLARATIONEN } from "./GsgZeit";
+import { antwortAlsZahl, zeigeFrageFeld } from "./GsgFrage";
+import { farbeAlsZahl, StiftEbene, type Stift } from "./GsgMalstift";
+import type { Matrix, Texture } from "pixi.js";
 import { ausGrafik, BUEHNE_BREITE, BUEHNE_HOEHE, buehnenbildAus, schluessel, zurGrafik } from "./GsgBuehnenLogik";
 import { GSG_BUEHNENBILD_NAME, GSG_BUEHNENBILDER } from "./GsgFigurenLibrary";
 import { MouseClass } from "./MouseClass";
@@ -59,6 +63,12 @@ export class BuehneClass extends ObjectClass implements PartOwner {
         { type: "method", signature: "void setzeStoppuhrZurueck()", native: BuehneClass.prototype._setzeStoppuhrZurueck, comment: "Setzt die Stoppuhr auf 0." },
         { type: "method", signature: "void erzeugeKlonVon(string figur)", java: BuehneClass.prototype._mj$erzeugeKlonVon$void$string, comment: "Erzeugt einen Klon dieser Figur (Name ihrer Klasse, z. B. \"Waschbaer\")." },
         { type: "method", signature: "void stoppeAlles()", java: BuehneClass.prototype._mj$stoppeAlles$void$, comment: "Beendet das ganze Programm (wie der Stopp-Knopf)." },
+        { type: "method", signature: "void frage(string frage)", java: BuehneClass.prototype._mj$frage$void$string, comment: "Zeigt die Frage über einem Eingabefeld unten auf der Bühne und wartet, bis jemand antwortet (Enter oder ✔). Die Antwort liefert antwort()." },
+        { type: "method", signature: "string antwort()", native: BuehneClass.prototype._antwort, comment: "Die letzte Antwort auf frage(…) als Text (gilt für alle Figuren und die Bühne)." },
+        { type: "method", signature: "double antwortAlsZahl()", native: BuehneClass.prototype._antwortAlsZahl, comment: "Die letzte Antwort als Zahl (3,5 oder 3.5); ist sie keine Zahl: 0." },
+        ...ZEIT_DEKLARATIONEN,
+        { type: "method", signature: "void loescheAlles()", native: BuehneClass.prototype._loescheAlles, comment: "Malstift: entfernt alles, was die Figuren gezeichnet und gestempelt haben." },
+        { type: "method", signature: "Figur figur(string name)", native: BuehneClass.prototype._figur, comment: "Die Figur mit diesem Namen (Name ihrer Klasse, z. B. \"Pinguin\"; das Original, nicht ein Klon) – für ihre Werte: figur(\"Pinguin\").xPosition(); eigene Variablen: ((Pinguin) figur(\"Pinguin\")).punkte." },
     ];
 
     static type: NonPrimitiveType;
@@ -81,6 +91,14 @@ export class BuehneClass extends ObjectClass implements PartOwner {
     private letztesBild = 0;
     /** letzter Takt des Interpreters (in der IDE alle 33 ms); ohne Takt (Tests) zählt ein eigener Timer */
     private letzterTakt = -Infinity;
+    /** Paket 19a: letzte Antwort auf „frage … und warte“, Fragen, die noch warten, und die gezeigte Frage */
+    antwortText = "";
+    private fragen: Frage[] = [];
+    private offeneFrage?: Frage;
+    /** nur für Tests (ohne Grafik): beantwortet jede Frage sofort */
+    static testAntwort?: (frage: string) => string;
+    /** Paket 19g: Zeichenebene des Malstifts (entsteht beim ersten Zeichnen) */
+    stiftEbene?: StiftEbene;
 
     /** Bühne des laufenden Programms */
     static von(interpreter: Interpreter): BuehneClass | undefined {
@@ -124,6 +142,9 @@ export class BuehneClass extends ObjectClass implements PartOwner {
             this.bildSprite = vorher.bildSprite;
             this.vorne = vorher.vorne;
             this.hinten = vorher.hinten;
+            this.antwortText = vorher.antwortText;
+            this.stoppuhrStart = vorher.stoppuhrStart;
+            this.stiftEbene = vorher.stiftEbene;
             vorher.naechstesBild();
             vorher.aufraeumen?.();
             if (this.bildIndex < 0) this.bildIndex = vorher.bildIndex;
@@ -134,10 +155,16 @@ export class BuehneClass extends ObjectClass implements PartOwner {
             this.naechstesBild();
         };
         interpreter.gsgTakt = takt;
+        // Paket 19d: „Wenn Stoppuhr > …“ – alle 50 ms nachsehen
+        const stoppuhrTimer = setInterval(() => {
+            if (BuehneClass.von(interpreter) === this) interpreter.parts?.onTimer(this._stoppuhr());
+        }, 50);
         const aufraeumen = () => {
+            clearInterval(stoppuhrTimer);
             if (this.bildTimer !== undefined) clearTimeout(this.bildTimer);
             this.bildTimer = undefined;
             this.bildWartende = [];
+            this.fragenAbbrechen();
             if (interpreter.gsgTakt === takt) interpreter.gsgTakt = undefined;
             if (BuehneClass.von(interpreter) === this) interpreter.deleteObject(STORE_KEY);
             interpreter.eventManager.off(aufraeumen);
@@ -212,7 +239,44 @@ export class BuehneClass extends ObjectClass implements PartOwner {
         if (!s || s.isDestroyed) return;
         if (this.bildIndex >= 0) s.setTexture(GSG_BUEHNENBILD_NAME, this.bildIndex);
         s.container.visible = this.bildIndex >= 0;
-        s._sendToBack();
+        this.hintergrundNachHinten();
+    }
+
+    /** ganz hinten das Bühnenbild, davor die Zeichenebene des Malstifts, dann die Figuren */
+    private hintergrundNachHinten() {
+        const ebene = this.stiftEbene?.sprite;
+        const stage = this.world?.app?.stage;
+        if (ebene && stage && ebene.parent === stage) stage.setChildIndex(ebene, 0);
+        if (this.bildSprite && !this.bildSprite.isDestroyed) this.bildSprite._sendToBack();
+    }
+
+    // —— Malstift (Paket 19g) ——
+
+    private stift(): StiftEbene {
+        if (!this.stiftEbene) {
+            this.stiftEbene = new StiftEbene(this.world?.app, BUEHNE_BREITE, BUEHNE_HOEHE);
+            this.hintergrundNachHinten();
+        }
+        return this.stiftEbene;
+    }
+
+    /** Linie von (x1|y1) nach (x2|y2) in Bühnenkoordinaten */
+    stiftLinie(x1: number, y1: number, x2: number, y2: number, stift: Stift) {
+        const a = zurGrafik(x1, y1), b = zurGrafik(x2, y2);
+        this.stift().linie(a.x, a.y, b.x, b.y, farbeAlsZahl(stift.farbe), stift.dicke);
+        this.bildAnfordern();
+    }
+
+    stempel(textur: Texture | undefined, lage: Matrix | undefined) {
+        const ebene = this.stift();
+        if (textur && lage) ebene.abdruck(textur, lage);
+        else ebene.abdruecke++;
+        this.bildAnfordern();
+    }
+
+    _loescheAlles() {
+        this.stiftEbene?.loesche();
+        this.bildAnfordern();
     }
 
     _wechsleZuBuehnenbild(name: string) {
@@ -220,11 +284,18 @@ export class BuehneClass extends ObjectClass implements PartOwner {
         if (!bild) throw new RuntimeExceptionClass(unbekanntesBild(text(name)));
         this.bildIndex = bild.index;
         this.zeigeBild();
+        this.bildGewechselt();
     }
 
     _naechstesBuehnenbild() {
         this.bildIndex = (this.bildIndex + 1) % GSG_BUEHNENBILDER.length;
         this.zeigeBild();
+        this.bildGewechselt();
+    }
+
+    /** Paket 19d: „Wenn Bühnenbild wechselt zu …“ */
+    private bildGewechselt() {
+        this.interpreter?.parts?.onBackdrop(this._buehnenbildName());
     }
 
     _buehnenbildName(): string {
@@ -251,7 +322,7 @@ export class BuehneClass extends ObjectClass implements PartOwner {
     nachHinten(figur: BuehnenFigur) {
         figur.figEbene = --this.hinten;
         this.bildAnfordern();
-        if (this.bildSprite && !this.bildSprite.isDestroyed) this.bildSprite._sendToBack();
+        this.hintergrundNachHinten();
     }
 
     anzahlKlone(): number {
@@ -262,6 +333,18 @@ export class BuehneClass extends ObjectClass implements PartOwner {
     figurenMitNamen(name: string): BuehnenFigur[] {
         const k = schluessel(name);
         return this.figuren.filter((f) => !f.figGeloescht && schluessel(f.figName()) === k);
+    }
+
+    /** Paket 19b: die Figur mit diesem Namen – das Original, sonst ein Klon; keine: Fehlermeldung */
+    figurMitNamen(name: string): BuehnenFigur {
+        const alle = this.figurenMitNamen(name);
+        const figur = alle.find((f) => !f.figIstKlon) ?? alle[0];
+        if (!figur) throw new RuntimeExceptionClass(`Eine Figur „${name}“ gibt es auf der Bühne nicht.`);
+        return figur;
+    }
+
+    _figur(name: string): BuehnenFigur {
+        return this.figurMitNamen(text(name));
     }
 
     klonVon(t: Thread, callback: CallbackParameter, name: string) {
@@ -331,6 +414,74 @@ export class BuehneClass extends ObjectClass implements PartOwner {
         BuehneClass.stoppeAlles(t);
     }
 
+    // —— frage … und warte (Paket 19a) ——
+
+    /**
+     * Fragt und wartet auf die Antwort. sprecher: die fragende Figur (Frage in ihrer Sprechblase), sonst die Bühne
+     * (Frage über dem Feld). Fragen mehrere Skripte, kommen sie nacheinander dran.
+     */
+    frage(t: Thread, frage: string, sprecher?: FragendeFigur) {
+        t.scheduler.suspendThread(t);
+        t.state = ThreadState.timedWaiting;
+        this.fragen.push({ t, frage, sprecher });
+        if (!this.offeneFrage) this.naechsteFrage();
+    }
+
+    private naechsteFrage() {
+        this.offeneFrage = undefined;
+        let f: Frage | undefined;
+        while ((f = this.fragen.shift())) {
+            if (f.t.state < ThreadState.terminated && !f.sprecher?.figGeloescht) break;
+        }
+        if (!f) return;
+        const frage = f;
+        const fertig = (antwort: string) => {
+            if (this.offeneFrage !== frage) return;
+            if (frage.pruefen !== undefined) clearInterval(frage.pruefen);
+            this.antwortText = antwort;
+            frage.sprecher?.frageBeendet(frage.frage);
+            if (frage.t.state < ThreadState.terminated) frage.t.scheduler.restoreThread(frage.t);
+            this.naechsteFrage();
+        };
+        this.offeneFrage = frage;
+        const feld = (this.world as { graphicsDiv?: HTMLElement } | undefined)?.graphicsDiv;
+        if (!feld || typeof document === "undefined") {
+            // ohne Grafik (Tests): gleich beantworten
+            setTimeout(() => fertig(BuehneClass.testAntwort?.(frage.frage) ?? ""), 0);
+            return;
+        }
+        frage.sprecher?.frageZeigen(frage.frage);
+        frage.entfernen = zeigeFrageFeld(feld, frage.sprecher ? "" : frage.frage, fertig);
+        // endet das Skript vorher (stoppe andere Skripte, Klon gelöscht), verschwindet die Frage
+        frage.pruefen = setInterval(() => {
+            if (frage.t.state >= ThreadState.terminated || frage.sprecher?.figGeloescht) {
+                frage.entfernen?.();
+                fertig(this.antwortText);
+            }
+        }, 250);
+    }
+
+    private fragenAbbrechen() {
+        const offen = this.offeneFrage;
+        this.fragen = [];
+        this.offeneFrage = undefined;
+        if (offen?.pruefen !== undefined) clearInterval(offen.pruefen);
+        offen?.entfernen?.();
+    }
+
+    _mj$frage$void$string(t: Thread, callback: CallbackParameter, frage: string) {
+        this.frage(t, text(frage));
+        if (callback) callback();
+    }
+
+    _antwort(): string {
+        return this.antwortText;
+    }
+
+    _antwortAlsZahl(): number {
+        return antwortAlsZahl(this.antwortText);
+    }
+
     // —— Programmteile ——
 
     gsgPartsHit(): boolean {
@@ -345,6 +496,15 @@ export class BuehneClass extends ObjectClass implements PartOwner {
         return true;
     }
 }
+
+/** Figur, die „frage … und warte“ benutzt (FigurClass): Frage in der Sprechblase */
+export interface FragendeFigur {
+    figGeloescht: boolean;
+    frageZeigen(frage: string): void;
+    frageBeendet(frage: string): void;
+}
+
+type Frage = { t: Thread; frage: string; sprecher?: FragendeFigur; entfernen?: () => void; pruefen?: ReturnType<typeof setInterval> };
 
 /** Java-Klassen eines Objekts von seiner Klasse bis vor die Bibliotheksklasse (für Programmteile) */
 export function klassenVon(objekt: object, bis: Function): { getOwnMethods(): unknown[] }[] {

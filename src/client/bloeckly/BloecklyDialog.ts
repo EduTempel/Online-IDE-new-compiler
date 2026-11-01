@@ -50,20 +50,22 @@ export function dialog(titel: string, inhalt: HTMLElement, beimSchliessen?: () =
 export type NeueVariable = { name: string; typ: string; fuerAlle: boolean };
 
 const TYPEN: [string, string][] = [["Zahl", "double"], ["Ganzzahl", "int"], ["Text", "String"], ["Wahrheitswert (wahr/falsch)", "boolean"]];
+/** Paket 19f: Art einer Liste (Werte wie BL_LISTEN in BloecklySpec) */
+const LISTEN_TYPEN: [string, string][] = [["Liste mit Zahlen", "ArrayList<Double>"], ["Liste mit Texten", "ArrayList<String>"]];
 
 /**
  * „Neue Variable“ wie in Scratch: Name, Art und – bei einer Figur – für alle Figuren oder nur für diese Figur.
  * pruefen liefert eine Fehlermeldung oder undefined.
  */
-export function neueVariableFragen(figur: boolean, pruefen: (name: string) => string | undefined): Promise<NeueVariable | undefined> {
+export function neueVariableFragen(figur: boolean, pruefen: (name: string) => string | undefined, liste = false): Promise<NeueVariable | undefined> {
     return new Promise((fertig) => {
         const form = el("form", "gsg-bl-frage");
         const feld = el("input", "gsg-bl-feld");
-        feld.setAttribute("aria-label", "Name der Variablen");
-        feld.placeholder = "Name, z. B. punkte";
+        feld.setAttribute("aria-label", liste ? "Name der Liste" : "Name der Variablen");
+        feld.placeholder = liste ? "Name, z. B. einkauf" : "Name, z. B. punkte";
         const typ = el("select", "gsg-bl-feld");
-        typ.setAttribute("aria-label", "Art der Variablen");
-        for (const [text, wert] of TYPEN) {
+        typ.setAttribute("aria-label", liste ? "Art der Liste" : "Art der Variablen");
+        for (const [text, wert] of liste ? LISTEN_TYPEN : TYPEN) {
             const o = el("option", undefined, text);
             o.value = wert;
             typ.append(o);
@@ -88,10 +90,10 @@ export function neueVariableFragen(figur: boolean, pruefen: (name: string) => st
         }
         const fehler = el("div", "gsg-bl-fehler");
         fehler.setAttribute("role", "alert");
-        const ok = knopf("Anlegen", "Variable anlegen", "gsg-bl-knopf gsg-bl-start");
+        const ok = knopf("Anlegen", liste ? "Liste anlegen" : "Variable anlegen", "gsg-bl-knopf gsg-bl-start");
         ok.type = "submit";
         const knoepfe = el("div", "gsg-bl-knoepfe");
-        const abbrechen = knopf("Abbrechen", "Keine Variable anlegen");
+        const abbrechen = knopf("Abbrechen", liste ? "Keine Liste anlegen" : "Keine Variable anlegen");
         knoepfe.append(abbrechen, ok);
         form.append(fehler, knoepfe);
         let ergebnis: NeueVariable | undefined;
@@ -104,7 +106,8 @@ export function neueVariableFragen(figur: boolean, pruefen: (name: string) => st
         };
         feld.addEventListener("input", () => { beruehrt = true; zeige(); });
         zeige();
-        const schliessen = dialog(figur ? "Neue Variable" : "Neue Variable für alle Figuren", form, () => fertig(ergebnis));
+        const titel = liste ? (figur ? "Neue Liste" : "Neue Liste für alle Figuren") : figur ? "Neue Variable" : "Neue Variable für alle Figuren";
+        const schliessen = dialog(titel, form, () => fertig(ergebnis));
         abbrechen.addEventListener("click", schliessen);
         form.addEventListener("submit", (e) => {
             e.preventDefault();

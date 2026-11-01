@@ -1,5 +1,6 @@
 import * as Blockly from "blockly/core";
 import { B } from "./BlockTypes";
+import { tip } from "./BlockTooltips";
 import { collectVariables, visibleVariables } from "./BlockTypeSystem";
 import { defineIfBlock, definePrintBlock, withoutJavaHints } from "./BlockMutators";
 import { defineLabelled } from "./BlockLabels";
@@ -207,9 +208,9 @@ export function defineBlocks() {
             args0: [{ type: "field_gsg_key_part", name: "KEY", value: " " }, { type: "field_input", name: "NAME", text: "leertaste" }, hint("@WennTaste")],
             message1: "%1", args1: [{ type: "input_statement", name: "BODY" }],
             colour: COLOURS.start, hat: "cap", extensions: ["gsg_identifier", "gsg_key_part"],
-            tooltip: "Ein weiterer Programmteil mit Namen: Er startet bei jedem Druck auf die Taste – gleichzeitig mit dem "
+            tooltip: tip("Ein weiterer Programmteil mit Namen: Er startet bei jedem Druck auf die Taste – gleichzeitig mit dem "
                 + "Hauptprogramm und mit dessen Variablen. Läuft er noch, zählt erneutes Drücken nicht. Jede Taste gibt es "
-                + "nur einmal. Das Programm wartet auf Tasten, bis „Stopp“ gedrückt wird. Java: @WennTaste(\" \") void leertaste() { … }",
+                + "nur einmal. Das Programm wartet auf Tasten, bis „Stopp“ gedrückt wird.", "@WennTaste(\" \") void leertaste() { … }"),
         },
 
         // ------------------------------------------------------------ Variablen
@@ -218,15 +219,17 @@ export function defineBlocks() {
             args0: [{ type: "field_input", name: "NAME", text: "zahl" },
                 { type: "field_gsg_type", name: "TYPE", text: "int", mode: "simple" }, { type: "input_value", name: "VALUE" }],
             inputsInline: true, ...statement, colour: COLOURS.variables, extensions: ["gsg_identifier"],
-            tooltip: "Legt eine neue Variable an und gibt ihr einen Startwert, z. B. int zahl = 5; "
+            tooltip: tip("Legt eine neue Variable an und gibt ihr einen Startwert. "
                 + "Beim Wechsel des Datentyps wird der Startwert passend umgestellt. "
-                + "Reihungen, Listen und ADT legen die Blöcke in ihren eigenen Kategorien (unter Variablen) an.",
+                + "Reihungen, Listen und ADT legen die Blöcke in ihren eigenen Kategorien (unter Variablen) an.", "int zahl = 5;",
+                "Legt eine neue Variable an, die nur in diesem Skript gilt, und gibt ihr einen Startwert. Der Datentyp sagt, "
+                + "was sie speichern kann: Ganzzahl, Kommazahl, Text, Wahrheitswert (wahr oder falsch) oder Zeichen."),
         },
         {
             type: B.varSet, message0: "setze %1 auf %2 %3",
             args0: [{ type: "field_gsg_variable", name: "NAME", text: "zahl" }, { type: "input_value", name: "VALUE" }, hint("=")],
             inputsInline: true, ...statement, colour: COLOURS.variables,
-            tooltip: "Gibt der Variablen einen neuen Wert, z. B. zahl = 7;",
+            tooltip: tip("Gibt der Variablen einen neuen Wert.", "zahl = 7;"),
         },
         {
             // erhöhe/verringere in einem Block (Java: zahl += 2, zahl -= 2, um 1: zahl++ bzw. zahl--)
@@ -234,24 +237,25 @@ export function defineBlocks() {
             args0: [{ type: "field_dropdown", name: "OP", options: [["erhöhe", "+"], ["verringere", "-"]] },
                 { type: "field_gsg_variable", name: "NAME", text: "zahl" }, { type: "input_value", name: "VALUE" }],
             inputsInline: true, ...statement, colour: COLOURS.variables,
-            tooltip: "Erhöht bzw. verringert die Variable um den Wert. Java: zahl += 2; bzw. zahl -= 2; (um 1: zahl++; bzw. zahl--;). "
-                + "Bei Texten hängt „erhöhe“ den Wert an.",
+            tooltip: tip("Erhöht bzw. verringert die Variable um den Wert. Bei Texten hängt „erhöhe“ den Wert an.",
+                "zahl += 2; bzw. zahl -= 2; (um 1: zahl++; bzw. zahl--;)",
+                "„erhöhe“ zählt den Wert zur Variablen dazu, „verringere“ zieht ihn ab. Bei einem Text hängt „erhöhe“ den Wert hinten an."),
         },
         {
             type: B.varSub, message0: "verringere %1 um %2 %3",
             args0: [{ type: "field_gsg_variable", name: "NAME", text: "zahl" }, { type: "input_value", name: "VALUE" }, hint("-=")],
             inputsInline: true, ...statement, colour: COLOURS.variables,
-            tooltip: "Zieht etwas von der Variablen ab, z. B. zahl -= 2;",
+            tooltip: tip("Zieht etwas von der Variablen ab.", "zahl -= 2;"),
         },
         {
             type: B.varInc, message0: "erhöhe %1 um 1 %2",
             args0: [{ type: "field_gsg_variable", name: "NAME", text: "zahl" }, hint("++")],
-            ...statement, colour: COLOURS.variables, tooltip: "zahl++ erhöht die Variable um 1.",
+            ...statement, colour: COLOURS.variables, tooltip: tip("Erhöht die Variable um 1.", "zahl++;"),
         },
         {
             type: B.varDec, message0: "verringere %1 um 1 %2",
             args0: [{ type: "field_gsg_variable", name: "NAME", text: "zahl" }, hint("--")],
-            ...statement, colour: COLOURS.variables, tooltip: "zahl-- verringert die Variable um 1.",
+            ...statement, colour: COLOURS.variables, tooltip: tip("Verringert die Variable um 1.", "zahl--;"),
         },
         {
             type: B.varGet, message0: "%1", args0: [{ type: "field_gsg_variable", name: "NAME", text: "zahl" }],
@@ -268,7 +272,7 @@ export function defineBlocks() {
                     ["Wahrheitswert", "readBoolean"], ["Zeichen", "readChar"]],
             }, { type: "input_value", name: "PROMPT" }],
             inputsInline: true, output: null, colour: COLOURS.output,
-            tooltip: "Fragt beim Programmlauf nach einer Eingabe. Java: Input.readInt(\"Frage\") (bzw. readDouble, readString, readBoolean, readChar).",
+            tooltip: tip("Fragt beim Programmlauf nach einer Eingabe.", "Input.readInt(\"Frage\") (bzw. readDouble, readString, readBoolean, readChar)"),
         },
         {
             type: B.trace, message0: "trage in die Tracetabelle ein (Bemerkung: %1) %2",
@@ -284,8 +288,9 @@ export function defineBlocks() {
             args0: [{ type: "field_dropdown", name: "MODE", options: [["solange", "while"], ["bis", "until"]] }, { type: "input_value", name: "COND" }],
             message1: "%1", args1: [{ type: "input_statement", name: "DO" }],
             ...statement, colour: COLOURS.control,
-            tooltip: "solange: wiederholt die Blöcke, solange die Bedingung wahr ist (Java: while (Bedingung)). "
-                + "bis: wiederholt die Blöcke, bis die Bedingung wahr ist (Java: while (!(Bedingung))). Die Bedingung wird jeweils vor dem Durchlauf geprüft.",
+            tooltip: tip("solange: wiederholt die Blöcke, solange die Bedingung wahr ist. "
+                + "bis: wiederholt die Blöcke, bis die Bedingung wahr ist. Die Bedingung wird jeweils vor dem Durchlauf geprüft.",
+                "while (Bedingung) bzw. while (!(Bedingung))"),
         },
         {
             type: B.forever, message0: "wiederhole fortlaufend %1", args0: [hint("while (true)")],
@@ -297,7 +302,7 @@ export function defineBlocks() {
             type: B.repeat, message0: "wiederhole %1 mal %2", args0: [{ type: "input_value", name: "TIMES" }, hint("for")],
             message1: "%1", args1: [{ type: "input_statement", name: "DO" }],
             inputsInline: true, ...statement, colour: COLOURS.control,
-            tooltip: "Wiederholt die Blöcke so oft wie angegeben. In Java: for (int durchlauf = 1; durchlauf <= 10; durchlauf++)",
+            tooltip: tip("Wiederholt die Blöcke so oft wie angegeben.", "for (int durchlauf = 1; durchlauf <= 10; durchlauf++)"),
         },
         {
             type: B.for, message0: "wiederhole für %1 von %2 %3 %4 %5 mit Schrittweite %6",
@@ -309,8 +314,8 @@ export function defineBlocks() {
                 { type: "input_value", name: "STEP" }],
             message1: "%1", args1: [{ type: "input_statement", name: "DO" }],
             inputsInline: true, ...statement, colour: COLOURS.control, extensions: ["gsg_identifier"],
-            tooltip: "Die Zählvariable läuft vom Start- bis zum Endwert (\"bis\": einschließlich, \"bis vor\": ohne den Endwert), "
-                + "aufsteigend oder absteigend. Java: for (int i = 1; i <= 10; i++)",
+            tooltip: tip("Die Zählvariable läuft vom Start- bis zum Endwert („bis“: einschließlich, „bis vor“: ohne den Endwert), "
+                + "aufsteigend oder absteigend.", "for (int i = 1; i <= 10; i++)"),
         },
         {
             type: B.wait, message0: "warte %1 Millisekunden %2", args0: [{ type: "input_value", name: "MS" }, hint("Thread.sleep")],
@@ -326,7 +331,8 @@ export function defineBlocks() {
                     ["<", "<"], ["<=", "<="], [">", ">"], [">=", ">="]],
             }, { type: "input_value", name: "B" }],
             inputsInline: true, output: null, colour: COLOURS.conditions,
-            tooltip: "Vergleicht zwei Werte; das Ergebnis ist wahr oder falsch. Texte mit „ist gleich“ vergleichen.",
+            tooltip: tip("Vergleicht zwei Werte; das Ergebnis ist wahr oder falsch. Texte mit „ist gleich“ vergleichen.", undefined,
+                "Vergleicht zwei Zahlen; das Ergebnis ist wahr oder falsch."),
         },
         {
             type: B.logic, message0: "%1 %2 %3",
@@ -345,6 +351,7 @@ export function defineBlocks() {
             type: B.bool, message0: "%1",
             args0: [{ type: "field_dropdown", name: "VALUE", options: [["wahr", "true"], ["falsch", "false"]] }],
             output: null, colour: COLOURS.conditions,
+            tooltip: tip("Ein Wahrheitswert: wahr oder falsch.", "true bzw. false"),
         },
 
         // ------------------------------------------------------------ Rechnen und Werte
@@ -359,8 +366,10 @@ export function defineBlocks() {
                 type: "field_dropdown", name: "OP", options: [["+", "+"], ["-", "-"], ["*", "*"], ["/", "/"], ["mod (Rest)  %", "%"]],
             }, { type: "input_value", name: "B" }],
             inputsInline: true, output: null, colour: COLOURS.values,
-            tooltip: "Rechnen. Achtung: / mit zwei ganzen Zahlen teilt ganzzahlig ohne Rest (7 / 2 ergibt 3). "
-                + "mod liefert den Rest der ganzzahligen Division (7 mod 2 ergibt 1).",
+            tooltip: tip("Rechnen. Achtung: / mit zwei ganzen Zahlen teilt ganzzahlig ohne Rest (7 / 2 ergibt 3). "
+                + "mod liefert den Rest der ganzzahligen Division (7 mod 2 ergibt 1).", undefined,
+                "Rechnet mit zwei Zahlen. mod ist der Rest beim Teilen (7 mod 2 ergibt 1). Achtung: Teilst du zwei ganze "
+                + "Zahlen, fällt der Rest weg (7 / 2 ergibt 3; mit 7.0 / 2 ergibt es 3.5)."),
         },
         {
             type: B.random, message0: "Zufallszahl von %1 bis %2 %3",
@@ -380,14 +389,14 @@ export function defineBlocks() {
                     ["Wurzel aus", "sqrt"], ["Betrag von", "abs"]],
             }, { type: "input_value", name: "VALUE" }],
             inputsInline: true, output: null, colour: COLOURS.values,
-            tooltip: "runde: auf eine ganze Zahl runden (2.5 ergibt 3). Java: Math.round, Math.sqrt, Math.abs",
+            tooltip: tip("runde: auf eine ganze Zahl runden (2.5 ergibt 3). Wurzel aus 9 ergibt 3, Betrag von -3 ergibt 3.", "Math.round, Math.sqrt, Math.abs"),
         },
         {
             type: B.minMax, message0: "%1 von %2 und %3",
             args0: [{ type: "field_dropdown", name: "FUNC", options: [["kleinste", "min"], ["größte", "max"]] },
                 { type: "input_value", name: "A" }, { type: "input_value", name: "B" }],
             inputsInline: true, output: null, colour: COLOURS.values,
-            tooltip: "Die kleinere bzw. größere der beiden Zahlen. Java: Math.min, Math.max",
+            tooltip: tip("Die kleinere bzw. größere der beiden Zahlen.", "Math.min, Math.max"),
         },
         {
             type: B.cast, message0: "%1 %2",
@@ -396,9 +405,9 @@ export function defineBlocks() {
                     ["Kommazahl von", "double"], ["Zeichen mit ASCII-Code", "char"]],
             }, { type: "input_value", name: "VALUE" }],
             inputsInline: true, output: null, colour: COLOURS.values,
-            tooltip: "Wandelt einen Wert um: Kommazahl -> Ganzzahl schneidet die Nachkommastellen ab; "
-                + "ein Zeichen als Ganzzahl ist sein ASCII-Code ('A' -> 65), eine Ganzzahl als Zeichen das Zeichen dazu (65 -> 'A'). "
-                + "Java: (int), (double), (char)",
+            tooltip: tip("Wandelt einen Wert um: Kommazahl → Ganzzahl schneidet die Nachkommastellen ab; "
+                + "ein Zeichen als Ganzzahl ist sein ASCII-Code (A → 65), eine Ganzzahl als Zeichen das Zeichen dazu (65 → A).",
+                "(int), (double), (char)"),
         },
 
         // ------------------------------------------------------------ Text (Abitur: Umgang mit Zeichenketten)
@@ -409,7 +418,7 @@ export function defineBlocks() {
         {
             type: B.char, message0: "‚%1‘", args0: [{ type: "field_input", name: "CHAR", text: "a" }],
             output: null, colour: COLOURS.text, extensions: ["gsg_char"],
-            tooltip: "Ein einzelnes Zeichen, z. B. 'a'.",
+            tooltip: tip("Ein einzelnes Zeichen, z. B. a oder ?.", "'a'"),
         },
         {
             type: B.concat, message0: "verbinde %1 und %2 %3",
@@ -449,14 +458,14 @@ export function defineBlocks() {
             type: B.strCompare, message0: "vergleiche %1 lexikografisch mit %2 %3",
             args0: [{ type: "input_value", name: "A" }, { type: "input_value", name: "B" }, hint(".compareTo")],
             inputsInline: true, output: null, colour: COLOURS.text,
-            tooltip: "Lexikographischer Vergleich: negativ, wenn der erste Text vorher kommt, 0 bei Gleichheit, positiv, wenn er danach kommt.",
+            tooltip: tip("Vergleicht zwei Texte nach dem Alphabet (lexikographisch): negativ, wenn der erste Text vorher kommt, 0 bei Gleichheit, positiv, wenn er danach kommt.", "a.compareTo(b)"),
         },
         {
             type: B.strCase, message0: "%1 in %2",
             args0: [{ type: "input_value", name: "TEXT" },
                 { type: "field_dropdown", name: "CASE", options: [["Großbuchstaben", "upper"], ["Kleinbuchstaben", "lower"]] }],
             inputsInline: true, output: null, colour: COLOURS.text,
-            tooltip: "Der Text in Groß- bzw. Kleinbuchstaben. Java: .toUpperCase(), .toLowerCase()",
+            tooltip: tip("Der Text in Groß- bzw. Kleinbuchstaben.", ".toUpperCase(), .toLowerCase()"),
         },
 
         // ------------------------------------------------------------ Java und Kommentare
@@ -482,7 +491,8 @@ export function defineBlocks() {
             this.setPreviousStatement(true);
             this.setNextStatement(true);
             this.setColour(COLOURS.java);
-            this.setTooltip("Java-Code, den es nicht als Block gibt. Bearbeiten in der Java-Ansicht.");
+            this.setTooltip(tip("Java-Code, den es nicht als Block gibt. Bearbeiten in der Java-Ansicht.", undefined,
+                "Ein Teil des Programms, den es nicht als Block gibt."));
             this.setEditable(false);
             this.renderCode();
         },

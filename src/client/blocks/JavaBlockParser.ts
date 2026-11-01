@@ -6,8 +6,8 @@ import { ANY_TARGET, EDGE_TARGET, FIGURE_ACTIONS, FIGURE_CALLS, FIGURE_CREATIONS
 import { ADT_CALLS, ADT_CREATIONS, ADT_GET_TYPES, getOp, isAdtClass, TREE_DELETES, TREE_SIDES, TREE_TESTS, type AdtClass } from "./AdtSpec";
 import { CLICK_PART_ANNOTATION, KEY_PART_ANNOTATION, MESSAGE_PART_ANNOTATION, START_PART_ANNOTATION } from "../../compiler/common/interpreter/GsgParts";
 import {
-    availableFor, BL_BLOCKS, BL_HATS, FIGURE_SUPER, formAvailable, isDefaultHatName, parsedForm, specialValues, STAGE_SUPER,
-    type BloecklyContext, type HeaderState,
+    availableFor, BL_BLOCKS, BL_HATS, FIGURE_SUPER, formAvailable, isDefaultHatName, isFormLiteral, istBlListe, parsedForm, specialValues, STAGE_SUPER,
+    type BloecklyContext, type HeaderState, type BlHat, BL_BACKDROP, BL_STAGE, VON_ATTRIBUTE, WERT_PARAM, WERT_TYPES,
 } from "../bloeckly/BloecklySpec";
 
 /**
@@ -70,6 +70,8 @@ export class JavaBlockParser {
     private baseVars = new Map<string, string>();
     /** Blöckly (Paket 18e): Klasse einer Figur bzw. der Bühne */
     private bl?: { cls: string; stage: boolean; stageClass: string; globals: Map<string, string> };
+    /** Paket 19e: im Skript „Wenn ich … empfange mit Wert“ – Datentyp des Parameters wert */
+    private blWert?: string;
 
     constructor(private src: string) {
         const lineStarts = [0];
@@ -182,25 +184,47 @@ export class JavaBlockParser {
         const begin = this.pos;
         if (!this.bl || !this.is(TokenType.at)) return undefined;
         const annotation = String(this.peek(1)?.value ?? "");
-        const hat = BL_HATS.find((h) => h.annotation === annotation && availableFor(h, this.bl!.stage));
-        if (!hat) return undefined;
+        const hats = BL_HATS.filter((h) => h.annotation === annotation && availableFor(h, this.bl!.stage));
+        if (!hats.length) return undefined;
         let at = 2;
         const fields: Record<string, string> = {};
-        if (hat.trigger) {
+        const trigger = hats[0].trigger;
+        if (trigger === "SEK") {
+            // @WennStoppuhrUeber(10)
+            const n = this.peek(3)?.tt;
+            if (!this.is(TokenType.leftBracket, 2) || !(n === TokenType.integerLiteral || n === TokenType.floatLiteral || n === TokenType.doubleConstant)
+                || !this.is(TokenType.rightBracket, 4)) return undefined;
+            fields.SEK = this.text(begin + 3, begin + 4);
+            at = 5;
+        } else if (trigger) {
             if (!this.is(TokenType.leftBracket, 2) || !this.is(TokenType.stringLiteral, 3) || !this.is(TokenType.rightBracket, 4)) return undefined;
-            const trigger = String(this.peek(3)!.value);
-            if (!trigger) return undefined;
-            fields[hat.trigger] = trigger;
+            const value = String(this.peek(3)!.value);
+            if (!value) return undefined;
+            fields[trigger] = value;
             at = 5;
         } else if (this.is(TokenType.leftBracket, 2)) return undefined;
-        if (!this.is(TokenType.keywordVoid, at) || !this.is(TokenType.identifier, at + 1) || !this.is(TokenType.leftBracket, at + 2)
-            || !this.is(TokenType.rightBracket, at + 3) || !this.is(TokenType.leftCurlyBracket, at + 4)) return undefined;
+        if (!this.is(TokenType.keywordVoid, at) || !this.is(TokenType.identifier, at + 1) || !this.is(TokenType.leftBracket, at + 2)) return undefined;
+        // ohne Parameter: void name() {   mit Wert (Paket 19e): void name(double wert) {
+        let hat: BlHat | undefined, after: number, wert: string | undefined;
+        if (this.is(TokenType.rightBracket, at + 3)) {
+            hat = hats.find((h) => !h.param);
+            after = at + 4;
+        } else {
+            const typ = String(this.peek(at + 3)?.value ?? "");
+            hat = hats.find((h) => h.param);
+            if (!WERT_TYPES.some(([, t]) => t === typ) || this.peek(at + 4)?.value !== WERT_PARAM || !this.is(TokenType.rightBracket, at + 5)) return undefined;
+            wert = typ;
+            after = at + 6;
+        }
+        if (!hat || !this.is(TokenType.leftCurlyBracket, after)) return undefined;
+        if (wert) fields.TYPE = wert;
         const name = String(this.peek(at + 1)!.value);
         const rangeCount = this.ranges.length;
-        const outer = this.vars;
+        const outer = this.vars, outerWert = this.blWert;
         this.vars = new Map(this.baseVars);
+        this.blWert = wert;
         try {
-            this.pos = begin + at + 5;
+            this.pos = begin + after + 1;
             const body = this.statementList(true);
             this.expect(TokenType.rightCurlyBracket);
             const b = this.block(hat.type, begin, this.pos, Object.keys(fields).length ? { fields } : {});
@@ -214,6 +238,7 @@ export class JavaBlockParser {
             return undefined;
         } finally {
             this.vars = outer;
+            this.blWert = outerWert;
         }
     }
 
@@ -226,10 +251,23 @@ export class JavaBlockParser {
             k = 1;
         }
         const ty = this.typeAt(begin + k);
-        if (!ty || !(VAR_TYPES as readonly string[]).includes(ty.type) || this.toks[ty.next]?.tt !== TokenType.identifier) return undefined;
+        if (!ty || this.toks[ty.next]?.tt !== TokenType.identifier) return undefined;
         const name = String(this.toks[ty.next].value);
         const after = this.toks[ty.next + 1]?.tt;
         const fields = { NAME: name, TYPE: ty.type };
+        // Paket 19f: Liste – ArrayList<Double> namen = new ArrayList<Double>();  (auch new ArrayList<>())
+        if (istBlListe(ty.type)) {
+            const t = (i: number) => this.toks[ty.next + i];
+            const w = String(t(5)?.value ?? "");
+            const diamond = t(5)?.tt === TokenType.greater;
+            const leer = diamond ? 5 : 6;
+            if (after !== TokenType.assignment || t(2)?.tt !== TokenType.keywordNew || t(3)?.value !== "ArrayList" || t(4)?.tt !== TokenType.lower
+                || (!diamond && (ty.type !== `ArrayList<${w}>` || t(6)?.tt !== TokenType.greater)) || t(leer + 1)?.tt !== TokenType.leftBracket
+                || t(leer + 2)?.tt !== TokenType.rightBracket || t(leer + 3)?.tt !== TokenType.semicolon) return undefined;
+            this.pos = ty.next + leer + 4;
+            return this.block(B.blVar, begin, this.pos, { fields });
+        }
+        if (!(VAR_TYPES as readonly string[]).includes(ty.type)) return undefined;
         if (after === TokenType.semicolon) {
             this.pos = ty.next + 2;
             return this.block(B.blVar, begin, this.pos, { fields });
@@ -279,6 +317,11 @@ export class JavaBlockParser {
                 let ok = true;
                 p.params.forEach((name, i) => {
                     const arg = spec.args.find((a) => a.name === name);
+                    // fester Wert: muss genau so dastehen
+                    if (!arg && isFormLiteral(name)) {
+                        if (this.text(args[i][0], args[i][1]).trim() !== name) ok = false;
+                        return;
+                    }
                     if (arg?.kind !== "choice") return;
                     const [from, to] = args[i];
                     const t = this.toks[from];
@@ -289,7 +332,8 @@ export class JavaBlockParser {
                 if (!ok) continue;
                 const inputs: Record<string, { block: BlockState }> = {};
                 p.params.forEach((name, i) => {
-                    if (spec.args.find((a) => a.name === name)?.kind !== "choice") inputs[name] = { block: this.expression(args[i][0], args[i][1]) };
+                    const arg = spec.args.find((a) => a.name === name);
+                    if (arg ? arg.kind !== "choice" : !isFormLiteral(name)) inputs[name] = { block: this.expression(args[i][0], args[i][1]) };
                 });
                 const extra: Partial<BlockState> = {};
                 if (Object.keys(fields).length) extra.fields = fields;
@@ -310,9 +354,56 @@ export class JavaBlockParser {
         return this.bl.globals.has(name) && !this.vars.has(name) ? name : undefined;
     }
 
+    /** Paket 19f: Spiel.liste – Liste für alle Figuren an Position i (in einer Figur) */
+    bloecklyGlobalList(i: number): { name: string; kind: CollKind } | undefined {
+        const name = this.bloecklyGlobal(i);
+        const c = name !== undefined ? collectionOfType(this.bl!.globals.get(name)) : undefined;
+        return c ? { name: name!, kind: c.kind } : undefined;
+    }
+
+    /**
+     * Paket 19b: „[x-Position ▾] von [Pinguin ▾]“ – figur("Pinguin").xPosition(), ((Pinguin) figur("Pinguin")).punkte
+     * und (in einer Figur) buehnenbildName() für „Bühnenbild von Bühne“
+     */
+    bloecklyVon(pos: number, to: number): { block: BlockState; next: number } | undefined {
+        if (!this.bl) return undefined;
+        const t = (i: number) => (i < to ? this.toks[i] : undefined);
+        const is = (i: number, tt: TokenType) => t(i)?.tt === tt;
+        const id = (i: number, v?: string) => is(i, TokenType.identifier) && (v === undefined || t(i)!.value === v);
+        const von = (attr: string, figur: string, next: number) => ({ block: this.valueBlock(B.blVon, { fields: { ATTR: attr, FIGUR: figur } }), next });
+        if (!this.bl.stage && id(pos, "buehnenbildName") && is(pos + 1, TokenType.leftBracket) && is(pos + 2, TokenType.rightBracket)
+            && !this.ownMethod("buehnenbildName", 0)) return von(BL_BACKDROP, BL_STAGE, pos + 3);
+        // figur("Pinguin")
+        const figurRef = (i: number): string | undefined =>
+            id(i, "figur") && is(i + 1, TokenType.leftBracket) && is(i + 2, TokenType.stringLiteral) && is(i + 3, TokenType.rightBracket)
+                && !this.text(i + 2, i + 3).startsWith('"""') && !this.ownMethod("figur", 1) ? String(t(i + 2)!.value) : undefined;
+        const f1 = figurRef(pos);
+        if (f1 !== undefined && is(pos + 4, TokenType.dot) && id(pos + 5) && is(pos + 6, TokenType.leftBracket) && is(pos + 7, TokenType.rightBracket)
+            && !is(pos + 8, TokenType.dot)) {
+            const m = String(t(pos + 5)!.value);
+            if (VON_ATTRIBUTE.some((a) => a[1] === m)) return von(m, f1, pos + 8);
+        }
+        // ((Pinguin) figur("Pinguin")).punkte
+        if (is(pos, TokenType.leftBracket) && is(pos + 1, TokenType.leftBracket) && id(pos + 2) && is(pos + 3, TokenType.rightBracket)) {
+            const f2 = figurRef(pos + 4);
+            if (f2 !== undefined && f2 === String(t(pos + 2)!.value) && is(pos + 8, TokenType.rightBracket) && is(pos + 9, TokenType.dot)
+                && id(pos + 10) && !is(pos + 11, TokenType.leftBracket) && !is(pos + 11, TokenType.dot)) {
+                return von("v:" + String(t(pos + 10)!.value), f2, pos + 11);
+            }
+        }
+        return undefined;
+    }
+
     /** Wert-Block zu einem Blöckly-Aufruf bzw. einer Variablen für alle Figuren (für ExpressionParser) */
     bloecklyValue(pos: number, to: number): { block: BlockState; next: number } | undefined {
         if (!this.bl) return undefined;
+        const von = this.bloecklyVon(pos, to);
+        if (von) return von;
+        // Paket 19e: wert im Skript „Wenn ich … empfange mit Wert“ (sofern keine eigene Variable so heißt)
+        if (this.blWert && this.toks[pos]?.value === WERT_PARAM && !this.vars.has(WERT_PARAM)
+            && !(pos + 1 < to && (this.toks[pos + 1]?.tt === TokenType.leftBracket || this.toks[pos + 1]?.tt === TokenType.dot))) {
+            return { block: this.valueBlock(B.blWert), next: pos + 1 };
+        }
         const global = this.bloecklyGlobal(pos);
         if (global !== undefined && pos + 2 < to) {
             const after = pos + 3 < to ? this.toks[pos + 3] : undefined;
@@ -1260,6 +1351,14 @@ export class JavaBlockParser {
         const name = String(first.value);
         // Blöckly: Spiel.punkte = …;  Spiel.punkte += …;  Spiel.punkte++;
         const global = this.bloecklyGlobal(begin);
+        // Paket 19f: Spiel.liste.add(…);  Spiel.liste.set(0, …);  …  (Liste für alle Figuren)
+        const globalList = global !== undefined ? collectionOfType(this.bl!.globals.get(global)) : undefined;
+        if (global !== undefined && globalList) {
+            this.pos = begin + 2;
+            const b = this.collectionStatement(global, globalList.kind, begin);
+            if (b) return b;
+            this.pos = begin;
+        }
         if (global !== undefined) {
             const op = this.peek(3);
             if (op?.tt === TokenType.plusPlus || op?.tt === TokenType.minusMinus) {
@@ -1346,6 +1445,19 @@ export class JavaBlockParser {
             const b = this.block(B.call, begin, this.pos, { fields: { NAME: name } });
             this.addArguments(b, begin + 1, close);
             return b;
+        }
+        // Paket 19e (Blöckly): Nachricht.sende("Treffer", 10);  Nachricht.sendeUndWarte("Treffer", wert);
+        if (this.bl && name === "Nachricht" && second.tt === TokenType.dot && ["sende", "sendeUndWarte"].includes(String(this.peek(2)?.value))
+            && this.is(TokenType.leftBracket, 3) && this.is(TokenType.stringLiteral, 4) && this.is(TokenType.comma, 5)
+            && String(this.peek(4)!.value) !== "") {
+            const open = this.pos + 3, close = this.matching(open);
+            const args = this.argBounds(open, close);
+            if (args?.length === 2 && this.toks[close + 1]?.tt === TokenType.semicolon) {
+                const wait = this.peek(2)!.value === "sendeUndWarte", msg = String(this.peek(4)!.value);
+                const value = this.expression(args[1][0], args[1][1]);
+                this.pos = close + 2;
+                return this.block(wait ? B.blSendWithWait : B.blSendWith, begin, this.pos, { fields: { MSG: msg }, inputs: { WERT: { block: value } } });
+            }
         }
         // Nachricht.sende("los");  Nachricht.sendeUndWarte("los");
         if (name === "Nachricht" && second.tt === TokenType.dot && ["sende", "sendeUndWarte"].includes(String(this.peek(2)?.value))
@@ -1634,8 +1746,7 @@ export class JavaBlockParser {
     }
 
     /** a[i] = v;  m[r][c] = v;  liste.add(v);  d.insertAt(i, v); … */
-    private collectionStatement(name: string, kind: CollKind): BlockState | undefined {
-        const begin = this.pos;
+    private collectionStatement(name: string, kind: CollKind, begin = this.pos): BlockState | undefined {
         if ((kind === "array" || kind === "array2d") && this.is(TokenType.leftSquareBracket, 1)) {
             this.pos++;
             const idx: [number, number][] = [];
@@ -1859,6 +1970,11 @@ class ExpressionParser {
             return this.p.value(B.bool, { fields: { VALUE: t.value ? "true" : "false" } });
         }
         if (t.tt === TokenType.leftBracket) {
+            const von = this.p.bloecklyVon(start, this.to);
+            if (von) {
+                this.pos = von.next;
+                return this.postfix(von.block, start);
+            }
             // Typumwandlung: (int) x, (double) x, (char) x
             const castType = this.p.tok(start + 1), castClose = this.p.tok(start + 2);
             const ct = String(castType?.value);
@@ -1890,6 +2006,14 @@ class ExpressionParser {
             if (bl) {
                 this.pos = bl.next;
                 return this.postfix(bl.block, start);
+            }
+            const globalList = this.p.bloecklyGlobalList(this.pos);
+            if (globalList) {
+                const save = this.pos;
+                this.pos += 2;
+                const c = this.collectionValue(globalList.name, globalList.kind);
+                if (c) return this.postfix(c, start);
+                this.pos = save;
             }
             const coll = this.p.collection(String(t.value));
             if (coll) {

@@ -1,7 +1,9 @@
 import { B } from "../blocks/BlockTypes";
+import { STIFTFARBEN } from "../../compiler/java/runtime/graphics/GsgMalstift";
 import { keyPartName } from "../blocks/FigureSpec";
 import {
-    CLICK_PART_ANNOTATION, CLONE_PART_ANNOTATION, KEY_PART_ANNOTATION, MESSAGE_PART_ANNOTATION, START_PART_ANNOTATION,
+    BACKDROP_PART_ANNOTATION, CLICK_PART_ANNOTATION, CLONE_PART_ANNOTATION, KEY_PART_ANNOTATION, MESSAGE_PART_ANNOTATION,
+    START_PART_ANNOTATION, TIMER_PART_ANNOTATION,
 } from "../../compiler/common/interpreter/GsgParts";
 
 /**
@@ -18,7 +20,7 @@ import {
  * In einer Form steht {NAME} für einen Eingang (Wert-Block) oder ein Auswahlfeld (dann als Text "…").
  */
 
-export type BlCategory = "bewegung" | "aussehen" | "ereignisse" | "steuerung" | "fuehlen" | "operatoren" | "variablen" | "meine";
+export type BlCategory = "bewegung" | "aussehen" | "ereignisse" | "steuerung" | "fuehlen" | "operatoren" | "variablen" | "meine" | "malstift";
 
 /** Kategorien der Werkzeugleiste: Kennung, Name, Farbe (eigene Farben, nicht die von Scratch) */
 export const BL_CATEGORIES: { id: BlCategory; name: string; colour: string }[] = [
@@ -30,11 +32,18 @@ export const BL_CATEGORIES: { id: BlCategory; name: string; colour: string }[] =
     { id: "operatoren", name: "Operatoren", colour: "#3a9a27" },    // wie Rechnen & Werte
     { id: "variablen", name: "Variablen", colour: "#e07b00" },      // wie die Variablen-Blöcke
     { id: "meine", name: "Meine Blöcke", colour: "#c2477f" },       // wie Operationen
+    { id: "malstift", name: "Malstift", colour: "#17917a" },        // Paket 19g (wie die Erweiterung in Scratch)
 ];
 
 export function categoryColour(id: BlCategory): string {
     return BL_CATEGORIES.find((c) => c.id === id)!.colour;
 }
+
+/** Paket 19f: Listen (wie Variablen im Kopf: für alle Figuren in der Bühne) – Art und Java-Typ */
+export const BL_LISTEN: [string, string][] = [["Zahlen", "ArrayList<Double>"], ["Texte", "ArrayList<String>"]];
+export const istBlListe = (typ: string | undefined): boolean => BL_LISTEN.some((l) => l[1] === typ);
+/** Listen-Blöcke: etwas dunkler als die Variablen (wie in Scratch) */
+export const BL_LISTEN_FARBE = "#c4581c";
 
 /** Wo gibt es den Block? figur: nur bei Figuren, buehne: nur auf der Bühne, beide: überall */
 export type BlOwner = "figur" | "buehne" | "beide";
@@ -59,7 +68,7 @@ export type BlBlock = {
     args: BlArg[];
     forms: BlForm[];
     /** Werte-Block: Datentyp des Ergebnisses */
-    output?: "double" | "boolean" | "String";
+    output?: "double" | "int" | "boolean" | "String";
     owner: BlOwner;
     tooltip: string;
 };
@@ -235,6 +244,16 @@ export const BL_BLOCKS: BlBlock[] = [
         tooltip: "Abstand zum Mauszeiger bzw. zur anderen Figur (von Mitte zu Mitte).",
     },
     {
+        type: "bl_frage", cat: "fuehlen", text: "frage {TEXT} und warte", args: [{ name: "TEXT", kind: "text", def: "Wie heißt du?" }], owner: "beide",
+        forms: [{ java: "frage({TEXT})" }],
+        tooltip: "Stellt die Frage und wartet, bis jemand unten auf der Bühne antwortet (Enter oder ✔). Bei einer Figur steht die Frage in ihrer Sprechblase.",
+    },
+    { type: "bl_antwort", cat: "fuehlen", text: "Antwort", args: [], output: "String", owner: "beide", forms: [{ java: "antwort()" }], tooltip: "Die letzte Antwort auf „frage … und warte“ als Text. Sie gilt für alle Figuren und die Bühne." },
+    {
+        type: "bl_antwort_zahl", cat: "fuehlen", text: "Antwort als Zahl", args: [], output: "double", owner: "beide", forms: [{ java: "antwortAlsZahl()" }],
+        tooltip: "Die letzte Antwort als Zahl, zum Rechnen und Vergleichen (3,5 und 3.5 gehen). Ist die Antwort keine Zahl, ergibt sie 0.",
+    },
+    {
         type: "bl_taste", cat: "fuehlen", text: "Taste {KEY} gedrückt?", output: "boolean", owner: "beide",
         args: [{ name: "KEY", kind: "choice", source: "tasten", def: " " }], forms: [{ java: "tasteGedrueckt({KEY})" }],
         tooltip: "Wahr, solange diese Taste gedrückt ist.",
@@ -242,8 +261,40 @@ export const BL_BLOCKS: BlBlock[] = [
     { type: "bl_maus_gedrueckt", cat: "fuehlen", text: "Maustaste gedrückt?", args: [], output: "boolean", owner: "beide", forms: [{ java: "mausGedrueckt()" }], tooltip: "Wahr, solange die Maustaste über der Bühne gedrückt ist." },
     { type: "bl_maus_x", cat: "fuehlen", text: "Maus x", args: [], output: "double", owner: "beide", forms: [{ java: "mausX()" }], tooltip: "x-Koordinate des Mauszeigers." },
     { type: "bl_maus_y", cat: "fuehlen", text: "Maus y", args: [], output: "double", owner: "beide", forms: [{ java: "mausY()" }], tooltip: "y-Koordinate des Mauszeigers." },
+    {
+        type: "bl_ziehbar", cat: "fuehlen", text: "setze Ziehbarkeit auf {WIE}", owner: "figur",
+        args: [{ name: "WIE", kind: "choice", options: [["ziehbar", "ja"], ["nicht ziehbar", "nein"]] }],
+        forms: [{ java: "setzeZiehbar(true)", when: { WIE: "ja" } }, { java: "setzeZiehbar(false)", when: { WIE: "nein" } }],
+        tooltip: "Ziehbar: Solange das Programm läuft, lässt sich die Figur auf der Bühne mit der Maus verschieben. „Wenn diese Figur angeklickt“ startet dann beim Loslassen, wenn sie nicht gezogen wurde.",
+    },
     { type: "bl_stoppuhr", cat: "fuehlen", text: "Stoppuhr", args: [], output: "double", owner: "beide", forms: [{ java: "stoppuhr()" }], tooltip: "Sekunden seit dem Start oder seit „setze Stoppuhr zurück“." },
+    {
+        type: "bl_zeit", cat: "fuehlen", text: "aktuelle(s) {WAS}", output: "int", owner: "beide",
+        args: [{ name: "WAS", kind: "choice", options: [["Jahr", "jahr"], ["Monat", "monat"], ["Tag", "tag"], ["Wochentag", "wochentag"], ["Stunde", "stunde"], ["Minute", "minute"], ["Sekunde", "sekunde"]] }],
+        forms: [
+            { java: "aktuellesJahr()", when: { WAS: "jahr" } }, { java: "aktuellerMonat()", when: { WAS: "monat" } },
+            { java: "aktuellerTag()", when: { WAS: "tag" } }, { java: "aktuellerWochentag()", when: { WAS: "wochentag" } },
+            { java: "aktuelleStunde()", when: { WAS: "stunde" } }, { java: "aktuelleMinute()", when: { WAS: "minute" } },
+            { java: "aktuelleSekunde()", when: { WAS: "sekunde" } },
+        ],
+        tooltip: "Datum und Uhrzeit von jetzt: Jahr, Monat (1–12), Tag (1–31), Wochentag (1 = Montag … 7 = Sonntag), Stunde (0–23), Minute, Sekunde.",
+    },
+    { type: "bl_tage_seit_2000", cat: "fuehlen", text: "Tage seit 2000", args: [], output: "double", owner: "beide", forms: [{ java: "tageSeit2000()" }], tooltip: "Wie viele Tage seit dem 1. Januar 2000 vergangen sind (mit Kommastellen)." },
     { type: "bl_stoppuhr_null", cat: "fuehlen", text: "setze Stoppuhr zurück", args: [], owner: "beide", forms: [{ java: "setzeStoppuhrZurueck()" }], tooltip: "Setzt die Stoppuhr auf 0." },
+
+    // —— Malstift (Paket 19g) ——
+    { type: "bl_stift_loeschen", cat: "malstift", text: "lösche alles", args: [], owner: "beide", forms: [{ java: "loescheAlles()" }], tooltip: "Entfernt alles, was die Figuren gezeichnet und gestempelt haben." },
+    { type: "bl_stempel", cat: "malstift", text: "hinterlasse Abdruck", args: [], owner: "figur", forms: [{ java: "stempel()" }], tooltip: "Druckt ein Bild der Figur auf die Bühne. Der Abdruck bleibt, auch wenn die Figur weitergeht – hinter allen Figuren." },
+    { type: "bl_stift_runter", cat: "malstift", text: "Stift absetzen", args: [], owner: "figur", forms: [{ java: "stiftRunter()" }], tooltip: "Ab jetzt zeichnet die Figur bei jeder Bewegung eine Linie." },
+    { type: "bl_stift_hoch", cat: "malstift", text: "Stift anheben", args: [], owner: "figur", forms: [{ java: "stiftHoch()" }], tooltip: "Die Figur zeichnet nicht mehr." },
+    {
+        type: "bl_stift_farbe", cat: "malstift", text: "setze Stiftfarbe auf {FARBE}", owner: "figur",
+        args: [{ name: "FARBE", kind: "choice", options: STIFTFARBEN, def: "blau" }], forms: [{ java: "setzeStiftfarbe({FARBE})" }],
+        tooltip: "Farbe der Linien, die die Figur ab jetzt zeichnet.",
+    },
+    { type: "bl_stift_farbe_um", cat: "malstift", text: "ändere Stiftfarbe um {N}", args: [num("N", "10")], owner: "figur", forms: [{ java: "aendereStiftfarbeUm({N})" }], tooltip: "Verschiebt die Farbe im Farbkreis: rot → gelb → grün → blau → lila → rot. 100 ist einmal rundherum." },
+    { type: "bl_stift_dicke", cat: "malstift", text: "setze Stiftdicke auf {N}", args: [num("N", "1")], owner: "figur", forms: [{ java: "setzeStiftdicke({N})" }], tooltip: "Wie dick die Linien sind (mindestens 1)." },
+    { type: "bl_stift_dicke_um", cat: "malstift", text: "ändere Stiftdicke um {N}", args: [num("N", "1")], owner: "figur", forms: [{ java: "aendereStiftdickeUm({N})" }], tooltip: "Macht die Linien dicker (negativ: dünner)." },
 
     // Bühne
     { type: "bl_bild_name", cat: "aussehen", text: "Bühnenbild", args: [], output: "String", owner: "buehne", forms: [{ java: "buehnenbildName()" }], tooltip: "Name des Bühnenbildes, z. B. „Schulhof“." },
@@ -289,6 +340,9 @@ export type ParsedForm = { method: string; params: string[]; when: Record<string
 
 const formCache = new Map<BlForm, ParsedForm>();
 
+/** fester Wert in einer Java-Form, z. B. setzeZiehbar(true) (Paket 19i) */
+export const isFormLiteral = (param: string) => /^(true|false|-?\d+(\.\d+)?)$/.test(param);
+
 export function parsedForm(f: BlForm): ParsedForm {
     let p = formCache.get(f);
     if (!p) {
@@ -317,9 +371,66 @@ export function specialValues(b: BlBlock, field: string): Set<string> {
 /** Methoden, die Blöckly-Blöcke sind (eigene Operationen mit diesen Namen verdecken sie) */
 export const BL_METHODS = new Set(BL_BLOCKS.flatMap((b) => b.forms.map((f) => parsedForm(f).method)));
 
+// ------------------------------------------------------------------ „… von Figur“ (Paket 19b)
+
+/**
+ * „[x-Position ▾] von [Pinguin ▾]“: Werte einer anderen Figur (des Originals, nicht eines Klons) oder der Bühne.
+ * Java: figur("Pinguin").xPosition(); eigene Variablen der Figur mit Typumwandlung ((Pinguin) figur("Pinguin")).punkte;
+ * das Bühnenbild (in einer Figur) buehnenbildName(). ATTR: Methode, „v:Name“ (Variable) oder BL_BACKDROP.
+ */
+export const BL_STAGE = "@buehne";
+export const BL_BACKDROP = "@bild";
+export const VON_ATTRIBUTE: [string, string, string][] = [
+    ["x-Position", "xPosition", "double"], ["y-Position", "yPosition", "double"], ["Richtung", "richtung", "double"],
+    ["Kostüm", "kostuemName", "String"], ["Größe", "groesse", "double"],
+];
+
+let figurVariablen: Record<string, Record<string, string>> = {};
+
+/** eigene Variablen aller Figuren des Projekts (Klasse -> Name -> Datentyp), setzt die Blockansicht */
+export function setFigurVariablen(v: Record<string, Record<string, string>>) {
+    figurVariablen = v;
+}
+
+export function variablenDerFigur(klasse: string): Record<string, string> {
+    return figurVariablen[klasse] ?? {};
+}
+
+/** Auswahl für ATTR zur gewählten Figur */
+export function vonOptionen(figur: string): [string, string][] {
+    if (figur === BL_STAGE) return [["Bühnenbild", BL_BACKDROP]];
+    return [
+        ...VON_ATTRIBUTE.map(([l, m]): [string, string] => [l, m]),
+        ...Object.keys(variablenDerFigur(figur)).sort((a, b) => a.localeCompare(b, "de")).map((n): [string, string] => [n, "v:" + n]),
+    ];
+}
+
+/** Datentyp des Werts */
+export function vonTyp(attr: string, figur: string): string | undefined {
+    if (attr === BL_BACKDROP) return "String";
+    if (attr.startsWith("v:")) return variablenDerFigur(figur)[attr.slice(2)];
+    return VON_ATTRIBUTE.find((a) => a[1] === attr)?.[2];
+}
+
+/** Java für ATTR und FIGUR */
+export function vonJava(attr: string, figur: string): string {
+    if (figur === BL_STAGE || attr === BL_BACKDROP) return "buehnenbildName()";
+    const ref = `figur(${JSON.stringify(figur)})`;
+    if (attr.startsWith("v:")) return `((${figur}) ${ref}).${attr.slice(2)}`;
+    return `${ref}.${attr}()`;
+}
+
 // ------------------------------------------------------------------ Hüte (Skripte)
 
-export type BlHat = { type: string; annotation: string; trigger?: "KEY" | "MSG"; owner: BlOwner };
+/**
+ * trigger: Feld mit dem Auslöser (BILD: Bühnenbild, SEK: Zahl ohne Anführungszeichen); param: das Skript hat einen
+ * Parameter „wert“ (Datentyp im Feld TYPE) – Nachrichten mit Daten (Paket 19e)
+ */
+export type BlHat = { type: string; annotation: string; trigger?: "KEY" | "MSG" | "BILD" | "SEK"; owner: BlOwner; param?: boolean };
+
+/** Name des Parameters im Skript „Wenn ich … empfange mit Wert“ */
+export const WERT_PARAM = "wert";
+export const WERT_TYPES: [string, string][] = [["Zahl", "double"], ["Text", "String"]];
 
 export const BL_HATS: BlHat[] = [
     { type: B.blFlag, annotation: START_PART_ANNOTATION, owner: "beide" },
@@ -327,6 +438,9 @@ export const BL_HATS: BlHat[] = [
     { type: B.blClick, annotation: CLICK_PART_ANNOTATION, owner: "beide" },
     { type: B.blMsg, annotation: MESSAGE_PART_ANNOTATION, trigger: "MSG", owner: "beide" },
     { type: B.blClone, annotation: CLONE_PART_ANNOTATION, owner: "figur" },
+    { type: B.blMsgData, annotation: MESSAGE_PART_ANNOTATION, trigger: "MSG", owner: "beide", param: true },
+    { type: B.blBackdrop, annotation: BACKDROP_PART_ANNOTATION, trigger: "BILD", owner: "beide" },
+    { type: B.blTimer, annotation: TIMER_PART_ANNOTATION, trigger: "SEK", owner: "beide" },
 ];
 
 export function blHat(type: string | undefined): BlHat | undefined {
@@ -348,7 +462,12 @@ export function defaultHatName(type: string, fields: Record<string, string | und
             return "wenn" + k[0].toUpperCase() + k.slice(1);
         }
         case B.blClick: return "wennAngeklickt";
-        case B.blMsg: return messageMethodName(String(fields.MSG ?? "los"));
+        case B.blMsg: case B.blMsgData: return messageMethodName(String(fields.MSG ?? "los"));
+        case B.blBackdrop: {
+            const words = String(fields.BILD ?? "").replace(/[^\p{L}\p{N}]+/gu, " ").trim().split(" ").filter((w) => w);
+            return "wennBuehnenbild" + words.map((w) => w[0].toUpperCase() + w.slice(1)).join("");
+        }
+        case B.blTimer: return "wennStoppuhr";
         case B.blClone: return "alsKlon";
         default: return "beimStart";
     }

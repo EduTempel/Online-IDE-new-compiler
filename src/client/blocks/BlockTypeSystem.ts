@@ -2,7 +2,7 @@ import * as Blockly from "blockly/core";
 import { updateHelpHint } from "./BlockWarningHelp";
 import { FIGURE_BLOCK_TYPES, FIGURE_CREATIONS, FIGURE_OUTPUT_TYPES, figureInputType } from "./FigureSpec";
 import { ADT_BLOCK_TYPES, ADT_CREATIONS, ADT_GET_TYPES } from "./AdtSpec";
-import { BL_OUTPUT_TYPES, blInputTypes } from "../bloeckly/BloecklySpec";
+import { BL_OUTPUT_TYPES, blInputTypes, vonTyp } from "../bloeckly/BloecklySpec";
 import { B, COLLECTION_DECLARATIONS, COLLECTION_USES, isPartHat, PART_HATS, type Collections } from "./BlockTypes";
 import { addMember, attributesOf, collectionOfType, collectionType, findConstructor, findMethod, isClassType, isScalar, isSubclass, methodsOf, typeInfo, type ClassInfo, type ClassMap } from "./ClassModel";
 
@@ -703,7 +703,7 @@ export function outputType(b: Blockly.Block, vars: Map<string, JType>, memo = ne
             t = c?.elem ? [c.elem as JType] : null;
             break;
         }
-        case B.arrayLength: case B.array2dSize: case B.listSize: case B.dynLength: t = ["int"]; break;
+        case B.arrayLength: case B.array2dSize: case B.listSize: case B.listIndexOf: case B.dynLength: t = ["int"]; break;
         case B.listContains: case B.collIsEmpty: case B.dynIsEmpty: t = ["boolean"]; break;
         case B.dynGet: {
             const type = String(b.getFieldValue("TYPE") ?? "Object");
@@ -711,6 +711,16 @@ export function outputType(b: Blockly.Block, vars: Map<string, JType>, memo = ne
             break;
         }
         case B.javaExpression: t = null; break;
+        case B.blWert: {
+            const root = b.getRootBlock();
+            t = root.type === B.blMsgData ? [String(root.getFieldValue("TYPE") ?? "double") as JType] : null;
+            break;
+        }
+        case B.blVon: {
+            const typ = vonTyp(String(b.getFieldValue("ATTR") ?? ""), String(b.getFieldValue("FIGUR") ?? ""));
+            t = typ ? [typ as JType] : null;
+            break;
+        }
         case B.treeChild: t = ["BinTree"]; break;
         case B.treeTest: case B.adtIsEmpty: t = ["boolean"]; break;
         default:

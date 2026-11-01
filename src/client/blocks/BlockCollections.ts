@@ -1,10 +1,13 @@
 import * as Blockly from "blockly/core";
 import { B, VAR_TYPES, type CollKind } from "./BlockTypes";
+import { tip } from "./BlockTooltips";
 import { FieldButton, hintLabel, mutate, type Mutable } from "./BlockMutators";
 import { FieldType } from "./BlockFields";
 import { visibleCollections, collectionsOf, defaultLiteral, TYPE_NAMES, type JType } from "./BlockTypeSystem";
 import { adtExtraItems, defineAdtBlocks } from "./BlockAdt";
 import { isFigureClass } from "./FigureSpec";
+import { Constants } from "../Constants";
+import { BL_LISTEN_FARBE } from "../bloeckly/BloecklySpec";
 
 /**
  * Paket 5 des Blockmodus, drei getrennte Kategorien (Positionen zählen immer ab 0):
@@ -70,6 +73,30 @@ const hint = (text: string) => ({ type: "field_label", text, class: "gsg-java-hi
 const coll = (kinds: CollKind[]) => ({ type: "field_gsg_collection", name: "NAME", text: DEFAULT_NAMES[kinds[0]], kinds });
 const value = (name: string) => ({ type: "input_value", name });
 const statement = { previousStatement: null, nextStatement: null };
+/**
+ * Paket 19f: In Blöckly heißen die Listen-Blöcke wie in Scratch (gleiche Eingänge in gleicher Reihenfolge; das letzte
+ * %n ist der Java-Hinweis, der ohnehin entfällt). Positionen zählen auch hier ab 0.
+ */
+const BLOECKLY_LISTEN: Record<string, string> = {
+    [B.listAdd]: "füge %1 zu %2 hinzu %3",
+    [B.listInsert]: "füge %1 bei %2 in %3 ein %4",
+    [B.listRemove]: "lösche Element %1 aus %2 %3",
+    [B.listClear]: "lösche alles aus %1 %2",
+    [B.listGet]: "Element %1 von %2 %3",
+    [B.listSet]: "ersetze Element %1 von %2 durch %3 %4",
+    [B.listSize]: "Länge von %1 %2",
+    [B.listContains]: "%1 enthält %2 ? %3",
+    [B.listIndexOf]: "Position von %1 in %2 %3",
+};
+
+function bloecklyListen(defs: object[]): object[] {
+    if (!Constants.isBloecklyApp) return defs;
+    return defs.map((d) => {
+        const t = (d as { type: string }).type;
+        return BLOECKLY_LISTEN[t] ? { ...d, message0: BLOECKLY_LISTEN[t], colour: BL_LISTEN_FARBE } : d;
+    });
+}
+
 const ARRAY: CollKind[] = ["array"], ARRAY2D: CollKind[] = ["array2d"], LIST: CollKind[] = ["list"], DYN: CollKind[] = ["dyn"];
 
 export function defineCollectionBlocks(defineJson: (json: object[]) => void) {
@@ -82,12 +109,12 @@ export function defineCollectionBlocks(defineJson: (json: object[]) => void) {
     const d = { colour: ADT_COLOUR, inputsInline: true };
     const typeField = { type: "field_gsg_type", name: "TYPE", text: "int", mode: "element" };
     const nameField = { type: "field_input", name: "NAME", text: "zahlen" };
-    defineJson([
+    defineJson(bloecklyListen([
         // ------------------------------------------------------------ Reihungen
         {
             type: B.arrayNew, message0: "erstelle neue Reihung %1 vom Datentyp %2 mit Länge %3 %4",
             args0: [nameField, typeField, value("LEN"), hint("new int[]")], ...statement, ...a, extensions: ["gsg_identifier"],
-            tooltip: "Legt eine Reihung mit fester Länge an, z. B. int[] zahlen = new int[5]; Alle Elemente sind am Anfang 0 (bzw. leer). Positionen: 0 bis Länge - 1.",
+            tooltip: tip("Legt eine Reihung mit fester Länge an. Alle Elemente sind am Anfang 0 (bzw. leer). Positionen: 0 bis Länge - 1.", "int[] zahlen = new int[5];"),
         },
         {
             type: B.arrayGet, message0: "Element an Position %1 von %2 %3", args0: [value("I"), coll(ARRAY), hint("[ ]")],
@@ -104,7 +131,7 @@ export function defineCollectionBlocks(defineJson: (json: object[]) => void) {
         {
             type: B.array2dNew, message0: "erstelle neue zweidimensionale Reihung %1 vom Datentyp %2 mit %3 Zeilen und %4 Spalten %5",
             args0: [{ ...nameField, text: "feld" }, typeField, value("R"), value("C"), hint("new int[][]")], ...statement, ...a, extensions: ["gsg_identifier"],
-            tooltip: "Legt eine Tabelle an, z. B. int[][] feld = new int[3][4]; (3 Zeilen, 4 Spalten). Zeilen und Spalten zählen ab 0.",
+            tooltip: tip("Legt eine Tabelle an, z. B. mit 3 Zeilen und 4 Spalten. Zeilen und Spalten zählen ab 0.", "int[][] feld = new int[3][4];"),
         },
         {
             type: B.array2dGet, message0: "Element in Zeile %1 Spalte %2 von %3 %4", args0: [value("R"), value("C"), coll(ARRAY2D), hint("[ ][ ]")],
@@ -118,7 +145,7 @@ export function defineCollectionBlocks(defineJson: (json: object[]) => void) {
         {
             type: B.array2dSize, message0: "Anzahl der %1 von %2 %3",
             args0: [{ type: "field_dropdown", name: "DIM", options: [["Zeilen", "rows"], ["Spalten", "cols"]] }, coll(ARRAY2D), hint(".length")],
-            output: null, ...a, tooltip: "Zeilen: feld.length, Spalten: feld[0].length",
+            output: null, ...a, tooltip: tip("Anzahl der Zeilen bzw. Spalten der Tabelle.", "feld.length, feld[0].length"),
         },
         {
             type: B.forEach, message0: "für jedes Element %1 aus %2 %3",
@@ -134,7 +161,7 @@ export function defineCollectionBlocks(defineJson: (json: object[]) => void) {
         {
             type: B.listNew, message0: "erstelle neue Liste %1 vom Datentyp %2 %3", args0: [{ ...nameField, text: "liste" }, typeField, hint("new ArrayList")],
             ...statement, ...l, extensions: ["gsg_identifier"],
-            tooltip: "Legt eine leere Liste an, z. B. ArrayList<Integer> liste = new ArrayList<Integer>(); Sie wächst beim Anhängen.",
+            tooltip: tip("Legt eine leere Liste an. Sie wächst beim Anhängen.", "ArrayList<Integer> liste = new ArrayList<Integer>();"),
         },
         {
             type: B.listAdd, message0: "hänge %1 an Liste %2 an %3", args0: [value("V"), coll(LIST), hint(".add")],
@@ -167,6 +194,10 @@ export function defineCollectionBlocks(defineJson: (json: object[]) => void) {
         {
             type: B.listContains, message0: "Liste %1 enthält %2 %3", args0: [coll(LIST), value("V"), hint(".contains")],
             output: null, ...l, tooltip: "Wahr, wenn der Wert in der Liste vorkommt.",
+        },
+        {
+            type: B.listIndexOf, message0: "Position von %1 in Liste %2 %3", args0: [value("V"), coll(LIST), hint(".indexOf")],
+            output: null, ...l, tooltip: "Die erste Position, an der der Wert steht (ab 0 gezählt); kommt er nicht vor: -1.",
         },
         {
             type: B.collIsEmpty, message0: "Liste %1 ist leer %2", args0: [coll(LIST), hint(".isEmpty()")],
@@ -203,7 +234,7 @@ export function defineCollectionBlocks(defineJson: (json: object[]) => void) {
                     ["als Text", "String"], ["als Wahrheitswert", "boolean"], ["als Zeichen", "char"], ["(beliebiger Wert)", "Object"]],
             }, hint(".getItem")],
             output: null, ...d,
-            tooltip: "Das Element an einer Position (ab 0 gezählt). Zum Rechnen „als Ganzzahl“ usw. wählen – in Java: (int) reihe.getItem(0)",
+            tooltip: tip("Das Element an einer Position (ab 0 gezählt). Zum Rechnen „als Ganzzahl“ usw. wählen.", "(int) reihe.getItem(0)"),
         },
         {
             type: B.dynLength, message0: "Länge von dynamischer Reihung %1 %2", args0: [coll(DYN), hint(".getLength()")],
@@ -213,7 +244,7 @@ export function defineCollectionBlocks(defineJson: (json: object[]) => void) {
             type: B.dynIsEmpty, message0: "dynamische Reihung %1 ist leer %2", args0: [coll(DYN), hint(".isEmpty()")],
             output: null, ...d, tooltip: "Wahr, wenn die dynamische Reihung keine Elemente hat.",
         },
-    ]);
+    ]));
 }
 
 // ------------------------------------------------------------------ Reihung mit Werten (◂ ▸)
@@ -230,7 +261,7 @@ function defineArrayValuesBlock() {
             this.setNextStatement(true);
             this.setColour(ARRAYS_COLOUR);
             this.setInputsInline(true);
-            this.setTooltip("Legt eine Reihung mit diesen Werten an, z. B. int[] zahlen = {3, 1, 4}; ▸ fügt einen Wert hinzu, ◂ entfernt den letzten.");
+            this.setTooltip(tip("Legt eine Reihung mit diesen Werten an. ▸ fügt einen Wert hinzu, ◂ entfernt den letzten.", "int[] zahlen = {3, 1, 4};"));
             this.build();
         },
 
@@ -322,6 +353,7 @@ export function listsFlyout(ws: Blockly.WorkspaceSvg): Blockly.utils.toolbox.Fly
         { kind: "block", type: B.listSet, fields: { NAME: l.name }, inputs: { I: num("0"), V: lit(l.elem) } },
         { kind: "block", type: B.listSize, fields: { NAME: l.name } },
         { kind: "block", type: B.listContains, fields: { NAME: l.name }, inputs: { V: lit(l.elem) } },
+        { kind: "block", type: B.listIndexOf, fields: { NAME: l.name }, inputs: { V: lit(l.elem) } },
         { kind: "block", type: B.collIsEmpty, fields: { NAME: l.name } },
         { kind: "block", type: B.forEach, fields: { VAR: "element", LIST: l.name } },
     ];

@@ -1,5 +1,6 @@
 import * as Blockly from "blockly/core";
 import { B, COLLECTION_DECLARATIONS, COLLECTION_USES, isPartHat, type Param } from "./BlockTypes";
+import { tip } from "./BlockTooltips";
 import { FieldButton, hintLabel, mutate, type Mutable } from "./BlockMutators";
 import { callSignatures, callTarget, classInfos, collectionsOf, defaultLiteral, enclosingClass, innerBlocks, methodParamsOf, methodSignatures, receiverClass, scopeRoot, scopeVariables, type JType } from "./BlockTypeSystem";
 import { FieldType, identifier, visibilityOptions } from "./BlockFields";
@@ -104,9 +105,12 @@ export function defineMethodBlock(type: string, kind: MethodKind, colour: string
             }
             this.setColour(colour);
             this.setTooltip(kind === "ctor"
-                ? "Der Konstruktor legt fest, was beim Erzeugen eines Objekts passiert (new Klasse(…)); meist bekommen die Attribute hier ihre Startwerte."
-                : "Eine eigene Operation (in Java: Methode). Sie läuft, wenn sie mit „führe aus“ "
-                + "oder „Ergebnis von“ aufgerufen wird. Parameter sind Werte, die sie beim Aufruf bekommt.");
+                ? tip("Der Konstruktor legt fest, was beim Erzeugen eines Objekts passiert; meist bekommen die Attribute hier ihre Startwerte.",
+                    "public Klasse(…) { … }, aufgerufen mit new Klasse(…)")
+                : tip("Eine eigene Operation. Sie läuft, wenn sie mit „führe aus“ "
+                    + "oder „Ergebnis von“ aufgerufen wird. Parameter sind Werte, die sie beim Aufruf bekommt.", "Methode",
+                    "Eine Operation ist ein eigener Block: Sie führt die Blöcke darunter aus, wenn ein Skript sie mit „führe aus“ "
+                    + "oder „Ergebnis von“ benutzt. Parameter sind Werte, die sie dabei bekommt."));
             this.build();
         },
 
@@ -269,8 +273,8 @@ const callHead = (asValue: boolean) => (b: CallBlock) => {
 
 export function defineOperationBlocks(defineJson: (json: object[]) => void) {
     defineMethodBlock(B.method, "method", OPERATIONS_COLOUR);
-    defineArgsBlock(B.call, { asValue: false, colour: OPERATIONS_COLOUR, head: callHead(false), javaCall: true, tooltip: "Führt die Operation aus, z. B. begruesse(\"Ada\");" });
-    defineArgsBlock(B.callExpr, { asValue: true, colour: OPERATIONS_COLOUR, head: callHead(true), javaCall: true, tooltip: "Führt die Operation aus und liefert ihr Ergebnis, z. B. quadrat(5)." });
+    defineArgsBlock(B.call, { asValue: false, colour: OPERATIONS_COLOUR, head: callHead(false), javaCall: true, tooltip: tip("Führt die Operation aus.", "begruesse(\"Ada\");", "Führt die Operation (deinen eigenen Block) aus.") });
+    defineArgsBlock(B.callExpr, { asValue: true, colour: OPERATIONS_COLOUR, head: callHead(true), javaCall: true, tooltip: tip("Führt die Operation aus und liefert ihr Ergebnis.", "quadrat(5)") });
     defineJson([
         {
             type: B.return, message0: "gib zurück %1 %2", args0: [{ type: "input_value", name: "VALUE" }, { type: "field_label", text: "return", class: "gsg-java-hint" }],
@@ -280,7 +284,7 @@ export function defineOperationBlocks(defineJson: (json: object[]) => void) {
         {
             type: B.returnVoid, message0: "beende die Operation %1", args0: [{ type: "field_label", text: "return;", class: "gsg-java-hint" }],
             previousStatement: null, nextStatement: null, colour: OPERATIONS_COLOUR,
-            tooltip: "Beendet die Operation sofort (ohne Ergebnis). Im Hauptprogramm: beendet das Programm.",
+            tooltip: tip("Beendet die Operation sofort (ohne Ergebnis). Im Hauptprogramm: beendet das Programm.", undefined, "Beendet die Operation sofort (ohne Ergebnis)."),
         },
     ]);
 }

@@ -21,7 +21,8 @@ const CTX: BloecklyContext = { stage: "Spiel", globals: { leben: "int", name: "S
 /** Beispielwert für einen Platzhalter der Form */
 function sample(spec: BlBlock, form: BlForm, name: string): string {
     const when = form.when?.[name];
-    const arg = spec.args.find((a) => a.name === name)!;
+    const arg = spec.args.find((a) => a.name === name);
+    if (!arg) return name;      // fester Wert, z. B. setzeZiehbar(true)
     if (arg.kind !== "choice") return arg.kind === "num" ? "5" : '"Hi"';
     if (when) throw new Error("Platzhalter mit fester Auswahl");
     const values: Record<string, string> = { figuren: "Pinguin", kostueme: "laufen 1", buehnenbilder: "Wald", tasten: "a" };
@@ -40,7 +41,7 @@ function allForms(stage: boolean): { lines: string[]; types: string[] } {
             types.push(spec.type);
             if (!spec.output) lines.push(`        ${call};`);
             else if (spec.output === "boolean") lines.push(`        if (${call}) {`, "            stoppeAlles();", "        }");
-            else if (stage) lines.push(`        leben = (int) ${call === "buehnenbildName()" ? call + ".length()" : call};`);
+            else if (stage) lines.push(`        leben = (int) ${spec.output === "String" ? call + ".length()" : call};`);
             else lines.push(`        sage(${call});`);
         }
     }

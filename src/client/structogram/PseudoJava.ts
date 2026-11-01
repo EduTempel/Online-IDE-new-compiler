@@ -828,12 +828,26 @@ function splitTop(s: string): string[] {
 
 // ------------------------------------------------------------------ Signatur und ganzes Struktogramm
 
-export type Signature = { kind: "main" } | { kind: "method" | "ctor"; name: string; params: { name: string; type: string; elem?: string }[]; ret: string };
+export type Signature = { kind: "main"; name?: string } | { kind: "method" | "ctor"; name: string; params: { name: string; type: string; elem?: string }[]; ret: string };
 
-/** Titel lesen: "name(a, b: Ganzzahl): Wahrheitswert", "Konstruktor Hund(…)" oder Hauptprogramm */
+/**
+ * Name des Hauptprogramms aus dem Titel: „Hauptprogramm „Ballspiel““, „Hauptprogramm Ballspiel“ oder
+ * einfach „Ballspiel“; „Hauptprogramm“ allein hat keinen Namen.
+ */
+export function mainProgramName(title: string): string | undefined {
+    const t = title.replace(/\s+/g, " ").trim();
+    const m = /^Hauptprogramm\b\s*(.*)$/iu.exec(t);
+    const name = (m ? m[1] : t).replace(/^[„“"']+|[„“"']+$/gu, "").replace(/[„“]/gu, "").trim();
+    return name || undefined;
+}
+
+/** Titel lesen: "name(a, b: Ganzzahl): Wahrheitswert", "Konstruktor Hund(…)" oder Hauptprogramm (mit Namen) */
 export function parseSignature(title: string): Signature {
     const m = /^\s*(Konstruktor\s+)?([\p{L}_$][\p{L}\p{N}_$]*)\s*\((.*)\)\s*(?::\s*(.+?))?\s*$/u.exec(title);
-    if (!m) return { kind: "main" };
+    if (!m) {
+        const name = mainProgramName(title);
+        return name ? { kind: "main", name } : { kind: "main" };
+    }
     const params: { name: string; type: string; elem?: string }[] = [];
     let pending: string[] = [];
     for (const part of m[3].split(",").map((p) => p.trim()).filter(Boolean)) {
@@ -951,6 +965,7 @@ export function docToJava(doc: StructogramDoc): JavaOutput {
     }
     const t = new Translator(vars, hoist);
     if (sig.kind === "main") {
+        if (sig.name) t.lines.push(`// Hauptprogramm „${sig.name}“`);   // so liest es der Blockmodus als Namen
         t.seq(doc.body, "");
     } else {
         const params = sig.params.map((p) => `${p.type} ${p.name}`).join(", ");

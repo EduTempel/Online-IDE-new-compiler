@@ -34,6 +34,8 @@ export function skriptTitel(annotations: Map<string, string>, buehne: boolean): 
     if (p("WennAngeklickt") !== undefined) return buehne ? "Wenn die Bühne angeklickt" : "Wenn diese Figur angeklickt";
     if (p("WennNachricht") !== undefined) return `Wenn ich ${p("WennNachricht")} empfange`;
     if (p("WennIchAlsKlonEntstehe") !== undefined) return "Wenn ich als Klon entstehe";
+    if (p("WennBuehnenbild") !== undefined) return `Wenn Bühnenbild wechselt zu ${p("WennBuehnenbild")}`;
+    if (p("WennStoppuhrUeber") !== undefined) return `Wenn Stoppuhr > ${p("WennStoppuhrUeber")}`;
     return "Skript";
 }
 

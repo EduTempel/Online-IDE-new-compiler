@@ -3,6 +3,10 @@ import { VAR_TYPES } from "./BlockTypes";
 import { FIGURE_CLASSES } from "./FigureSpec";
 import { classInfos, typeLabel } from "./BlockTypeSystem";
 import { labelMode } from "./BlockLabels";
+import { Constants } from "../Constants";
+
+/** Blöckly (Sek. I, Paket 19h): nur diese Datentypen – Listen haben eigene Blöcke, Klassen sieht man dort nicht */
+const BLOECKLY_TYPES = ["int", "double", "String", "boolean"];
 
 /**
  * Auswahl eines Datentyps (Paket 6): einfache Typen, Klassen des Projekts, Reihungen, Listen,
@@ -34,17 +38,18 @@ export class FieldType extends Blockly.FieldDropdown {
     private typeOptions(): Blockly.MenuOption[] {
         const mode = this.mode ?? "full";   // im Konstruktor von FieldDropdown noch nicht gesetzt
         const block = this.getSourceBlock();
-        const classes = block ? [...classInfos(block.workspace).keys()].sort((a, b) => a.localeCompare(b, "de")) : [];
-        const scalars: string[] = [...VAR_TYPES];
+        const bloeckly = Constants.isBloecklyApp;
+        const classes = block && !bloeckly ? [...classInfos(block.workspace).keys()].sort((a, b) => a.localeCompare(b, "de")) : [];
+        const scalars: string[] = bloeckly ? BLOECKLY_TYPES : [...VAR_TYPES];
         const groups: string[][] = [[...(mode === "return" ? ["void"] : []), ...scalars, ...classes]];
-        if (mode !== "element" && mode !== "simple") {
+        if (mode !== "element" && mode !== "simple" && !bloeckly) {
             groups.push([...scalars, ...classes].map((t) => t + "[]"));
             groups.push(scalars.map((t) => t + "[][]"));
             groups.push([...scalars, ...classes].map((t) => `ArrayList<${({ int: "Integer", double: "Double", boolean: "Boolean", char: "Character" } as Record<string, string>)[t] ?? t}>`));
             groups.push(["DynArray", "Stack", "Queue", "BinTree"]);
         }
         // Elemente einer Liste bzw. Reihung dürfen auch Figuren sein (Paket 15e: viele Figuren)
-        if (mode === "element") groups.push([...FIGURE_CLASSES]);
+        if (mode === "element" && !bloeckly) groups.push([...FIGURE_CLASSES]);
         const current = this.getValue();
         if (typeof current === "string" && current && !groups.some((g) => g.includes(current))) groups[0].push(current);
         const options: Blockly.MenuOption[] = [];

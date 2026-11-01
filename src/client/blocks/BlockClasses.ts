@@ -1,5 +1,6 @@
 import * as Blockly from "blockly/core";
 import { B } from "./BlockTypes";
+import { tip } from "./BlockTooltips";
 import { FieldButton, hintLabel, mutate, type Mutable } from "./BlockMutators";
 import { defineArgsBlock, defineMethodBlock, resizeCall } from "./BlockOperations";
 import { FieldType, identifier, visibilityOptions } from "./BlockFields";
@@ -145,8 +146,8 @@ function defineClassBlock() {
             this.state = { isPublic: false };
             this.hat = "cap";
             this.setColour(CLASSES_COLOUR);
-            this.setTooltip("Eine Klasse beschreibt Objekte: ihre Attribute (Eigenschaften), Konstruktoren und Operationen. "
-                + "„erbt von“: die Klasse übernimmt alles von der Oberklasse (extends).");
+            this.setTooltip(tip("Eine Klasse beschreibt Objekte: ihre Attribute (Eigenschaften), Konstruktoren und Operationen. "
+                + "„erbt von“: die Klasse übernimmt alles von der Oberklasse.", "class Hund extends Tier { … }"));
             this.build();
         },
 
@@ -178,8 +179,8 @@ function defineAttributeBlock() {
             this.setNextStatement(true);
             this.setColour(CLASSES_COLOUR);
             this.setInputsInline(true);
-            this.setTooltip("Eine Eigenschaft der Objekte dieser Klasse, z. B. private String name; "
-                + "„+ get/set“ fügt Operationen zum Lesen und Ändern hinzu (getName, setName).");
+            this.setTooltip(tip("Eine Eigenschaft der Objekte dieser Klasse, z. B. der Name eines Hundes. "
+                + "„+ get/set“ fügt Operationen zum Lesen und Ändern hinzu.", "private String name; mit getName() und setName(…)"));
             const value = this.appendValueInput("VALUE");
             if (labelMode() === "java") {
                 // Paket 17d: private String name =
@@ -293,11 +294,11 @@ export function defineClassBlocks(defineJson: (json: object[]) => void) {
     };
     defineArgsBlock(B.objCall, {
         asValue: false, colour: OBJECTS_COLOUR, head: objHead(false), tail: "obj.…(…)",
-        tooltip: "Führt eine Operation des Objekts aus, z. B. bello.bellen();",
+        tooltip: tip("Führt eine Operation des Objekts aus.", "bello.bellen();"),
     });
     defineArgsBlock(B.objCallExpr, {
         asValue: true, colour: OBJECTS_COLOUR, head: objHead(true), tail: "obj.…(…)",
-        tooltip: "Führt eine Operation des Objekts aus und liefert ihr Ergebnis, z. B. bello.getName()",
+        tooltip: tip("Führt eine Operation des Objekts aus und liefert ihr Ergebnis.", "bello.getName()"),
     });
 
     Blockly.Blocks[B.thisAttrGet] = {
@@ -307,7 +308,7 @@ export function defineClassBlocks(defineJson: (json: object[]) => void) {
             this.appendDummyInput().appendField(L("Attribut", "this."))
                 .appendField(new FieldNameChoice("name", ownAttributes, "name"), "NAME")
                 .appendField(hintLabel("this."));
-            this.setTooltip("Der Wert eines Attributs dieses Objekts (this.name).");
+            this.setTooltip(tip("Der Wert eines Attributs dieses Objekts.", "this.name"));
         },
     };
     Blockly.Blocks[B.thisAttrSet] = {
@@ -320,7 +321,7 @@ export function defineClassBlocks(defineJson: (json: object[]) => void) {
                 .appendField(new FieldNameChoice("name", ownAttributes, "name"), "NAME")
                 .appendField(L("auf", "="));
             this.appendDummyInput().appendField(hintLabel("this.… =")).appendField(L("", ";"));
-            this.setTooltip("Gibt einem Attribut dieses Objekts einen neuen Wert, z. B. this.name = name;");
+            this.setTooltip(tip("Gibt einem Attribut dieses Objekts einen neuen Wert.", "this.name = name;"));
         },
     };
     Blockly.Blocks[B.objAttrGet] = {
@@ -353,7 +354,7 @@ export function defineClassBlocks(defineJson: (json: object[]) => void) {
     defineJson([
         {
             type: B.thisValue, message0: "dieses Objekt %1", args0: [{ type: "field_label", text: "this", class: "gsg-java-hint" }],
-            output: null, colour: CLASSES_COLOUR, tooltip: "Das Objekt selbst, dessen Operation gerade läuft (this).",
+            output: null, colour: CLASSES_COLOUR, tooltip: tip("Das Objekt selbst, dessen Operation gerade läuft.", "this"),
         },
     ]);
 }

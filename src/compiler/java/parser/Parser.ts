@@ -745,7 +745,8 @@ export class Parser extends StatementParser {
             if (identifier) {
                 let parameter: string | undefined;
                 if (this.comesToken(TokenType.leftBracket, true)) {
-                    if (this.comesToken(TokenType.stringLiteral, false)) {
+                    // GSG (Paket 19d): auch eine Zahl, z. B. @WennStoppuhrUeber(10)
+                    if (this.comesToken([TokenType.stringLiteral, TokenType.integerLiteral, TokenType.floatLiteral, TokenType.doubleConstant], false)) {
                         parameter = String(this.cct.value);
                         this.nextToken();
                     }

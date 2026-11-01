@@ -25,6 +25,13 @@ export const B = {
     blClick: "bl_click",            // Hut „Wenn diese Figur angeklickt“: BODY  (@WennAngeklickt void wennAngeklickt() { … })
     blMsg: "bl_msg",                // Hut „Wenn ich … empfange“: Feld MSG; BODY  (@WennNachricht("los") void beiLos() { … })
     blClone: "bl_clone",            // Hut „Wenn ich als Klon entstehe“: BODY  (@WennIchAlsKlonEntstehe void alsKlon() { … })
+    blBackdrop: "bl_backdrop",      // Paket 19d Hut „Wenn Bühnenbild wechselt zu …“: Feld BILD; BODY  (@WennBuehnenbild("Wald") void …() { … })
+    blTimer: "bl_timer",            // Paket 19d Hut „Wenn Stoppuhr > …“: Feld SEK; BODY  (@WennStoppuhrUeber(10) void wennStoppuhr() { … })
+    blMsgData: "bl_msg_data",       // Paket 19e Hut „Wenn ich … empfange mit Wert“: Felder MSG, TYPE; BODY  (@WennNachricht("x") void beiX(double wert) { … })
+    blWert: "bl_wert",              // Paket 19e „Wert“ im Skript mit Wert  (wert)
+    blSendWith: "bl_sende_mit",     // Paket 19e „sende … mit …“: Feld MSG, Eingang WERT  (Nachricht.sende("Treffer", 10);)
+    blSendWithWait: "bl_sende_mit_warte", // dasselbe mit „und warte“  (Nachricht.sendeUndWarte("Treffer", 10);)
+    blVon: "bl_von",                // Paket 19b „[x-Position ▾] von [Figur ▾]“: Felder ATTR, FIGUR  (figur("Pinguin").xPosition(), ((Pinguin) figur("Pinguin")).punkte)
 
     // Operationen (Methoden im Hauptprogramm)
     method: "j_method",             // Hut-Block; Felder NAME, RETURN (void/int/…), PNAME0/PTYPE0 …; Anweisungen BODY; extraState { params }
@@ -72,6 +79,7 @@ export const B = {
     listSet: "j_list_set",          // Feld NAME; Eingänge I, V  (l.set(i, v);)
     listSize: "j_list_size",        // Feld NAME  (l.size())
     listContains: "j_list_contains",// Feld NAME; Eingang V  (l.contains(v))
+    listIndexOf: "j_list_indexof",  // Feld NAME; Eingang V  (l.indexOf(v), nicht enthalten: -1)
     collIsEmpty: "j_coll_isempty",  // Feld NAME  (l.isEmpty() einer Liste)
 
     // ADT (abstrakte Datentypen, Abiturklassen Niedersachsen): dynamische Reihung
@@ -183,7 +191,7 @@ export const B = {
 
 /** Hut-Blöcke weiterer Programmteile (eigener Thread, Variablen des Hauptprogramms, kein Ergebnis) */
 export const PART_HATS: readonly string[] = [B.keyStart, B.msgStart, B.clickStart, B.progStart,
-    B.blFlag, B.blKey, B.blClick, B.blMsg, B.blClone];
+    B.blFlag, B.blKey, B.blClick, B.blMsg, B.blClone, B.blBackdrop, B.blTimer, B.blMsgData];
 export const isPartHat = (type: string | undefined) => !!type && PART_HATS.includes(type);
 
 export const VAR_TYPES = ["int", "double", "String", "boolean", "char"] as const;
@@ -218,6 +226,7 @@ export const COLLECTION_CALLS: { type: string; kind: "list" | "dyn"; method: str
     { type: "j_list_get", kind: "list", method: "get", args: ["I"], stmt: false },
     { type: "j_list_size", kind: "list", method: "size", args: [], stmt: false },
     { type: "j_list_contains", kind: "list", method: "contains", args: ["V"], stmt: false },
+    { type: "j_list_indexof", kind: "list", method: "indexOf", args: ["V"], stmt: false },
     { type: "j_coll_isempty", kind: "list", method: "isEmpty", args: [], stmt: false },
     { type: "j_dyn_isempty", kind: "dyn", method: "isEmpty", args: [], stmt: false },
     { type: "j_dyn_append", kind: "dyn", method: "append", args: ["V"], stmt: true },

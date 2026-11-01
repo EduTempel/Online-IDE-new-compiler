@@ -6,7 +6,7 @@ import type { LineRange } from "./JavaBlockParser";
 import { colourJava, FIGURE_ACTIONS, FIGURE_CALLS, FIGURE_CREATIONS, FIGURE_PROPS, targetJava, touchesJava } from "./FigureSpec";
 import { ADT_CALLS, ADT_CREATIONS, ADT_GET_TYPES, TREE_SIDES } from "./AdtSpec";
 import { CLICK_PART_ANNOTATION, KEY_PART_ANNOTATION, MESSAGE_PART_ANNOTATION, START_PART_ANNOTATION } from "../../compiler/common/interpreter/GsgParts";
-import { blBlock, blHat, defaultHatName, formFor, STAGE_SUPER, type BloecklyContext, type HeaderState } from "../bloeckly/BloecklySpec";
+import { blBlock, blHat, defaultHatName, formFor, isFormLiteral, istBlListe, STAGE_SUPER, vonJava, WERT_PARAM, type BloecklyContext, type HeaderState } from "../bloeckly/BloecklySpec";
 
 export { methodParams };
 
@@ -180,7 +180,14 @@ export class JavaBlockGenerator {
         const hat = blHat(b.type)!;
         const f = b.fields ?? {};
         let annotation = "@" + hat.annotation;
-        if (hat.trigger) annotation += `("${escapeJavaString(String(f[hat.trigger] || (hat.trigger === "KEY" ? " " : "los")))}")`;
+        if (hat.trigger === "SEK") {
+            const n = Number(f.SEK);
+            annotation += `(${Number.isFinite(n) && n >= 0 ? String(f.SEK).trim() : "10"})`;
+        } else if (hat.trigger) {
+            const fallback = hat.trigger === "KEY" ? " " : hat.trigger === "BILD" ? "Wiese" : "los";
+            annotation += `("${escapeJavaString(String(f[hat.trigger] || fallback))}")`;
+        }
+        const param = hat.param ? `${f.TYPE === "String" ? "String" : "double"} ${WERT_PARAM}` : "";
         const own = String(b.extraState?.name ?? "");
         const base = /^[\p{L}_$][\p{L}\p{N}_$]*$/u.test(own) ? own : defaultHatName(b.type, f);
         let name = base;
@@ -188,7 +195,7 @@ export class JavaBlockGenerator {
         used.add(name);
         this.colls = collectionsInTree(b.inputs?.BODY?.block);
         this.emit(INDENT + annotation);
-        this.emit(`${INDENT}void ${name}() {`);
+        this.emit(`${INDENT}void ${name}(${param}) {`);
         this.statements(b.inputs?.BODY?.block, INDENT + INDENT);
         this.emit(INDENT + "}");
         if (b.id) this.ranges.push({ id: b.id, startLine, endLine: this.lines.length });
@@ -201,6 +208,7 @@ export class JavaBlockGenerator {
         const form = formFor(spec, b.fields ?? {});
         const args = form.params.map((p) => {
             const a = spec.args.find((x) => x.name === p);
+            if (!a && isFormLiteral(p)) return p;
             if (a?.kind === "choice") return `"${escapeJavaString(String(b.fields?.[p] ?? a.def ?? ""))}"`;
             return this.input(b, p, Order.NONE);
         });
@@ -321,6 +329,10 @@ export class JavaBlockGenerator {
             }
             case B.blVar: {
                 const value = b.inputs?.VALUE?.block;
+                if (istBlListe(f.TYPE)) {   // Paket 19f: Liste (am Anfang leer)
+                    this.emit(`${indent}${this.bl?.stage ? "static " : ""}${f.TYPE} ${f.NAME} = new ${f.TYPE}();`);
+                    break;
+                }
                 this.emit(`${indent}${this.bl?.stage ? "static " : ""}${f.TYPE ?? "int"} ${f.NAME}${value ? " = " + this.value(value, Order.NONE) : ""};`);
                 break;
             }
@@ -366,6 +378,12 @@ export class JavaBlockGenerator {
             case B.wait:
                 this.emit(`${indent}Thread.sleep(${this.input(b, "MS", Order.NONE)});`);
                 break;
+            case B.blSendWith:
+            case B.blSendWithWait: {
+                const wert = b.inputs?.WERT?.block ? this.input(b, "WERT", Order.NONE) : "0";
+                this.emit(`${indent}Nachricht.${b.type === B.blSendWith ? "sende" : "sendeUndWarte"}("${escapeJavaString(String(f.MSG || "los"))}", ${wert});`);
+                break;
+            }
             case B.msgSend:
             case B.msgSendWait:
                 this.emit(`${indent}Nachricht.${b.type === B.msgSend ? "sende" : "sendeUndWarte"}("${escapeJavaString(String(f.MSG || "los"))}");`);
@@ -457,7 +475,7 @@ export class JavaBlockGenerator {
                 }
                 const call = COLLECTION_CALLS.find((c) => c.type === b.type && c.stmt);
                 if (!call) return;   // unbekannter Block: nichts erzeugen
-                this.emit(`${indent}${f.NAME}.${call.method}(${call.args.map((a) => this.input(b, a, Order.NONE)).join(", ")});`);
+                this.emit(`${indent}${this.varName(f.NAME)}.${call.method}(${call.args.map((a) => this.input(b, a, Order.NONE)).join(", ")});`);
             }
         }
         if (b.id) this.ranges.push({ id: b.id, startLine, endLine: this.lines.length });
@@ -587,9 +605,11 @@ export class JavaBlockGenerator {
                 const code = f.CODE ?? "";
                 return [code, rawOrder(code)];
             }
+            case B.blVon: return [vonJava(f.ATTR ?? "xPosition", f.FIGUR ?? ""), Order.ATOMIC];
+            case B.blWert: return [WERT_PARAM, Order.ATOMIC];
         }
         const call = COLLECTION_CALLS.find((c) => c.type === b.type && !c.stmt);
-        if (call) return [`${f.NAME}.${call.method}(${call.args.map((a) => this.input(b, a, Order.NONE)).join(", ")})`, Order.ATOMIC];
+        if (call) return [`${this.varName(f.NAME)}.${call.method}(${call.args.map((a) => this.input(b, a, Order.NONE)).join(", ")})`, Order.ATOMIC];
         const figure = blBlock(b.type)?.output ? this.bloecklyCode(b) : this.figureExpression(b);
         if (figure !== undefined) return [figure, Order.ATOMIC];
         const adt = this.adtExpression(b);

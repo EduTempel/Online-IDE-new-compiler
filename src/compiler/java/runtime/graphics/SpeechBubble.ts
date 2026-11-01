@@ -8,6 +8,12 @@ import type { ShapeClass } from './ShapeClass';
  */
 export class SpeechBubble {
 
+    /** GSG-Farben (gsg-branding.css): Dunkelblau als Rand, Grün als Akzent, dunkle Schrift */
+    static readonly NAVY = 0x00376d;
+    static readonly GREEN = 0x45b82f;
+    static readonly INK = 0x14263a;
+    static readonly TINT = 0xe6eef6;
+
     readonly container = new PIXI.Container();
     private background = new PIXI.Graphics();
     readonly label: PIXI.Text;
@@ -25,7 +31,7 @@ export class SpeechBubble {
             style: {
                 fontFamily: "Roboto, 'Segoe UI', sans-serif",
                 fontSize: 16,
-                fill: 0x1f2430,
+                fill: SpeechBubble.INK,
                 wordWrap: true,
                 wordWrapWidth: SpeechBubble.MAX_WIDTH,
                 breakWords: true,
@@ -48,16 +54,20 @@ export class SpeechBubble {
         const g = this.background;
         const w = this.width, h = this.height, tail = SpeechBubble.TAIL;
         g.clear();
+        const rand = { width: 2, color: SpeechBubble.NAVY };
         if (thought) {
-            // Denkblase: runder, mit kleinen Kreisen zur Figur hin
-            g.roundRect(0, 0, w, h, Math.min(h / 2, 20)).fill(0xffffff).stroke({ width: 2, color: 0x6b7280 });
-            g.circle(16, h + 5, 4).fill(0xffffff).stroke({ width: 2, color: 0x6b7280 });
-            g.circle(9, h + tail, 2.5).fill(0xffffff).stroke({ width: 2, color: 0x6b7280 });
+            // Denkblase: hellblau, runder, mit kleinen Kreisen zur Figur hin
+            const fill = SpeechBubble.TINT;
+            g.roundRect(0, 0, w, h, Math.min(h / 2, 20)).fill(fill).stroke(rand);
+            g.circle(16, h + 5, 4).fill(fill).stroke(rand);
+            g.circle(9, h + tail, 2.5).fill(fill).stroke(rand);
         } else {
-            g.roundRect(0, 0, w, h, 12).fill(0xffffff).stroke({ width: 2, color: 0x6b7280 });
+            g.roundRect(0, 0, w, h, 12).fill(0xffffff).stroke(rand);
+            // grüner Strich oben wie auf den Karten der Startseite
+            g.roundRect(12, 0, Math.max(w - 24, 8), 3, 1.5).fill(SpeechBubble.GREEN);
             // Spitze unten links zur Figur hin (überdeckt den Rand der Blase an dieser Stelle)
             g.poly([14, h - 2, 30, h - 2, 10, h + tail]).fill(0xffffff);
-            g.moveTo(14, h).lineTo(10, h + tail).lineTo(30, h).stroke({ width: 2, color: 0x6b7280 });
+            g.moveTo(14, h).lineTo(10, h + tail).lineTo(30, h).stroke(rand);
         }
 
         const app = this.shape.world?.app;

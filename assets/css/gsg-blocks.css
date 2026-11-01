@@ -347,3 +347,51 @@
     font-size: 12px;
     color: #5b6170;
 }
+
+/* Paket 19j: Hilfe-Karte neben einem Block (Rechtsklick → Hilfe) */
+.gsg-hilfe-karte {
+    position: fixed;
+    z-index: 100001;
+    max-width: min(420px, calc(100vw - 16px));
+    max-height: calc(100vh - 16px);
+    overflow: auto;
+    padding: 10px 12px 10px;
+    border-radius: 8px;
+    border: 1px solid #c9ced8;
+    background: #fff;
+    color: #1f2430;
+    font: 13px/1.4 Roboto, "Segoe UI", sans-serif;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, .3);
+}
+.gsg-hilfe-karte.is-dark { background: #2b2d31; border-color: #4a4d55; color: #e6e6e6; }
+.gsg-hilfe-zu {
+    float: right;
+    margin: -4px -4px 4px 8px;
+    width: 24px;
+    height: 24px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    font-size: 14px;
+}
+.gsg-hilfe-zu:hover { background: rgba(127, 127, 127, .2); }
+.gsg-hilfe-zu:focus-visible { outline: 2px solid var(--brand-accent, #45B82F); }
+.gsg-hilfe-satz { margin: 0 0 8px; }
+.gsg-hilfe-titel { margin: 0 0 4px; font-size: 11px; opacity: .7; }
+.gsg-hilfe-bild { font-size: 12px; opacity: .9; overflow-x: auto; }
+.gsg-hilfe-bild img { display: block; height: auto; max-width: none; }
+.gsg-hilfe-bild.is-gross { max-height: 300px; overflow: auto; }
+.gsg-hilfe-titel:empty { display: none; }
+.gsg-hilfe-unten { margin-top: 8px; display: flex; justify-content: flex-end; }
+.gsg-hilfe-unten button {
+    font: 600 12px/22px Roboto, "Segoe UI", sans-serif;
+    padding: 0 10px;
+    border: 1px solid #8a8f99;
+    border-radius: 5px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+}
+.gsg-hilfe-unten button:hover { background: rgba(127, 127, 127, .2); }

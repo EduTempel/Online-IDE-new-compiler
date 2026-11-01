@@ -183,6 +183,32 @@ export const BLOECKLY_HANDBOOK: HandbookSection[] = [
                     { klasse: "Pinguin", aussehen: "Pinguin", x: 100, y: 0, skripte: nachricht("frage", "sage(\"Ja, hier bin ich!\", 2);") },
                 ],
             }),
+            eintrag({
+                title: "Nachrichten mit Wert",
+                text: "**sende … mit …** gibt der Nachricht einen Wert mit, zum Beispiel Punkte. Das Skript **Wenn ich … empfange mit Wert** bekommt ihn: "
+                    + "Im Skript steht er im Block **Wert**. Wähle dort, ob der Wert eine Zahl oder ein Text ist. Klicke auf den Waschbären.",
+                figuren: [
+                    W(angeklickt("Nachricht.sende(\"Punkte\", 10);"), -100, 0),
+                    {
+                        klasse: "Pinguin", aussehen: "Pinguin", x: 100, y: 0,
+                        skripte: ["    @WennNachricht(\"Punkte\")", "    void beiPunkte(double wert) {", "        sage(\"Danke für \" + wert + \" Punkte!\", 2);", "    }"],
+                    },
+                ],
+            }),
+            eintrag({
+                title: "Wenn Bühnenbild wechselt",
+                text: "**Wenn Bühnenbild wechselt zu …** startet, sobald die Bühne dieses Bild zeigt – egal, welche Figur es gewechselt hat. So lassen sich Level oder Szenen bauen.",
+                figuren: [W(skripte(
+                    flagge("wechsleZuBuehnenbild(\"Wiese\");", "warte(2);", "wechsleZuBuehnenbild(\"Wald\");"),
+                    skript("@WennBuehnenbild(\"Wald\")", "wennBuehnenbildWald", ["sage(\"Ab in den Wald!\", 2);"])))],
+            }),
+            eintrag({
+                title: "Wenn Stoppuhr größer als …",
+                text: "**Wenn Stoppuhr > …** startet einmal, sobald die Stoppuhr die Sekunden überschreitet – gut für ein Zeitlimit. Nach **setze Stoppuhr zurück** kann es wieder starten.",
+                figuren: [W(skripte(
+                    flagge("setzeStoppuhrZurueck();", "sage(\"Du hast 5 Sekunden!\");"),
+                    skript("@WennStoppuhrUeber(5)", "wennStoppuhr", ["sage(\"Die Zeit ist um!\");", "stoppeAlles();"])))],
+            }),
         ],
     },
     {
@@ -232,6 +258,16 @@ export const BLOECKLY_HANDBOOK: HandbookSection[] = [
                 ],
             }),
             eintrag({
+                title: "Fragen und antworten",
+                text: "**frage … und warte** zeigt unten auf der Bühne ein Eingabefeld und wartet auf die Antwort (Enter oder ✔). "
+                    + "**Antwort** ist der eingegebene Text, **Antwort als Zahl** dieselbe Antwort zum Rechnen – ist sie keine Zahl, ergibt sie 0.",
+                figuren: [W(flagge(
+                    "frage(\"Wie heißt du?\");",
+                    "sage(\"Hallo \" + antwort() + \"!\", 2);",
+                    "frage(\"Wie alt bist du?\");",
+                    "sage(\"In 10 Jahren bist du \" + (antwortAlsZahl() + 10) + \".\", 3);"))],
+            }),
+            eintrag({
                 title: "Flüssig steuern mit Taste gedrückt?",
                 text: "**Taste … gedrückt?** ist wahr, solange die Taste unten ist. In einer Schleife abgefragt, bewegt sich die Figur flüssiger als mit „Wenn Taste gedrückt“.",
                 figuren: [W(flagge(
@@ -244,6 +280,35 @@ export const BLOECKLY_HANDBOOK: HandbookSection[] = [
                 title: "Abstand zum Mauszeiger",
                 text: "**Entfernung von Mauszeiger** misst von der Mitte der Figur bis zur Maus.",
                 figuren: [W(flagge("while (true) {", "    if (abstandZuMauszeiger() < 80) {", "        sage(\"Nicht so nah!\");", "    } else {", "        sage(\"\");", "    }", "}"))],
+            }),
+            eintrag({
+                title: "Werte anderer Figuren",
+                text: "**[x-Position ▾] von [Pinguin ▾]** liefert einen Wert einer anderen Figur: x- oder y-Position, Richtung, Kostüm, Größe "
+                    + "oder eine ihrer eigenen Variablen. Mit **Bühne** bekommst du den Namen des Bühnenbildes. Klicke auf den Pinguin, dann springt er woandershin.",
+                figuren: [
+                    W(flagge(
+                        "while (true) {",
+                        "    if (figur(\"Pinguin\").xPosition() > xPosition()) {", "        sage(\"Der Pinguin ist rechts von mir.\");",
+                        "    } else {", "        sage(\"Der Pinguin ist links von mir.\");", "    }",
+                        "}")),
+                    { klasse: "Pinguin", aussehen: "Pinguin", x: 150, y: 0, skripte: angeklickt("geheZuZufaelligerPosition();") },
+                ],
+                zeige: ["Waschbär"],
+            }),
+            eintrag({
+                title: "Datum und Uhrzeit",
+                text: "**aktuelle(s) …** liefert Jahr, Monat, Tag, Wochentag (1 = Montag … 7 = Sonntag), Stunde, Minute oder Sekunde von jetzt.",
+                figuren: [W(flagge(
+                    "sage(\"Es ist \" + aktuelleStunde() + \" Uhr und \" + aktuelleMinute() + \" Minuten.\", 2);",
+                    "if (aktuellerWochentag() > 5) {", "    sage(\"Wochenende!\", 2);", "} else {", "    sage(\"Heute ist Schule.\", 2);", "}"))],
+            }),
+            eintrag({
+                title: "Figuren mit der Maus ziehen",
+                text: "Nach **setze Ziehbarkeit auf ziehbar** lässt sich die Figur auf der Bühne mit der Maus verschieben, solange das Programm läuft. "
+                    + "**Wenn diese Figur angeklickt** startet dann beim Loslassen – aber nur, wenn du sie nicht gezogen hast. Ziehe den Waschbären und klicke ihn an.",
+                figuren: [W(skripte(
+                    flagge("setzeZiehbar(true);", "sage(\"Zieh mich!\");"),
+                    angeklickt("sage(\"Ich stehe bei x = \" + xPosition() + \".\", 2);")))],
             }),
             eintrag({
                 title: "Stoppuhr",
@@ -275,7 +340,7 @@ export const BLOECKLY_HANDBOOK: HandbookSection[] = [
     },
     {
         id: "variablen", title: "Variablen", icon: "📦",
-        intro: "Eine **Variable** merkt sich einen Wert. **erstelle neue Variable** im Skript gilt nur in diesem Skript. Mit **Neue Variable für alle Figuren** entsteht eine Variable, die alle Figuren und die Bühne gemeinsam haben – zum Beispiel Punkte.",
+        intro: "Eine **Variable** merkt sich einen Wert. **erstelle neue Variable** im Skript gilt nur in diesem Skript. Mit **Neue Variable für alle Figuren** entsteht eine Variable, die alle Figuren und die Bühne gemeinsam haben – zum Beispiel Punkte. Eine **Liste** merkt sich viele Werte (Positionen ab 0).",
         entries: [
             eintrag({
                 title: "Variable im Skript",
@@ -292,6 +357,37 @@ export const BLOECKLY_HANDBOOK: HandbookSection[] = [
                 ],
                 zeige: ["Waschbär"],
             }),
+            eintrag({
+                title: "Listen: eine Einkaufsliste",
+                text: "Eine **Liste** merkt sich viele Werte unter einem Namen. **Neue Liste für alle Figuren** legt sie an (mit Zahlen oder Texten). "
+                    + "Die Positionen zählen **ab 0**: Das erste Element ist **Element 0**, das letzte **Element (Länge − 1)**. "
+                    + "Der Waschbär schreibt drei Sachen auf und sagt sie dann der Reihe nach.",
+                buehne: { variablen: ["    static ArrayList<String> einkauf = new ArrayList<String>();"] },
+                figuren: [W(flagge(
+                    "Spiel.einkauf.clear();",
+                    "Spiel.einkauf.add(\"Äpfel\");",
+                    "Spiel.einkauf.add(\"Brot\");",
+                    "Spiel.einkauf.add(\"Käse\");",
+                    "int position = 0;",
+                    "for (int durchlauf = 1; durchlauf <= Spiel.einkauf.size(); durchlauf++) {",
+                    "    sage(\"Element \" + position + \": \" + Spiel.einkauf.get(position), 1);",
+                    "    position++;",
+                    "}"))],
+            }),
+            eintrag({
+                title: "Steht es schon auf der Liste?",
+                text: "Klick auf den Waschbären: Er fragt, was er mitbringen soll. **enthält** prüft, ob es schon auf der Liste steht; "
+                    + "sonst kommt es mit **füge … zu … hinzu** ans Ende. **Position von** sagt, an welcher Stelle etwas steht (−1: gar nicht).",
+                buehne: { variablen: ["    static ArrayList<String> einkauf = new ArrayList<String>();"] },
+                figuren: [W(angeklickt(
+                    "frage(\"Was soll ich mitbringen?\");",
+                    "if (Spiel.einkauf.contains(antwort())) {",
+                    "    sage(\"Steht schon auf Position \" + Spiel.einkauf.indexOf(antwort()) + \".\", 2);",
+                    "} else {",
+                    "    Spiel.einkauf.add(antwort());",
+                    "    sage(\"Notiert! Jetzt sind es \" + Spiel.einkauf.size() + \".\", 2);",
+                    "}"))],
+            }),
         ],
     },
     {
@@ -305,6 +401,42 @@ export const BLOECKLY_HANDBOOK: HandbookSection[] = [
                     flagge("springe(50);", "warte(0.5);", "springe(120);"),
                     eigener("void springe(int hoehe)", "aendereYUm(hoehe);", "warte(0.3);", "aendereYUm(-1 * hoehe);"),
                 ))],
+            }),
+            eintrag({
+                title: "Eigene Blöcke mit Ergebnis",
+                text: "Wählst du bei **liefert** eine Zahl, einen Text oder einen Wahrheitswert, wird dein Block ein runder (bzw. spitzer) Block wie **x-Position** oder **berührt …?**. "
+                    + "**gib zurück** legt das Ergebnis fest und beendet den Block. **istGerade** liefert wahr, wenn beim Teilen durch 2 kein Rest bleibt.",
+                figuren: [W(skripte(
+                    flagge("for (int zahl = 1; zahl <= 4; zahl++) {", "    if (istGerade(zahl)) {", "        sage(zahl + \" ist gerade\", 1);", "    } else {",
+                        "        sage(zahl + \" ist ungerade\", 1);", "    }", "}", "sage(\"5 zum Quadrat ist \" + quadrat(5));"),
+                    eigener("boolean istGerade(int x)", "return x % 2 == 0;"),
+                    eigener("int quadrat(int x)", "return x * x;"),
+                ))],
+            }),
+        ],
+    },
+    {
+        id: "malstift", title: "Malstift", icon: "🖍️",
+        intro: "Mit dem **Malstift** zeichnet eine Figur: Ist der Stift **abgesetzt**, hinterlässt sie bei jeder Bewegung eine Linie. "
+            + "Die Zeichnung liegt hinter allen Figuren. **lösche alles** macht die Bühne wieder sauber.",
+        entries: [
+            eintrag({
+                title: "Ein Quadrat zeichnen",
+                text: "Der Waschbär setzt den Stift ab und läuft ein Quadrat. Danach hebt er den Stift wieder an.",
+                figuren: [W(flagge("loescheAlles();", "geheZu(-50, -50);", "zeigeInRichtung(90);", "setzeStiftfarbe(\"rot\");", "setzeStiftdicke(4);", "stiftRunter();",
+                    "for (int durchlauf = 1; durchlauf <= 4; durchlauf++) {", "    gehe(100);", "    warte(0.3);", "    dreheLinks(90);", "}", "stiftHoch();"))],
+            }),
+            eintrag({
+                title: "Bunter Stern",
+                text: "**ändere Stiftfarbe um** wandert durch den Farbkreis – jede Linie bekommt eine etwas andere Farbe.",
+                figuren: [W(flagge("loescheAlles();", "geheZu(-100, 0);", "zeigeInRichtung(90);", "setzeStiftdicke(3);", "stiftRunter();",
+                    "for (int durchlauf = 1; durchlauf <= 36; durchlauf++) {", "    gehe(200);", "    dreheRechts(170);", "    aendereStiftfarbeUm(3);", "}", "stiftHoch();"))],
+            }),
+            eintrag({
+                title: "Abdrücke",
+                text: "**hinterlasse Abdruck** druckt ein Bild der Figur auf die Bühne. Hier entsteht eine Reihe von Waschbären.",
+                figuren: [W(flagge("loescheAlles();", "geheZu(-180, 0);", "zeigeInRichtung(90);",
+                    "for (int durchlauf = 1; durchlauf <= 5; durchlauf++) {", "    stempel();", "    gehe(80);", "    warte(0.3);", "}"))],
             }),
         ],
     },

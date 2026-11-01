@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import "../../compiler/common/interpreter/Interpreter";
 import "../../compiler/java/JavaCompiler";
-import { docToJava, isRecognized, javaType, parseSignature, translateExpr } from "./PseudoJava";
+import { docToJava, isRecognized, javaType, mainProgramName, parseSignature, translateExpr } from "./PseudoJava";
 import { docFromDiagram, emptyDoc, newId, type ENode, type StructogramDoc } from "./StructogramDoc";
 import { diagramsFromJava } from "./StructogramModel";
 import { runJava } from "../blocks/RunJava";
@@ -235,5 +235,31 @@ describe("Variablen gelten im ganzen Struktogramm (Paket 16e)", () => {
     test("Text vor Zahl: Startwert passend zum Typ", () => {
         const d = doc("Hauptprogramm", [wenn("1 < 2", [stmt("name ← \"Ida\"")], [stmt("name ← \"Ben\"")]), stmt("gib name aus")]);
         expect(docToJava(d).code.split(NL)[0]).toBe("String name = \"\";");
+    });
+});
+
+describe("Name des Hauptprogramms", () => {
+    test("aus dem Titel lesen", () => {
+        expect(mainProgramName("Hauptprogramm")).toBeUndefined();
+        expect(mainProgramName("Hauptprogramm „Ballspiel“")).toBe("Ballspiel");
+        expect(mainProgramName("Hauptprogramm Ballspiel")).toBe("Ballspiel");
+        expect(mainProgramName("Hauptprogramm \"Ballspiel\"")).toBe("Ballspiel");
+        expect(mainProgramName("Ballspiel")).toBe("Ballspiel");
+        expect(parseSignature("Hauptprogramm „Pong“")).toEqual({ kind: "main", name: "Pong" });
+        expect(parseSignature("Hauptprogramm")).toEqual({ kind: "main" });
+    });
+    test("Java -> Struktogramm -> Java: der Name bleibt", () => {
+        const java = lines("// Hauptprogramm „Ballspiel“", "int x = 1;", "println(x);");
+        const d = diagramsFromJava(java)[0];
+        expect(d.title).toBe("Hauptprogramm „Ballspiel“");
+        expect(docToJava(docFromDiagram(d)).code).toBe(java);
+        expect(docToJava(doc("Hauptprogramm", [stmt("x ← 1")])).code.startsWith("//")).toBe(false);
+    });
+    test("benanntes Hauptprogramm erscheint auch ohne Anweisungen", () => {
+        const titles = (java: string) => diagramsFromJava(java).map((d) => d.title);
+        const ops = ["int summe(int n) {", "    return n;", "}"];
+        expect(titles(lines("// Hauptprogramm „Rechnen“", "// nur ein Kommentar", ...ops))).toEqual(["Hauptprogramm „Rechnen“", "summe(n: Ganzzahl): Ganzzahl"]);
+        expect(titles(lines("// Hauptprogramm „Rechnen“", ...ops))).toEqual(["Hauptprogramm „Rechnen“", "summe(n: Ganzzahl): Ganzzahl"]);
+        expect(titles(lines("// nur ein Kommentar", ...ops))).toEqual(["summe(n: Ganzzahl): Ganzzahl"]);
     });
 });

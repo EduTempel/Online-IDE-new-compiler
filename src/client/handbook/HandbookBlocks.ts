@@ -485,13 +485,14 @@ export const BLOCK_HANDBOOK: HandbookSection[] = [
                 runs: true,
             },
             {
-                title: "enthält und ist leer",
-                text: "Beide Blöcke sind Bedingungen und passen in die sechseckigen Löcher.",
+                title: "enthält, Position von und ist leer",
+                text: "**enthält** und **ist leer** sind Bedingungen und passen in die sechseckigen Löcher. "
+                    + "**Position von** liefert die erste Position des Wertes (ab 0) – kommt er nicht vor: -1.",
                 code: lines(
                     "ArrayList<Integer> zahlen = new ArrayList<Integer>();",
                     "zahlen.add(4);",
                     "if (zahlen.contains(4)) {",
-                    "    println(\"4 ist dabei\");",
+                    "    println(\"4 ist dabei an Position \" + zahlen.indexOf(4));",
                     "}",
                     "if (!zahlen.isEmpty()) {",
                     "    println(\"Die Liste ist nicht leer.\");",

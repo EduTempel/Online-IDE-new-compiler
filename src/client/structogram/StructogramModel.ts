@@ -271,6 +271,7 @@ class Expr {
             case B.listGet: case B.dynGet: return [`Element an Position ${this.input(b, "I", P.ATOM)} von ${name}`, P.NONE];
             case B.listSize: return [`Anzahl der Elemente von ${name}`, P.NONE];
             case B.dynLength: return [`Länge von ${name}`, P.NONE];
+            case B.listIndexOf: return [`Position von ${this.input(b, "V", P.ATOM)} in ${name}`, P.NONE];
             case B.listContains: return [`${name} enthält ${this.input(b, "V", P.ATOM)}`, P.EQ];
             case B.collIsEmpty: case B.dynIsEmpty: case B.adtIsEmpty: return [`${name} ist leer`, P.EQ];
             // Stapel, Schlange, Binärbaum (Wendungen wie in den Ergänzenden Hinweisen)
@@ -505,10 +506,10 @@ export function diagramsFromJava(code: string, classes: ClassInfo[] = []): Diagr
     const start = top.find((b) => b.type === B.start);
     const mainBody = new Converter([], [], contentTypes([start?.inputs?.BODY?.block])).seq(start?.inputs?.BODY?.block);
     const others = top.filter((b) => b.type !== B.start).sort((a, b) => (a.y ?? 0) - (b.y ?? 0));
-    // Hauptprogramm nur, wenn es mehr als Kommentare enthält (oder es sonst nichts gibt)
+    // Hauptprogramm nur, wenn es mehr als Kommentare enthält, einen Namen hat (oder es sonst nichts gibt)
     const onlyComments = mainBody.every((n) => n.kind === "stmt" && n.text.startsWith("//"));
     const name = String(start?.fields?.NAME ?? "").trim();
-    if ((mainBody.length && !onlyComments) || !others.length) result.push({ title: name ? `Hauptprogramm „${name}“` : "Hauptprogramm", body: mainBody });
+    if ((mainBody.length && !onlyComments) || name || !others.length) result.push({ title: name ? `Hauptprogramm „${name}“` : "Hauptprogramm", body: mainBody });
     for (const h of others) {
         if (isPartHat(h.type)) {
             // Programmteil (wenn Taste …, wenn ich Nachricht … usw.): Variablen wie im Hauptprogramm

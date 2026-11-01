@@ -155,3 +155,14 @@
 .gsg-primm-dialog.beamer .gsg-primm-bar-track { height: 34px; }
 .gsg-primm-dialog.beamer .gsg-primm-bar-row { grid-template-columns: minmax(8rem, 22rem) 1fr 8rem; }
 .gsg-primm-dialog.beamer .gsg-primm-question { font-size: 1.1em; }
+
+/* Paket 19k: Mikrowelt – Blöcke für diese Aufgabe */
+.gsg-welt-actions { display: flex; gap: 6px; align-items: center; }
+.gsg-welt-zaehler { opacity: 0.75; font-size: 90%; }
+.gsg-welt-liste { display: flex; flex-direction: column; gap: 3px; max-height: 22em; overflow-y: auto; padding-right: 4px; }
+.gsg-welt-kategorie { border-left: 4px solid var(--gsg-welt-farbe, #888); padding-left: 6px; }
+.gsg-welt-kategorie > summary { cursor: pointer; display: flex; align-items: center; gap: 6px; padding: 2px 0; }
+.gsg-welt-name { font-weight: 600; flex: 1; }
+.gsg-welt-anzahl { opacity: 0.7; font-size: 85%; }
+.gsg-welt-block { display: flex; align-items: flex-start; gap: 6px; padding: 1px 0 1px 1.4em; font-size: 92%; cursor: pointer; }
+.gsg-welt-block input { margin-top: 2px; }

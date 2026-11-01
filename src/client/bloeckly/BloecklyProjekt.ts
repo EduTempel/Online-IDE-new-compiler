@@ -2,7 +2,7 @@ import { buehnenbildAus, Kostueme } from "../../compiler/java/runtime/graphics/G
 import { B, type BlockState } from "../blocks/BlockTypes";
 import { JavaBlockGenerator } from "../blocks/JavaBlockGenerator";
 import { JavaBlockParser } from "../blocks/JavaBlockParser";
-import type { BloecklyContext } from "./BloecklySpec";
+import { istBlListe, type BloecklyContext } from "./BloecklySpec";
 
 /**
  * Blöckly (Paket 18d): ein Projekt besteht aus Java-Dateien, die die Oberfläche anlegt und pflegt.
@@ -230,12 +230,18 @@ export function startwert(typ: string): BlockState {
     return { type: B.number, fields: { NUM: "0" } };
 }
 
+/** Variable für den Kopf: mit Startwert, eine Liste (Paket 19f) ohne – sie ist am Anfang leer */
+export function neueKopfVariable(name: string, typ: string): BlockState {
+    if (istBlListe(typ)) return { type: B.blVar, fields: { NAME: name, TYPE: typ } };
+    return { type: B.blVar, fields: { NAME: name, TYPE: typ }, inputs: { VALUE: { block: startwert(typ) } } };
+}
+
 /** Datei mit einer weiteren Variablen (am Ende der Variablen im Kopf); keine Figur bzw. Bühne: unverändert */
 export function mitVariable(text: string, name: string, typ: string, ctx: BloecklyContext): string {
     const { state } = JavaBlockParser.parse(text, { bloeckly: ctx });
     const kopf = state.blocks.blocks.find((b) => b.type === B.blFigure);
     if (!kopf) return text;
-    const neu: BlockState = { type: B.blVar, fields: { NAME: name, TYPE: typ }, inputs: { VALUE: { block: startwert(typ) } } };
+    const neu = neueKopfVariable(name, typ);
     let letzte = kopf.inputs?.VARS?.block;
     while (letzte?.next) letzte = letzte.next.block;
     if (letzte) letzte.next = { block: neu };

@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 import "../../compiler/common/interpreter/Interpreter";
 import "../../compiler/java/JavaCompiler";
 import { diagramsFromJava, neutral, signature, type SNode } from "./StructogramModel";
-import { renderSvg } from "./StructogramSvg";
+import { approxMeasure, renderSvg, STYLE, wrapText } from "./StructogramSvg";
 import { JavaBlockParser } from "../blocks/JavaBlockParser";
 import { JavaBlockGenerator } from "../blocks/JavaBlockGenerator";
 
@@ -213,5 +213,43 @@ describe("Struktogramme (Stil der Ergänzenden Hinweise Niedersachsen)", () => {
         expect(height).toBeGreaterThan(100);
         const doc = new DOMParser().parseFromString(svg, "image/svg+xml");
         expect(doc.getElementsByTagName("parsererror").length).toBe(0);
+    });
+});
+
+describe("Struktogramme: Zeilenumbruch (lesbar, nicht zu breit)", () => {
+    const max = STYLE.wrap;
+    test("lange Texte werden an Leerzeichen umgebrochen", () => {
+        const s = "gib \"Das ist ein ziemlich langer Satz, der nicht in eine Zeile passt\" aus";
+        const ls = wrapText(s, max, approxMeasure);
+        expect(ls.length).toBeGreaterThan(1);
+        expect(ls.join(" ")).toBe(s);
+        for (const l of ls) expect(approxMeasure(l)).toBeLessThanOrEqual(max);
+    });
+    test("kurze Texte bleiben einzeilig, vorhandene Umbrüche bleiben", () => {
+        expect(wrapText("x ← 5", max, approxMeasure)).toEqual(["x ← 5"]);
+        expect(wrapText("a\nb", max, approxMeasure)).toEqual(["a", "b"]);
+    });
+    test("ein langes Wort wird bevorzugt nach Punkt oder Klammer getrennt", () => {
+        const ls = wrapText("spielfigurMitSehrLangemNamen.bewegeDichZumPunkt(xKoordinateDesZiels,yKoordinateDesZiels)", max, approxMeasure);
+        expect(ls.length).toBeGreaterThan(1);
+        for (const l of ls) expect(approxMeasure(l)).toBeLessThanOrEqual(max);
+        expect(ls[0].endsWith(".") || ls[0].endsWith("(") || ls[0].endsWith(",")).toBe(true);
+    });
+    test("lange Anweisungen und Bedingungen machen das Struktogramm nicht beliebig breit", () => {
+        const lang = "Das ist ein ziemlich langer Text, der früher das ganze Struktogramm sehr breit gemacht hat";
+        const diagrams = diagramsFromJava(lines(
+            "int zahl = 3;",
+            "if (zahl > 1 && zahl < 100 && zahl != 50 && zahl != 51 && zahl != 52 && zahl != 53) {",
+            "    println(\"" + lang + "\");",
+            "}",
+            "while (zahl < 1000 && zahl != 500 && zahl != 501 && zahl != 502 && zahl != 503) {",
+            "    println(\"" + lang + "\");",
+            "}",
+        ));
+        const { svg, width } = renderSvg(diagrams);
+        expect(width).toBeLessThan(2 * max + 120);
+        const texts = [...svg.matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map((m) => m[1]);
+        expect(texts.filter((t) => t.includes("ziemlich") || t.includes("früher")).length).toBeGreaterThan(2);
+        for (const t of texts) expect(approxMeasure(t.replace(/&gt;/g, ">").replace(/&lt;/g, "<").replace(/&amp;/g, "&"))).toBeLessThanOrEqual(STYLE.titleWrap);
     });
 });

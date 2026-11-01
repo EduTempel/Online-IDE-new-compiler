@@ -8,6 +8,9 @@ import { answersOf, cleanPrimm, startAllowed, storeAnswers, type PrimmAnswers, t
 import { primmEditor, renderPrimm, type PrimmMode } from "./PrimmView";
 import { openPrimmOverview } from "./PrimmOverview";
 import { SCHOOL_TEACHER_HANDBOOK_URL } from "../main/gui/SchoolBranding";
+import { mikroweltAus, mikroweltGeaendert, type Mikrowelt } from "../blocks/BlockMikrowelt";
+import { mikroweltEditor } from "./MikroweltEditor";
+import { Constants } from "../Constants";
 import "/assets/css/gsg-task.css";
 
 /**
@@ -17,7 +20,7 @@ import "/assets/css/gsg-task.css";
  * Lehrkräfte legen sie hier an (Text in Markdown mit Vorschau, Hilfen als Liste).
  */
 
-export type Task = { title: string; text: string; hints: string[]; primm?: PrimmTask };
+export type Task = { title: string; text: string; hints: string[]; primm?: PrimmTask; bloecke?: Mikrowelt };
 
 /** Aufgabe eines Projekts (oder undefined, wenn es keine gibt) */
 export function taskOf(w: Workspace | undefined): Task | undefined {
@@ -26,7 +29,9 @@ export function taskOf(w: Workspace | undefined): Task | undefined {
     const task: Task = { title: String(t.title ?? ""), text: String(t.text ?? ""), hints: Array.isArray(t.hints) ? t.hints.map(String).filter((h) => h.trim()) : [] };
     const primm = cleanPrimm(t.primm);
     if (primm) task.primm = primm;
-    return task.title.trim() || task.text.trim() || task.hints.length || primm ? task : undefined;
+    const bloecke = mikroweltAus(t.bloecke);   // Paket 19k: Mikrowelt
+    if (bloecke) task.bloecke = bloecke;
+    return task.title.trim() || task.text.trim() || task.hints.length || primm || bloecke ? task : undefined;
 }
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string): HTMLElementTagNameMap[K] {
@@ -97,6 +102,7 @@ export function addTaskTab(base: MainBase, tabManager: TabManager) {
         editing = false;
         lastJson = JSON.stringify(taskOf(workspace) ?? null);
         render();
+        mikroweltGeaendert();
     };
 
     const render = () => {
@@ -218,6 +224,7 @@ export function addTaskTab(base: MainBase, tabManager: TabManager) {
         add.addEventListener("click", () => addHint());
 
         const primm = primmEditor(task?.primm);
+        const welt = Constants.isBlocksApp ? mikroweltEditor(task?.bloecke) : undefined;
 
         const buttons = el("div", "gsg-task-actions");
         const ok = el("button", "gsg-task-button gsg-task-primary", "Speichern");
@@ -238,12 +245,14 @@ export function addTaskTab(base: MainBase, tabManager: TabManager) {
             const next: Task = { title: title.value.trim(), text: text.value, hints };
             const p = primm.read();
             if (p) next.primm = p;
-            save(next.title || next.text.trim() || hints.length || p ? next : undefined);
+            const b = welt?.read() ?? (welt ? undefined : task?.bloecke);
+            if (b) next.bloecke = b;
+            save(next.title || next.text.trim() || hints.length || p || b ? next : undefined);
         });
 
         form.append(el("label", "gsg-task-label", "Titel"), title,
             el("label", "gsg-task-label", "Aufgabenstellung"), showPreview, text, preview,
-            el("label", "gsg-task-label", "Gestufte Hilfen"), hintList, add, primm.element, buttons,
+            el("label", "gsg-task-label", "Gestufte Hilfen"), hintList, add, primm.element, ...(welt ? [welt.element] : []), buttons,
             el("p", "gsg-task-note", "Die Aufgabe gehört zum Projekt: beim Austeilen und bei geteilten Links geht sie mit. Schüler/innen können sie lesen, aber nicht ändern."));
         const guide = el("p", "gsg-task-note", "Ideen für Hilfen, Puzzle und „Erst vermuten, dann ausführen“: ");
         const guideLink = el("a", undefined, "Lehrerhandbuch Blöcke");
@@ -277,6 +286,7 @@ export function addTaskTab(base: MainBase, tabManager: TabManager) {
             tab.show();
         }
         if (!editing) render();
+        mikroweltGeaendert();   // z. B. ausgeteilt oder anderes Projekt: Werkzeugleiste anpassen
     };
     tab.onShow = () => { if (!editing) render(); };
     setInterval(check, 800);
