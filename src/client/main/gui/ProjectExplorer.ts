@@ -8,6 +8,7 @@ import { ClassData, DuplicateWorkspaceResponse, FileData, GetWorkspacesRequest, 
 import { SpritesheetData } from "../../spritemanager/SpritesheetData.js";
 import { Workspace } from "../../workspace/Workspace.js";
 import { Main } from "../Main.js";
+import { austeilen } from "./GsgAusteilen.js";
 import { DistributeToStudentsDialog } from "./DistributeToStudentsDialog.js";
 import { FileTypeManager } from '../../../compiler/common/module/FileTypeManager.js';
 import { Helper } from "./Helper.js";
@@ -588,17 +589,9 @@ export class ProjectExplorer {
                                         return {
                                             caption: classData.name,
                                             callback: () => {
-
-                                                this.main.networkManager.sendDistributeWorkspace(workspace, classData, null, (error: string) => {
-                                                    if (error == null) {
-                                                        let networkManager = this.main.networkManager;
-                                                        let dt = networkManager.updateFrequencyInSeconds * networkManager.forcedUpdateEvery;
-                                                        alert(ProjectExplorerMessages.workspaceDistributed(workspace.name, classData.name));
-                                                    } else {
-                                                        alert(error);
-                                                    }
-                                                });
-
+                                                // GSG: mit Dateiauswahl; später nur fehlende Dateien dazu
+                                                austeilen(this.main, workspace, classData, null, `die Klasse „${classData.name}“`,
+                                                    () => ProjectExplorerMessages.workspaceDistributed(workspace.name, classData.name));
                                             }
                                         }
                                     })

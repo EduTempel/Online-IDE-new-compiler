@@ -371,11 +371,14 @@ export type DeleteRepositoryResponse = { success: boolean, message?: string };
 export type DistributeWorkspaceRequest = {
     workspace_id: number, // Workspace to copy
     class_id: number,
-    student_ids: number[]
+    student_ids: number[],
+    file_ids?: number[] | null   // GSG: nur diese Dateien (null: alle)
 }
 
 export type DistributeWorkspaceResponse = {
-    message: string
+    message: string,
+    /** GSG: was beim Austeilen passiert ist */
+    gsgResult?: { created: number, extended: number, unchanged: number, kept: Record<string, number> }
 }
 
 export type SetRepositorySecretRequest = {

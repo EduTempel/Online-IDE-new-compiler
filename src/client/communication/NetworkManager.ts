@@ -9,6 +9,7 @@ import { GUIFile } from '../workspace/File.js';
 import pako from 'pako'
 import { FileTypeManager } from '../../compiler/common/module/FileTypeManager.js';
 import { SecureJSON } from '../../tools/SecureJSON.js';
+import { hinweisNeueDateien } from "../main/gui/GsgAusteilen.js";
 
 
 export class NetworkManager {
@@ -294,7 +295,8 @@ export class NetworkManager {
 
     }
 
-    sendDistributeWorkspace(ws: Workspace, klasse: ClassData, student_ids: number[], callback: (error: string) => void) {
+    sendDistributeWorkspace(ws: Workspace, klasse: ClassData, student_ids: number[], callback: (error: string, gsgResult?: DistributeWorkspaceResponse["gsgResult"]) => void,
+        file_ids: number[] | null = null) {   // GSG: nur diese Dateien austeilen (null: alle)
 
         if (this.main.user.is_testuser) {
             callback("Diese Aktion ist für den Testuser nicht möglich.");
@@ -306,11 +308,12 @@ export class NetworkManager {
             let request: DistributeWorkspaceRequest = {
                 workspace_id: ws.id,
                 class_id: klasse?.id,
-                student_ids: student_ids
+                student_ids: student_ids,
+                file_ids: file_ids
             }
 
             ajax("distributeWorkspace", request, (response: DistributeWorkspaceResponse) => {
-                callback(response.message)
+                callback(response.message, response.gsgResult)
             }, callback);
         });
 
@@ -428,6 +431,7 @@ export class NetworkManager {
         sendUpdatesResponse.workspaces.workspaces.forEach(wd => idToRemoteWorkspaceDataMap.set(wd.id, wd));
 
         let newWorkspaceNames: string[] = [];
+        let gsgNeueDateien: [string, string][] = [];   // GSG: neue Dateien in vorhandenen Workspaces (Austeilen einzelner Dateien)
 
         for (let remoteWorkspace of sendUpdatesResponse.workspaces.workspaces) {
 
@@ -474,6 +478,7 @@ export class NetworkManager {
                 for (let remoteFile of remoteWorkspace.files) {
                     if (idToFileMap.get(remoteFile.id) == null) {
                         this.createFile(workspace, remoteFile);
+                        if (!remoteFile.isFolder) gsgNeueDateien.push([workspace.name, remoteFile.name]);   // GSG
                     }
                 }
             }
@@ -484,6 +489,7 @@ export class NetworkManager {
             message += newWorkspaceNames.join(", ");
             alert(message);
         }
+        if (alertIfNewWorkspacesFound) hinweisNeueDateien(gsgNeueDateien);   // GSG
 
         this.main.projectExplorer.workspaceTreeview.sort();
         this.main.projectExplorer.fileTreeview.sort();

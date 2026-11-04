@@ -1,6 +1,7 @@
 import { ClassData, UserData } from "../../communication/Data.js";
 import { Workspace } from "../../workspace/Workspace.js";
 import { Main } from "../Main.js";
+import { austeilen } from "./GsgAusteilen.js";
 import jQuery from "jquery";
 import { DistributeToStudentsDialogMessages } from "./language/GUILanguage.js";
 
@@ -145,15 +146,10 @@ export class DistributeToStudentsDialog {
 
         window.history.back();
 
-        this.main.networkManager.sendDistributeWorkspace(this.workspace, null, student_ids, (error: string) => {
-            if (error == null) {
-                let networkManager = this.main.networkManager;
-                let dt = networkManager.updateFrequencyInSeconds;
-                alert(DistributeToStudentsDialogMessages.workspaceDistributed(this.workspace.name, student_ids.length + "", dt + ""));
-            } else {
-                alert(error);
-            }
-        });
+        // GSG: mit Dateiauswahl; später nur fehlende Dateien dazu
+        const dt = this.main.networkManager.updateFrequencyInSeconds;
+        austeilen(this.main, this.workspace, null, student_ids, student_ids.length === 1 ? "1 Schüler/in" : `${student_ids.length} Schüler/innen`,
+            () => DistributeToStudentsDialogMessages.workspaceDistributed(this.workspace.name, student_ids.length + "", dt + ""));
 
     }
 
