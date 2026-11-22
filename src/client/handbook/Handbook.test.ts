@@ -10,6 +10,8 @@ import { BLOCK_HANDBOOK } from "./HandbookBlocks";
 import { JAVA_HANDBOOK } from "./HandbookJava";
 import { STRUCTOGRAM_HANDBOOK } from "./HandbookStructogram";
 import { docToJava } from "../structogram/PseudoJava";
+import { KLASSENDIAGRAMM_HANDBOOK } from "./HandbookKlassendiagramm";
+import { brauchtAbiturklassen, parseDoc, probleme, serializeDoc, type KlassenDoc } from "../klassendiagramm/KlassenDoc";
 import { definedTypes, exampleFileName, findBlockEntry } from "./HandbookSearch";
 import * as Blockly from "blockly/core";
 import { categoryOfColour, registerBlockHelpMenu } from "../blocks/BlockHelp";
@@ -98,6 +100,27 @@ describe("Handbuch: Struktogramme", () => {
             expect(r.errors, program).toEqual([]);
             expect(r.output).not.toMatch(/Exception|Fehler/);
         } else expect(await compileJava(program, e.libs), program).toEqual([]);
+    });
+});
+
+const kdEntries = KLASSENDIAGRAMM_HANDBOOK.flatMap((s) => s.entries.map((e) => ({ section: s.id, ...e })));
+const kdDiagramme = kdEntries.flatMap((e) => [
+    ...(e.klassendiagramm?.klassen.length ? [{ name: e.title, doc: e.klassendiagramm, code: e.code }] : []),
+    ...(e.solution?.klassendiagramm ? [{ name: e.title + " (Lösung)", doc: e.solution.klassendiagramm, code: e.solution.code }] : []),
+]);
+
+describe("Handbuch: Klassendiagramme", () => {
+    test("Kennungen und Titel sind eindeutig, Übungen haben eine Lösung als Diagramm", () => {
+        expect(new Set(KLASSENDIAGRAMM_HANDBOOK.map((s) => s.id)).size).toBe(KLASSENDIAGRAMM_HANDBOOK.length);
+        expect(new Set(kdEntries.map((e) => e.title)).size).toBe(kdEntries.length);
+        for (const e of kdEntries.filter((x) => x.title.startsWith("Übung"))) expect(e.solution?.klassendiagramm?.klassen.length, e.title).toBeGreaterThan(0);
+    });
+
+    test.each(kdDiagramme.map((d) => [d.name, d] as const))("%s: gültig, speicherbar, erzeugter Code übersetzt", async (_, d) => {
+        const doc: KlassenDoc = d.doc;
+        expect(probleme(doc)).toEqual([]);
+        expect(parseDoc(serializeDoc(doc))).toEqual(doc);
+        expect(await compileJava(d.code, brauchtAbiturklassen(doc) ? ["niedersachsen"] : []), d.code).toEqual([]);
     });
 });
 

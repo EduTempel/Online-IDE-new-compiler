@@ -137,6 +137,6 @@ describe("Name des Hauptprogramms und Programmteile „wenn Taste … gedrückt�
 
     test("Struktogramme: Titel mit Namen des Hauptprogramms und je Programmteil", () => {
         expect(diagramsFromJava(GAME).map((d) => d.title)).toEqual([
-            "Hauptprogramm „Ballspiel“", "wenn Taste „Pfeil oben ↑“ gedrückt: pfeilOben", "wenn Taste „Leertaste“ gedrückt: springen"]);
+            "Ballspiel", "wenn Taste „Pfeil oben ↑“ gedrückt: pfeilOben", "wenn Taste „Leertaste“ gedrückt: springen"]);
     });
 });

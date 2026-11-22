@@ -137,7 +137,7 @@ describe("Paket 6 mit Blockly", () => {
         rename(ws, memberOf(classBlock(ws, "Hund"), B.attribute, "alter"), "NAME", "jahre");
         rename(ws, memberOf(classBlock(ws, "Hund"), B.classMethod, "bellen"), "NAME", "gibLaut");
         const code = generate(ws);
-        expect(code).toContain("ArrayList<Lebewesen> tiere = new ArrayList<Lebewesen>();");
+        expect(code).toContain("Liste<Lebewesen> tiere = new Liste<>();");
         expect(code).toContain("tiere.add(new Lebewesen(\"Katze\"));");
         expect(code).toContain("for (Lebewesen t : tiere) {");
         expect(code).toContain("class Hund extends Lebewesen {");

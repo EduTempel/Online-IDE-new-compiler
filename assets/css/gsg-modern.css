@@ -1,0 +1,616 @@
+/*
+ * Aussehen „Modern“ (GsgModern.ts): gemeinsame Teile (Farben, Kopfleiste, Menü, Karten) unter html.gsg-modern,
+ * nur Blöckly (Entwurf F „Bühne vorn“) unter html.gsg-modern-f. Texva & Co. (Entwurf A │ B): gsg-modern-texva.css.
+ * Ohne die Klassen bleibt das bisherige Aussehen („Retro“).
+ * Dunkel: html.gsg-modern.gsg-modern-dunkel setzt nur andere Farbwerte (Variablen --m-*).
+ */
+
+html.gsg-modern body.joeCssFence {
+    --m-seite: #f4f6f9;
+    --m-karte: #ffffff;
+    --m-linie: #e3e8ef;
+    --m-linie-stark: #c9d5e2;
+    --m-tinte: #14263a;
+    --m-leise: #52637a;
+    --m-sehr-leise: #6b7a8f;
+    --m-blau: #00376d;
+    --m-blau-hell: #e6eef6;
+    --m-blau-hell-hover: #d9e5f1;
+    --m-blau-flaeche: #00376d;
+    --m-blau-flaeche-hover: #002448;
+    --m-gruen: #2e8b1e;
+    --m-gruen-hover: #26751a;
+    --m-gruen-text: #2e8b1e;
+    --m-gruen-hell: #45b82f;
+    --m-rot: #b42318;
+    --m-text-mittel: #3a4a5e;
+    --m-umschalter: #e9eef4;
+    --m-flyout: #fafbfc;
+    --m-figur-gewaehlt: #fff4e8;
+    --m-feldlinie: #dce5ef;
+    --m-gestrichelt: #b8c6d6;
+    --m-loeschen-hover: #fdecec;
+    --m-leer-1: #f4f6f9;
+    --m-leer-2: #eef2f7;
+    --m-schatten: rgba(20, 38, 58, 0.14);
+    --m-schrift: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+    background: var(--m-seite);
+}
+
+/* dunkles Aussehen: gleiche Gestaltung, andere Farben */
+html.gsg-modern.gsg-modern-dunkel body.joeCssFence {
+    --m-seite: #0f1620;
+    --m-karte: #18212c;
+    --m-linie: #29364a;
+    --m-linie-stark: #3b4b61;
+    --m-tinte: #e6edf5;
+    --m-leise: #aab7c7;
+    --m-sehr-leise: #8b9bb0;
+    --m-blau: #8ec5ff;
+    --m-blau-hell: #1c3350;
+    --m-blau-hell-hover: #24405f;
+    --m-blau-flaeche: #2f6fb3;
+    --m-blau-flaeche-hover: #3b80c8;
+    --m-gruen: #2e8b1e;
+    --m-gruen-hover: #36a024;
+    --m-gruen-text: #74d35f;
+    --m-gruen-hell: #45b82f;
+    --m-rot: #ff8a80;
+    --m-text-mittel: #c3cedb;
+    --m-umschalter: #0f1620;
+    --m-flyout: #131b25;
+    --m-figur-gewaehlt: #3a2b17;
+    --m-feldlinie: #34465c;
+    --m-gestrichelt: #4a5d75;
+    --m-loeschen-hover: #4a1f22;
+    --m-leer-1: #1d2733;
+    --m-leer-2: #18212c;
+    --m-schatten: rgba(0, 0, 0, 0.45);
+    color-scheme: dark;
+}
+
+/* —— Grundgerüst —— */
+html.gsg-modern #main {
+    position: relative;
+    padding-top: 56px;
+    box-sizing: border-box;
+    background: var(--m-seite);
+}
+html.gsg-modern #code,
+html.gsg-modern #belowmainmenu,
+html.gsg-modern #editoranderrors { background: var(--m-seite); }
+html.gsg-modern #belowmainmenu { height: 100%; }
+/* Blöckly: Projekte über „Meine Projekte“, Figuren und Bühne unter der Bühne: keine Dateiliste */
+html.gsg-modern-f #leftpanel { display: none !important; }
+/* Start und Stopp stehen an der Bühne bzw. in der Kopfleiste, die Person in der Kopfleiste */
+html.gsg-modern #debugpanel { display: none !important; }
+
+/* —— Kopfleiste —— */
+html.gsg-modern .gsg-kopf {
+    position: absolute;
+    z-index: 30;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 56px;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 14px;
+    background: var(--m-karte);
+    border-bottom: 1px solid var(--m-linie);
+    color: var(--m-tinte);
+    font: 14px/1.3 var(--m-schrift);
+}
+html.gsg-modern .gsg-kopf-marke { display: flex; align-items: center; gap: 10px; }
+html.gsg-modern .gsg-kopf-logo {
+    width: 32px;
+    height: 32px;
+    box-sizing: border-box;
+    padding: 7px;
+    border-radius: 9px;
+    background: var(--m-blau-flaeche);
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 3px;
+}
+html.gsg-modern .gsg-kopf-logo > span { border-radius: 2px; background: #ffffff; }
+html.gsg-modern .gsg-kopf-logo > span:nth-child(1),
+html.gsg-modern .gsg-kopf-logo > span:nth-child(4) { background: var(--m-gruen-hell); }
+html.gsg-modern .gsg-kopf-app { font-size: 17px; font-weight: 600; }
+html.gsg-modern .gsg-kopf-trenner { width: 1px; height: 24px; background: var(--m-linie); margin: 0 4px; }
+html.gsg-modern .gsg-kopf-luecke { flex: 1; }
+html.gsg-modern .gsg-kopf-projekt { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 320px; }
+html.gsg-modern .gsg-kopf-stand { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--m-gruen-text); white-space: nowrap; }
+html.gsg-modern .gsg-kopf-stand:not(:empty)::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--m-gruen-hell); }
+html.gsg-modern .gsg-kopf-stand.gsg-kopf-ungespeichert { color: var(--m-sehr-leise); }
+html.gsg-modern .gsg-kopf-stand.gsg-kopf-ungespeichert::before { background: #e3b341; }
+/* Dateiart der offenen Datei vor „Projekt / Datei“ (Dateiart.ts) – Farben wie die Abzeichen der Verwaltung */
+html.gsg-modern .gsg-kopf-art { display: inline-flex; align-items: center; gap: 5px; flex: none; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+html.gsg-modern .gsg-kopf-art[hidden] { display: none; }
+/* wenig Platz im Kopf: zuerst schrumpft die Speicheranzeige (bis auf den Punkt, Text dann im Tooltip), der Dateiname bleibt lesbar */
+html.gsg-modern .gsg-kopf .gsg-kopf-pfad .gsg-kopf-stand { flex: 0 1000 auto; min-width: 7px; overflow: hidden; }
+html.gsg-modern .gsg-kopf .gsg-kopf-pfad .gsg-kopf-projekt { flex: 0 1 auto; min-width: 56px; }
+html.gsg-modern .gsg-kopf-art-symbol { font-weight: 700; }
+html.gsg-modern .gsg-kopf-art-klassendiagramm { background: #e8eefb; color: #2f4f8f; }
+html.gsg-modern .gsg-kopf-art-struktogramm { background: #e3f0f6; color: #1f5f7a; }
+html.gsg-modern .gsg-kopf-art-code { background: #fff1e0; color: #8a4b00; }
+html.gsg-modern .gsg-kopf-art-bloecke { background: #efe6f7; color: #6a3d93; }
+html.gsg-modern.gsg-modern-dunkel .gsg-kopf-art-klassendiagramm { background: #24324f; color: #b9cbf2; }
+html.gsg-modern.gsg-modern-dunkel .gsg-kopf-art-struktogramm { background: #1d3a47; color: #a8d4e6; }
+html.gsg-modern.gsg-modern-dunkel .gsg-kopf-art-code { background: #43301a; color: #f3c58a; }
+html.gsg-modern.gsg-modern-dunkel .gsg-kopf-art-bloecke { background: #352645; color: #d4b8ec; }
+
+html.gsg-modern .gsg-kopf-knopf {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 38px;
+    padding: 0 14px;
+    border: 1px solid var(--m-linie);
+    border-radius: 10px;
+    background: var(--m-karte);
+    color: var(--m-tinte);
+    font: 500 14px/1 var(--m-schrift);
+    cursor: pointer;
+    white-space: nowrap;
+}
+html.gsg-modern .gsg-kopf-knopf:hover { background: var(--m-seite); }
+html.gsg-modern .gsg-kopf-knopf:focus-visible,
+html.gsg-modern .gsg-projekte button:focus-visible,
+html.gsg-modern .gsg-projekte input:focus-visible { outline: 3px solid var(--m-gruen-hell); outline-offset: 2px; }
+html.gsg-modern .gsg-kopf-projekte { background: var(--m-blau-hell); border-color: transparent; color: var(--m-blau); font-weight: 600; }
+html.gsg-modern .gsg-kopf-projekte::before { content: "▦"; font-size: 15px; }
+html.gsg-modern .gsg-kopf-projekte:hover { background: var(--m-blau-hell-hover); }
+/* hell │ dunkel */
+html.gsg-modern .gsg-kopf-farbe { width: 38px; padding: 0; justify-content: center; font-size: 17px; }
+html.gsg-modern .gsg-kopf-menueknopf::before { content: "☰"; font-size: 15px; }
+html.gsg-modern .gsg-kopf-menue-offen .gsg-kopf-menueknopf { background: var(--m-blau-hell); color: var(--m-blau); }
+html.gsg-modern .gsg-kopf-knopf[hidden] { display: none; }
+
+html.gsg-modern .gsg-kopf-person {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: 4px;
+    padding: 3px 8px 3px 3px;
+    border: 0;
+    border-radius: 20px;
+    background: transparent;
+    color: var(--m-tinte);
+    font: 13px var(--m-schrift);
+    white-space: nowrap;
+    cursor: pointer;
+}
+html.gsg-modern .gsg-kopf-person:hover,
+html.gsg-modern .gsg-kopf-person-offen .gsg-kopf-person { background: var(--m-seite); }
+html.gsg-modern .gsg-kopf-person:focus-visible { outline: 3px solid var(--m-gruen-hell); outline-offset: 2px; }
+/* Einstellungen │ Abmelden */
+html.gsg-modern .gsg-kopf-personmenue {
+    display: none;
+    position: absolute;
+    top: 52px;
+    right: 14px;
+    min-width: 180px;
+    padding: 4px;
+    flex-direction: column;
+    background: var(--m-karte);
+    border: 1px solid var(--m-linie);
+    border-radius: 12px;
+    box-shadow: 0 8px 24px var(--m-schatten);
+}
+html.gsg-modern .gsg-kopf-person-offen .gsg-kopf-personmenue { display: flex; }
+html.gsg-modern .gsg-kopf-eintrag {
+    padding: 9px 12px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--m-tinte);
+    font: 14px var(--m-schrift);
+    text-align: left;
+    cursor: pointer;
+}
+html.gsg-modern .gsg-kopf-eintrag:hover,
+html.gsg-modern .gsg-kopf-eintrag:focus-visible { background: var(--m-blau-hell); color: var(--m-blau); outline: none; }
+html.gsg-modern .gsg-kopf-kuerzel {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--m-blau-hell);
+    color: var(--m-blau);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* bisherige Menüleiste zum Aufklappen */
+html.gsg-modern .gsg-kopf-menue {
+    display: none;
+    position: absolute;
+    top: 52px;
+    right: 14px;
+    padding: 4px;
+    background: var(--m-karte);
+    border: 1px solid var(--m-linie);
+    border-radius: 12px;
+    box-shadow: 0 8px 24px var(--m-schatten);
+}
+html.gsg-modern .gsg-kopf-menue-offen .gsg-kopf-menue { display: block; }
+html.gsg-modern .gsg-kopf-menue #mainmenu {
+    height: auto;
+    display: flex;
+    background: transparent;
+    color: var(--m-tinte);
+    font: 14px/1.2 var(--m-schrift);
+}
+html.gsg-modern .gsg-kopf-menue .jo_mainmenuitem { padding: 9px 12px; border-radius: 8px; }
+html.gsg-modern .gsg-kopf-menue .jo_mainmenuitem:hover { background: var(--m-blau-hell); color: var(--m-blau); }
+html.gsg-modern .jo_submenu { border-radius: 10px; box-shadow: 0 8px 24px var(--m-schatten); font-family: var(--m-schrift); }
+
+/* —— Mitte: Skripte │ Kostüme und Blöcke —— */
+html.gsg-modern .gsg-bl-umschalter {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    margin: 12px 12px 0;
+    padding: 4px;
+    align-self: flex-start;
+    border-radius: 12px;
+    background: var(--m-umschalter);
+}
+html.gsg-modern .gsg-bl-umschalter .gsg-bl-reiter {
+    border: 0;
+    border-radius: 9px;
+    padding: 7px 16px;
+    background: transparent;
+    color: var(--m-leise);
+    font: 500 14px/1.2 var(--m-schrift);
+    cursor: pointer;
+}
+html.gsg-modern .gsg-bl-umschalter .gsg-bl-reiter.active {
+    background: var(--m-karte);
+    color: var(--m-blau);
+    font-weight: 600;
+    box-shadow: 0 1px 2px var(--m-schatten);
+}
+html.gsg-modern #gsg-blocks {
+    margin: 10px 12px 0;
+    border-radius: 14px;
+    overflow: hidden;
+    background: var(--m-karte);
+    box-shadow: 0 0 0 1px var(--m-linie);
+}
+html.gsg-modern .gsg-bl-kostueme {
+    margin: 10px 12px 0;
+    border-radius: 14px;
+    background: var(--m-karte);
+    box-shadow: 0 0 0 1px var(--m-linie);
+    color: var(--m-tinte);
+}
+
+/* Kategorien: farbiger Punkt über dem Namen (Farbe setzt BloecklyModern.ts als --gsg-kat) */
+html.gsg-modern #gsg-blocks .blocklyToolbox {
+    background-color: var(--m-karte) !important;
+    border-right: 1px solid var(--m-linie);
+    padding: 6px 5px !important;
+}
+html.gsg-modern #gsg-blocks .blocklyToolboxCategory {
+    border-left: 0 !important;
+    min-width: 78px;
+    height: auto !important;
+    margin: 1px 0;
+    padding: 7px 4px 6px !important;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+}
+html.gsg-modern #gsg-blocks .blocklyToolboxCategory::before {
+    content: "";
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--gsg-kat, var(--m-sehr-leise));
+}
+html.gsg-modern #gsg-blocks .blocklyTreeRowContentContainer { display: flex; justify-content: center; }
+html.gsg-modern #gsg-blocks .blocklyToolboxCategoryIcon { display: none !important; }
+html.gsg-modern #gsg-blocks .blocklyToolboxCategoryLabel {
+    font: 500 11px/1.2 var(--m-schrift) !important;
+    color: var(--m-leise) !important;
+    padding: 0 !important;
+    white-space: nowrap;
+}
+html.gsg-modern #gsg-blocks .blocklyToolboxCategory:hover { background-color: var(--m-seite) !important; }
+html.gsg-modern #gsg-blocks .blocklyToolboxSelected { background-color: var(--m-blau-hell) !important; }
+html.gsg-modern #gsg-blocks .blocklyToolboxSelected .blocklyToolboxCategoryLabel { color: var(--m-tinte) !important; font-weight: 700 !important; }
+/* Unterkategorien (Listen) etwas kleiner */
+html.gsg-modern #gsg-blocks .blocklyToolboxCategoryGroup .blocklyToolboxCategoryGroup .blocklyToolboxCategory { margin-left: 0; padding-left: 4px !important; }
+html.gsg-modern #gsg-blocks .blocklyToolboxCategoryGroup .blocklyToolboxCategoryGroup .blocklyToolboxCategory::before { width: 14px; height: 14px; }
+html.gsg-modern #gsg-blocks .blocklyMainBackground { fill: var(--m-karte) !important; }
+html.gsg-modern .blocklyFlyoutBackground { fill: var(--m-flyout) !important; fill-opacity: 1 !important; }
+
+/* Leiste über den Blöcken (Werkzeugleiste, Zurücksetzen, Zeitlupe) */
+html.gsg-modern #gsg-blocks button { font-family: var(--m-schrift); }
+
+/* —— unten: Fehler, Konsole —— */
+html.gsg-modern #bottomdiv-outer {
+    margin: 10px 12px 12px;
+    border-radius: 14px;
+    overflow: hidden;
+    background: var(--m-karte);
+    box-shadow: 0 0 0 1px var(--m-linie);
+}
+html.gsg-modern-f #bottomdiv-outer { max-height: 120px; }
+html.gsg-modern #bottomdiv-outer .jo_tabheadings { background: var(--m-karte); font-family: var(--m-schrift); }
+
+/* —— rechts: Bühne und Figuren —— */
+html.gsg-modern #rightdiv,
+html.gsg-modern #rightdiv-inner { background: var(--m-seite); }
+html.gsg-modern #rightdiv-inner { padding: 12px 12px 12px 4px; box-sizing: border-box; gap: 12px; }
+html.gsg-modern .gsg-right-top,
+html.gsg-modern .gsg-right-bottom {
+    border-radius: 14px;
+    overflow: hidden;
+    background: var(--m-karte);
+    box-shadow: 0 0 0 1px var(--m-linie);
+}
+html.gsg-modern .gsg-right-splitter { background: transparent; }
+html.gsg-modern #rightdiv .jo_tabheadings { background: var(--m-karte); border-bottom: 1px solid var(--m-linie); font-family: var(--m-schrift); }
+html.gsg-modern #rightdiv .jo_tabs,
+html.gsg-modern #rightdiv .jo_tab { background: var(--m-karte); }
+
+html.gsg-modern .gsg-bl-buehnenleiste { padding: 10px 12px 6px; gap: 8px; }
+html.gsg-modern .gsg-bl-knopf,
+html.gsg-modern .gsg-bl-mini {
+    font: 500 13px/1.2 var(--m-schrift);
+    color: var(--m-tinte);
+    background: var(--m-karte);
+    border: 1px solid var(--m-linie);
+    border-radius: 10px;
+    padding: 8px 12px;
+}
+html.gsg-modern .gsg-bl-mini { padding: 4px 8px; }
+html.gsg-modern .gsg-bl-knopf:hover,
+html.gsg-modern .gsg-bl-mini:hover { background: var(--m-seite); }
+html.gsg-modern .gsg-bl-buehnenleiste .gsg-bl-start {
+    height: 44px;
+    padding: 0 20px;
+    border: 0;
+    background: var(--m-gruen);
+    color: #ffffff;
+    font-size: 16px;
+    font-weight: 600;
+}
+html.gsg-modern .gsg-bl-buehnenleiste .gsg-bl-start:hover { background: var(--m-gruen-hover); }
+html.gsg-modern .gsg-bl-buehnenleiste .gsg-bl-stopp { height: 44px; padding: 0 16px; color: var(--m-rot); font-size: 14px; }
+html.gsg-modern .gsg-bl-buehnenleiste .gsg-bl-tipp { font-size: 12px; color: var(--m-sehr-leise); }
+html.gsg-modern .gsg-bl-vorschau { padding: 4px 12px 12px; }
+html.gsg-modern .gsg-bl-leinwand { border: 0; border-radius: 12px; box-shadow: 0 0 0 1px var(--m-linie-stark); }
+
+/* Reiter „Figuren“ */
+html.gsg-modern .jo_tab.gsg-bl { color: var(--m-tinte); font-family: var(--m-schrift); font-size: 13px; padding: 12px; gap: 14px; }
+html.gsg-modern .gsg-bl-kopf strong { font-size: 15px; }
+html.gsg-modern .gsg-bl-pos { color: var(--m-sehr-leise); }
+html.gsg-modern .gsg-bl-kachel {
+    width: 84px;
+    padding: 8px 4px;
+    border-radius: 12px;
+    background: var(--m-karte);
+    border: 0;
+    box-shadow: 0 0 0 1px var(--m-linie);
+    color: var(--m-tinte);
+}
+html.gsg-modern .gsg-bl-kachel:hover { background: var(--m-seite); }
+html.gsg-modern .gsg-bl-kachel.gsg-bl-gewaehlt { background: var(--m-figur-gewaehlt); box-shadow: 0 0 0 2px var(--m-blau); }
+html.gsg-modern .gsg-bl-spaltentitel { font-weight: 600; color: var(--m-tinte); }
+html.gsg-modern .gsg-bl-buehnenspalte { border-left: 1px solid var(--m-linie); padding-left: 12px; }
+html.gsg-modern .gsg-bl-neu { border-style: dashed; border-color: var(--m-gestrichelt); color: var(--m-blau); }
+
+/* Position der Figur als Eingabefelder (BloecklyPanel, nur Modern) */
+html.gsg-modern .gsg-bl-felder { display: flex; gap: 8px; }
+html.gsg-modern .gsg-bl-felder label { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--m-sehr-leise); }
+html.gsg-modern .gsg-bl-felder input {
+    width: 72px;
+    height: 32px;
+    box-sizing: border-box;
+    padding: 0 8px;
+    border: 1px solid var(--m-feldlinie);
+    border-radius: 8px;
+    font: 14px var(--m-schrift);
+    color: var(--m-tinte);
+    background: var(--m-karte);
+}
+html.gsg-modern .gsg-bl-felder input:focus-visible { outline: 3px solid var(--m-gruen-hell); outline-offset: 1px; }
+
+/* Dialoge (Figur wählen, Neues Projekt …) */
+html.gsg-modern .gsg-bl-dialog { border-radius: 16px; font-family: var(--m-schrift); }
+
+/* —— Übersicht „Meine Projekte“ —— */
+/* die Regler-Knöpfe der Bereichsgrenzen hängen am body: unter der Übersicht ausblenden */
+html.gsg-modern body:has(.gsg-projekte) .jo_sliderknob { visibility: hidden; }
+html.gsg-modern .gsg-projekte {
+    position: absolute;
+    z-index: 25;
+    top: 56px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    background: var(--m-seite);
+    color: var(--m-tinte);
+    font: 14px/1.4 var(--m-schrift);
+}
+html.gsg-modern .gsg-projekte-nav {
+    width: 248px;
+    flex: none;
+    box-sizing: border-box;
+    padding: 20px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    background: var(--m-karte);
+    border-right: 1px solid var(--m-linie);
+    overflow: auto;
+}
+html.gsg-modern .gsg-projekte-navtitel { margin: 16px 12px 6px; font-size: 12px; font-weight: 600; color: var(--m-sehr-leise); }
+html.gsg-modern .gsg-projekte-ordner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--m-text-mittel);
+    font: 14px var(--m-schrift);
+    text-align: left;
+    cursor: pointer;
+}
+html.gsg-modern .gsg-projekte-ordner:hover { background: var(--m-seite); }
+html.gsg-modern .gsg-projekte-ordner.gsg-aktiv { background: var(--m-blau-hell); color: var(--m-blau); font-weight: 600; }
+html.gsg-modern .gsg-projekte-ordnername { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html.gsg-modern .gsg-projekte-anzahl { font-size: 12px; color: var(--m-sehr-leise); }
+html.gsg-modern .gsg-projekte-inhalt { flex: 1; min-width: 0; display: flex; flex-direction: column; padding: 24px 32px; box-sizing: border-box; gap: 18px; }
+html.gsg-modern .gsg-projekte-kopf { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+html.gsg-modern .gsg-projekte-kopf h1 { margin: 0; font-size: 26px; font-weight: 600; letter-spacing: -0.01em; }
+html.gsg-modern .gsg-projekte-suche {
+    width: 280px;
+    height: 42px;
+    box-sizing: border-box;
+    padding: 0 12px;
+    border: 1px solid var(--m-feldlinie);
+    border-radius: 10px;
+    background: var(--m-karte);
+    font: 14px var(--m-schrift);
+    color: var(--m-tinte);
+}
+html.gsg-modern .gsg-projekte-neu,
+html.gsg-modern .gsg-projekte-zurueck,
+html.gsg-modern .gsg-projekte-los {
+    height: 42px;
+    padding: 0 16px;
+    border-radius: 10px;
+    font: 600 14px var(--m-schrift);
+    cursor: pointer;
+    white-space: nowrap;
+}
+html.gsg-modern .gsg-projekte-neu { border: 0; background: var(--m-blau-flaeche); color: #ffffff; }
+html.gsg-modern .gsg-projekte-neu:hover { background: var(--m-blau-flaeche-hover); }
+html.gsg-modern .gsg-projekte-zurueck { border: 1px solid var(--m-linie); background: var(--m-karte); color: var(--m-tinte); font-weight: 500; }
+html.gsg-modern .gsg-projekte-zurueck:hover { background: var(--m-seite); }
+html.gsg-modern .gsg-projekte-liste { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 12px; padding: 2px 2px 24px; }
+html.gsg-modern .gsg-projekte-liste h2 { margin: 6px 0 0; font-size: 15px; font-weight: 600; color: var(--m-text-mittel); }
+html.gsg-modern .gsg-projekte-aufgaben { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 14px; }
+html.gsg-modern .gsg-projekte-aufgabe {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px;
+    border-radius: 14px;
+    background: var(--m-karte);
+    box-shadow: 0 0 0 2px var(--m-gruen-hell);
+}
+html.gsg-modern .gsg-projekte-aufgabe .gsg-projekte-bild { width: 112px; height: 84px; flex: none; }
+html.gsg-modern .gsg-projekte-aufgabentext { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+html.gsg-modern .gsg-projekte-los { border: 0; background: var(--m-gruen); color: #ffffff; }
+html.gsg-modern .gsg-projekte-los:hover { background: var(--m-gruen-hover); }
+html.gsg-modern .gsg-projekte-raster { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
+html.gsg-modern .gsg-projekte-kachel {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 0 0 12px;
+    border: 0;
+    border-radius: 14px;
+    overflow: hidden;
+    background: var(--m-karte);
+    box-shadow: 0 0 0 1px var(--m-linie);
+    color: var(--m-tinte);
+    font: 14px var(--m-schrift);
+    text-align: left;
+    cursor: pointer;
+}
+html.gsg-modern .gsg-projekte-kachel:hover { box-shadow: 0 0 0 2px var(--m-linie-stark); }
+/* Projekt-Kachel: Hülle mit Öffnen-Knopf und kleinen Knöpfen (Umbenennen, Löschen) oben rechts */
+html.gsg-modern div.gsg-projekte-kachel { position: relative; padding: 0; }
+html.gsg-modern .gsg-projekte-oeffnen {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+    padding: 0 0 12px;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+html.gsg-modern .gsg-projekte-oeffnen:focus-visible { outline: 3px solid var(--m-blau); outline-offset: -3px; border-radius: 14px; }
+html.gsg-modern .gsg-projekte-aktionen {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    display: flex;
+    gap: 6px;
+    opacity: 0;
+    transition: opacity .12s;
+}
+html.gsg-modern .gsg-projekte-kachel:hover .gsg-projekte-aktionen,
+html.gsg-modern .gsg-projekte-kachel:focus-within .gsg-projekte-aktionen { opacity: 1; }
+@media (hover: none) { html.gsg-modern .gsg-projekte-aktionen { opacity: 1; } }
+html.gsg-modern .gsg-projekte-aktion {
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: var(--m-karte);
+    box-shadow: 0 1px 4px var(--m-schatten);
+    color: var(--m-tinte);
+    font-size: 14px;
+    line-height: 30px;
+    text-align: center;
+    cursor: pointer;
+}
+html.gsg-modern .gsg-projekte-aktion:hover { background: var(--m-seite); }
+html.gsg-modern .gsg-projekte-loeschen:hover { background: var(--m-loeschen-hover); }
+html.gsg-modern .gsg-projekte-gefahr { border: 0; background: #c62828; color: #ffffff; }
+html.gsg-modern .gsg-projekte-gefahr:hover { background: #a61f1f; }
+html.gsg-modern .gsg-projekte-kachel.gsg-projekte-geoeffnet { box-shadow: 0 0 0 2px var(--m-blau); }
+html.gsg-modern .gsg-projekte-kachel .gsg-projekte-bild { width: 100%; height: auto; aspect-ratio: 4 / 3; margin-bottom: 6px; }
+html.gsg-modern .gsg-projekte-bild { display: block; border-radius: 10px; background: #ffffff; }
+html.gsg-modern .gsg-projekte-kachel .gsg-projekte-bild { border-radius: 0; border-bottom: 1px solid var(--m-linie); }
+html.gsg-modern .gsg-projekte-bild-leer { background: repeating-linear-gradient(45deg, var(--m-leer-1) 0 10px, var(--m-leer-2) 10px 20px); }
+html.gsg-modern .gsg-projekte-kachelname { display: flex; align-items: center; gap: 8px; padding: 0 12px; min-width: 0; }
+html.gsg-modern .gsg-projekte-aufgabe .gsg-projekte-kachelname { padding: 0; }
+html.gsg-modern .gsg-projekte-kachelname strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; }
+html.gsg-modern .gsg-projekte-info { padding: 0 12px; font-size: 12px; color: var(--m-sehr-leise); }
+html.gsg-modern .gsg-projekte-aufgabe .gsg-projekte-info { padding: 0; font-size: 13px; }
+html.gsg-modern .gsg-projekte-marke { font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 10px; background: var(--m-blau-hell); color: var(--m-blau); }
+html.gsg-modern .gsg-projekte-neukachel {
+    align-items: center;
+    justify-content: center;
+    min-height: 220px;
+    padding: 12px;
+    box-shadow: none;
+    border: 1.5px dashed var(--m-gestrichelt);
+    color: var(--m-blau);
+    text-align: center;
+}
+html.gsg-modern .gsg-projekte-plus {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--m-blau-hell);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+}
+html.gsg-modern .gsg-projekte-leer { color: var(--m-sehr-leise); }

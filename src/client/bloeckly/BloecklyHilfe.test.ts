@@ -16,7 +16,7 @@ const ALLGEMEIN = [
     B.msgSend, B.msgSendWait, B.blSendWith, B.blSendWithWait, B.blWert,
     B.repeat, B.forever, B.if, `${B.if}:sonst`, B.while,
     B.arith, B.random, B.compare, B.logic, B.not, B.concat, B.strCharAt, B.strLength, B.strContains, B.math, B.number, B.text, B.bool,
-    B.varDeclare, B.varGet, B.varSet, B.varChange,
+    B.blVar, B.blList, B.varDeclare, B.varGet, B.varSet, B.varChange,
     B.listAdd, B.listRemove, B.listClear, B.listInsert, B.listSet, B.listGet, B.listIndexOf, B.listSize, B.listContains,
     B.blVon, B.method, B.call, B.callExpr, B.return, B.returnVoid,
 ];

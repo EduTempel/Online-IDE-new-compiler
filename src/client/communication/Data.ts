@@ -1,6 +1,6 @@
 import { SerializedClassDiagram } from "../main/gui/diagrams/classdiagram/ClassDiagram.js"
 
-export type Application = 1 | 2 | 4 | 5 | 6;    // 1 == OnlineIDE, 2 == SQLIDE, 4 == Blöckva, 5 == Struktogramme, 6 == Blöckly (GSG)
+export type Application = 1 | 2 | 4 | 5 | 6 | 7;    // 1 == OnlineIDE, 2 == SQLIDE, 4 == Blöckva, 5 == Struktogramme, 6 == Blöckly, 7 == Klassendiagramme (GSG)
 
 export type BaseResponse = {
     success: boolean;

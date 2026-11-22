@@ -5,25 +5,48 @@ let serverIP: string = 'localhost';
 // let serverIP: string = '172.30.95.53';
 
 /**
- * Entwicklung: Anwendungen "Blöckva" (/bloecke/), "Struktogramme" (/struktogramme/) und "Blöckly" (/bloeckly/) – dieselbe Seite
- * wie die Java-IDE (im Betrieb liefert Caddy dafür die gebaute Java-IDE aus). Server-Aufrufe unter diesen
- * Pfaden gehen ans Backend.
+ * Entwicklung: Anwendungen „Code“ (/code/), „Mix“ (/mix/), „Strukto“ (/strukto/), „Blocks“ (/blocks/) und „Klassen“
+ * (/klassen/) – dieselbe Seite (im Betrieb liefert Caddy dafür die gebaute IDE aus). Server-Aufrufe unter diesen Pfaden
+ * gehen ans Backend. Die alten Adressen (/, /bloecke/, /struktogramme/, /bloeckly/, /klassendiagramme/) leiten weiter.
  */
-const bloeckeDev = {
-    name: "gsg-bloecke-dev",
-    configureServer(server: { middlewares: { use(fn: (req: { url?: string }, res: unknown, next: () => void) => void): void } }) {
-        server.middlewares.use((req, _res, next) => {
-            if (req.url && /^\/(bloecke|struktogramme|bloeckly)(\/|$|\?)/.test(req.url) && !/^\/(bloecke|struktogramme|bloeckly)\/(servlet|sendUpdates|sprites)/.test(req.url)) {
-                req.url = req.url.replace(/^\/(bloecke|struktogramme|bloeckly)\/?/, "/");
+const APP_PFADE = ["code", "mix", "strukto", "blocks", "klassen"];
+const ALTE_PFADE: Record<string, string> = { bloecke: "mix", struktogramme: "strukto", bloeckly: "blocks", klassendiagramme: "klassen", java: "code" };
+const SERVER_PFADE = ["servlet", "sendUpdates", "sprites"];
+const alle = [...APP_PFADE, ...Object.keys(ALTE_PFADE)].join("|");
+
+const appPfadeDev = {
+    name: "gsg-app-pfade-dev",
+    configureServer(server: { middlewares: { use(fn: (req: { url?: string }, res: { statusCode: number; setHeader(k: string, v: string): void; end(): void }, next: () => void) => void): void } }) {
+        server.middlewares.use((req, res, next) => {
+            const url = req.url ?? "";
+            // alte Adressen: Seite dauerhaft weiterleiten (Server-Aufrufe alter, noch offener Seiten gehen per Proxy durch)
+            const alt = url.match(/^\/(bloecke|struktogramme|bloeckly|klassendiagramme|java)(\/|$|\?)(.*)$/);
+            if (alt && !new RegExp(`^/${alt[1]}/(${SERVER_PFADE.join("|")})`).test(url)) {
+                res.statusCode = 301;
+                res.setHeader("Location", `/${ALTE_PFADE[alt[1]]}/${alt[2] === "?" ? "?" : ""}${alt[3]}`);
+                return res.end();
+            }
+            if (url === "/" || url.startsWith("/?") || url === "/index.html") {
+                res.statusCode = 302;
+                res.setHeader("Location", "/code/" + (url.startsWith("/?") ? url.slice(1) : ""));
+                return res.end();
+            }
+            if (new RegExp(`^/(${APP_PFADE.join("|")})(/|$|\\?)`).test(url) && !new RegExp(`^/(${APP_PFADE.join("|")})/(${SERVER_PFADE.join("|")})`).test(url)) {
+                req.url = url.replace(new RegExp(`^/(${APP_PFADE.join("|")})/?`), "/");
             }
             next();
         });
     },
 };
 
+/** Server-Aufrufe unter den Anwendungspfaden (neu und alt) ans Backend */
+const serverProxies = Object.fromEntries(alle.split("|").flatMap((app) => SERVER_PFADE.map((s) => [
+    `/${app}/${s}`, { target: 'http://' + serverIP + ':5500', rewrite: (p: string) => p.replace(new RegExp(`^/${app}`), '') },
+])));
+
 export default {
     ...commonConfig,
-    plugins: [...((commonConfig as { plugins?: unknown[] }).plugins ?? []), bloeckeDev],
+    plugins: [...((commonConfig as { plugins?: unknown[] }).plugins ?? []), appPfadeDev],
     build: {
         ...commonConfig.build,
         rollupOptions: {
@@ -77,21 +100,13 @@ export default {
             '/auth': 'http://' + serverIP + ':5500',
             '/start': 'http://' + serverIP + ':5500',    // Startseite
             '/s/': 'http://' + serverIP + ':5500',       // geteilte Links
-            '/flaci': 'http://' + serverIP + ':5500',    // Anwendung FLACI (vom Backend ausgeliefert)
+            '/automaten': 'http://' + serverIP + ':5500',    // Anwendung „Automaten“ (FLACI, vom Backend ausgeliefert)
+            '/flaci': 'http://' + serverIP + ':5500',        // alte Adresse, das Backend leitet weiter
             '/branding': 'http://' + serverIP + ':5500',     // Logo und Schulfarben (Verwaltung → Aussehen)
             '/mitwirkende': 'http://' + serverIP + ':5500',  // Mitwirkende und Lizenzen
-            '/lehrkraefte': 'http://' + serverIP + ':5500',  // Lehrerhandbuch Blöcke
-            // Anwendungen "Blöckva", "Struktogramme", "Blöckly": relative Server-Aufrufe unter ihrem Pfad ans Backend
-            '/bloecke/servlet': { target: 'http://' + serverIP + ':5500', rewrite: (p: string) => p.replace(/^\/bloecke/, '') },
-            '/bloecke/sendUpdates': { target: 'http://' + serverIP + ':5500', rewrite: (p: string) => p.replace(/^\/bloecke/, '') },
-            '/struktogramme/servlet': { target: 'http://' + serverIP + ':5500', rewrite: (p: string) => p.replace(/^\/struktogramme/, '') },
-            '/struktogramme/sendUpdates': { target: 'http://' + serverIP + ':5500', rewrite: (p: string) => p.replace(/^\/struktogramme/, '') },
-            '/bloeckly/servlet': { target: 'http://' + serverIP + ':5500', rewrite: (p: string) => p.replace(/^\/bloeckly/, '') },
-            '/bloeckly/sendUpdates': { target: 'http://' + serverIP + ':5500', rewrite: (p: string) => p.replace(/^\/bloeckly/, '') },
-            // eigene Sprite-Bilder (Bildtafeln der Projekte)
-            '/bloecke/sprites': { target: 'http://' + serverIP + ':5500', rewrite: (p: string) => p.replace(/^\/bloecke/, '') },
-            '/struktogramme/sprites': { target: 'http://' + serverIP + ':5500', rewrite: (p: string) => p.replace(/^\/struktogramme/, '') },
-            '/bloeckly/sprites': { target: 'http://' + serverIP + ':5500', rewrite: (p: string) => p.replace(/^\/bloeckly/, '') },
+            '/lehrkraefte': 'http://' + serverIP + ':5500',  // Lehrerhandbuch
+            // Anwendungen „Code“, „Mix“, „Strukto“, „Blocks“, „Klassen“ (und alte Pfade): Server-Aufrufe und eigene Sprite-Bilder ans Backend
+            ...serverProxies,
             // '/servlet/subscriptionwebsocket': { target: 'ws://localhost:5500', ws: true },
         }, 
         port: 3000

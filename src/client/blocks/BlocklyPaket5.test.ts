@@ -58,11 +58,10 @@ describe("Paket 5 mit Blockly", () => {
         expect(blocksOf(lists, B.listContains)[0].outputConnection!.getCheck()).toEqual(["boolean"]);
 
         const dyn = load(DYN);
-        const typed = blocksOf(dyn, B.dynGet).find((b) => b.getFieldValue("TYPE") === "int")!;
-        expect(typed.outputConnection!.getCheck()).toEqual(["int"]);
-        const any = blocksOf(dyn, B.dynGet).find((b) => b.getFieldValue("TYPE") === "Object")!;
-        expect(any.outputConnection!.getCheck()).toBeNull();
-        expect(check(blocksOf(dyn, B.dynAppend)[0], "V")).toBeNull();   // DynArray nimmt alles
+        // Inhaltstyp Ganzzahl: Elemente sind Ganzzahlen, hinein passen Ganzzahlen
+        expect(blocksOf(dyn, B.dynGet)[0].outputConnection!.getCheck()).toEqual(["int"]);
+        expect(check(blocksOf(dyn, B.dynAppend)[0], "V")).toEqual(["int"]);
+        expect(blocksOf(dyn, B.dynNew)[0].getFieldValue("TYPE")).toBe("int");
     });
 
     test("Umbenennen einer Reihung nimmt alle Verwendungen mit", () => {

@@ -109,7 +109,7 @@ export class Login {
     logout() {
         let isSilent = window.location.href.indexOf('silent') >= 0;
         if (!this.main.user || this.main.user.is_testuser) {
-            window.location.assign("/start/" + (isSilent ? "?silent=true" : ""));   // GSG: allgemeine Anmeldung (Startseite) statt der Java-IDE
+            window.location.assign("/start/" + (isSilent ? "?silent=true" : ""));   // GSG: allgemeine Anmeldung (Startseite) statt Texva
             return;
         }
 
@@ -142,7 +142,7 @@ export class Login {
 
                 } else {
                     jQuery('#bitteWartenText').html(LoginMessages.done());
-                    window.location.assign("/start/" + (isSilent ? "?silent=true" : ""));   // GSG: allgemeine Anmeldung (Startseite) statt der Java-IDE
+                    window.location.assign("/start/" + (isSilent ? "?silent=true" : ""));   // GSG: allgemeine Anmeldung (Startseite) statt Texva
                     // that.showLoginForm();
                 }
 

@@ -63,7 +63,7 @@ export class HelpMessages {
     
 
     static apiDocMainHeading = () => lm({
-        "de": "Online-IDE: Dokumentation der Java-API",
+        "de": "Dokumentation der Klassen (API)",
         "en": "Online-IDE: Java-API documentation",
         "fr": "Online-IDE : Documentation de l’API Java"
     })

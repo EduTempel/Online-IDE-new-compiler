@@ -458,7 +458,7 @@ export class NRWLang {
     })
 
     static databaseConnectorConstructorComment = () => lm({
-    "de": `Erstellt ein neues DatabaseConnector-Objekt. code ist der Zugriffscode für eine Datenbank der SQL-IDE.`,
+    "de": `Erstellt ein neues DatabaseConnector-Objekt. code ist der Zugriffscode für eine Datenbank der Anwendung SQL.`,
     "en": `Creates a new DatabaseConnector object. You get the access code from the SQL-IDE.`,
     })
 

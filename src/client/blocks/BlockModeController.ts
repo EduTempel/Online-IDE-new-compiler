@@ -3,9 +3,9 @@ import type { Main } from "../main/Main";
 import type { GUIFile } from "../workspace/File";
 import type { Workspace } from "../workspace/Workspace";
 import type { BlockView } from "./BlockView";
-import type { StructogramEditor } from "../structogram/StructogramEditor";
 import { Constants } from "../Constants";
 import { puzzleSolution } from "./BlockPuzzle";
+import { DATEI_GEWECHSELT } from "../main/gui/Dateiart";
 import "/assets/css/gsg-blocks.css";
 
 /**
@@ -16,9 +16,18 @@ import "/assets/css/gsg-blocks.css";
  * - Projekteinstellung "Java-Ansicht gesperrt" (settings.blocks.javaLocked): Schüler/innen sehen
  *   nur Blöcke (und die Java-Vorschau); Lehrkräfte können immer umschalten
  * - die Blockansicht (mit Blockly) wird erst beim ersten Umschalten nachgeladen
+ * - in der Anwendung Texva gibt es keine Blockansicht (nur Text); Blöcke gibt es in Blöckva und Blöckly
  */
 
 type Mode = "java" | "blocks";
+
+/** eigener Editor statt Monaco für Struktogramm- und Klassendiagramm-Dateien (Pakete 7b und 20) */
+type DateiEditor = { show(file: GUIFile, readOnly: boolean): void; hide(): void };
+type Sonderansicht = {
+    endung: RegExp; host: HTMLElement; laedt: string;
+    laden: (main: Main, host: HTMLElement) => Promise<DateiEditor>;
+    editor?: DateiEditor; promise?: Promise<DateiEditor>; file?: GUIFile;
+};
 
 export type BlockSettings = { start?: boolean; javaLocked?: boolean };
 
@@ -38,37 +47,52 @@ export class BlockModeController {
     private $blocksButton: JQuery<HTMLElement>;
     private $javaButton: JQuery<HTMLElement>;
     private host: HTMLElement;
-    /** Struktogramm-Dateien (*.struktogramm): eigener Editor statt Monaco */
-    private structHost: HTMLElement;
-    private structEditor?: StructogramEditor;
-    private structPromise?: Promise<StructogramEditor>;
-    private structFile?: GUIFile;
+    /** Struktogramm-Dateien (*.struktogramm) und Klassendiagramme (*.klassendiagramm): eigener Editor statt Monaco */
+    private sonder: Sonderansicht[] = [];
 
     constructor(private main: Main) {
         this.$toggle = jQuery(`<div class="gsg-viewtoggle" role="group" aria-label="Ansicht" style="display:none">
             <button type="button" data-mode="blocks" title="Programm mit Blöcken bauen (Strg+B)">Blöcke</button>
-            <button type="button" data-mode="java" title="Programm als Java-Text bearbeiten (Strg+B)">Java</button>
+            <button type="button" data-mode="java" title="Programm als Code bearbeiten (Strg+B) – Java mit kleinen Anpassungen">Code</button>
         </div>`);
         this.$blocksButton = this.$toggle.find('[data-mode="blocks"]');
         this.$javaButton = this.$toggle.find('[data-mode="java"]');
         this.$blocksButton.on("click", () => this.choose("blocks"));
         this.$javaButton.on("click", () => this.choose("java"));
         jQuery("#debugpanel").prepend(this.$toggle);
+        // Blöckly zeigt kein Texva: auch die Reiter „Code“ (übersetztes Programm mit Java-Köpfen), „Tests“ (JUnit),
+        // „Klassen“ und „Objekte“ (Datentypen wie int, String) bleiben verborgen
+        if (Constants.isBloecklyApp) {
+            const rechts = main.getRightDiv(), unten = main.getBottomDiv();
+            for (const tab of [unten?.disassemblerTab, unten?.jUnitTab, rechts?.classDiagramTab, rechts?.tabManager.getTabByName("Objects")]) {
+                if (!tab) continue;
+                tab.setVisible(false);
+                tab.setVisible = () => { };
+            }
+        }
 
         this.host = document.createElement("div");
         this.host.id = "gsg-blocks";
         this.host.style.display = "none";
         jQuery("#editor").after(this.host);
-        this.structHost = document.createElement("div");
-        this.structHost.id = "gsg-structogram-editor";
-        this.structHost.style.display = "none";
-        jQuery(this.host).after(this.structHost);
+        const sonder = (id: string, endung: RegExp, laedt: string, laden: Sonderansicht["laden"]) => {
+            const host = document.createElement("div");
+            host.id = id;
+            host.style.display = "none";
+            jQuery(this.sonder[this.sonder.length - 1]?.host ?? this.host).after(host);
+            this.sonder.push({ endung, host, laedt, laden });
+        };
+        sonder("gsg-structogram-editor", /\.struktogramm$/i, "Struktogramm wird geladen …",
+            (m, h) => import("../structogram/StructogramEditor").then(({ StructogramEditor }) => new StructogramEditor(m, h)));
+        sonder("gsg-klassen-editor", /\.klassendiagramm$/i, "Klassendiagramm wird geladen …",
+            (m, h) => import("../klassendiagramm/KlassenEditor").then(({ KlassenEditor }) => new KlassenEditor(m, h)));
 
         main.getMainEditor().onDidChangeModel(() => this.refresh());
 
         // Strg+B: zwischen Blöcken und Java umschalten
         document.addEventListener("keydown", (e) => {
             if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey || e.key.toLowerCase() !== "b" || !this.file) return;
+            if (this.blocksLocked()) return;
             e.preventDefault();
             e.stopPropagation();
             this.choose(this.mode === "blocks" ? "java" : "blocks");
@@ -82,15 +106,22 @@ export class BlockModeController {
     }
 
     /**
-     * Java-Ansicht gesperrt? Lehrkräfte dürfen immer. In den Anwendungen "Blöckva" und "Blöckly" nur, wenn die
-     * Lerngruppe es erlaubt (Freigabe "Java-Ansicht in Blöckva" bzw. "Java in Blöckly"); sonst nach Projekteinstellung.
+     * Java-Ansicht gesperrt? In Blöckly immer (für alle, auch Lehrkräfte). Sonst dürfen Lehrkräfte immer; in
+     * „Blöckva“ nur, wenn die Lerngruppe es erlaubt (Freigabe „Texva-Ansicht in Blöckva“); sonst nach Projekteinstellung.
      */
     private javaLocked(): boolean {
+        if (Constants.isBloecklyApp) return true;
+        if (this.blocksLocked()) return false;
         if (this.isStaff()) return false;
         if (this.isPuzzle()) return true;   // Paket 17e: Puzzle nur als Blöcke
-        const f = (this.main.user as { gsgFreigaben?: { bloeckeJava?: boolean; bloecklyJava?: boolean } } | undefined)?.gsgFreigaben;
-        if (Constants.isBlocksApp && !(Constants.isBloecklyApp ? f?.bloecklyJava : f?.bloeckeJava)) return true;
+        const f = (this.main.user as { gsgFreigaben?: { bloeckeJava?: boolean } } | undefined)?.gsgFreigaben;
+        if (Constants.isBlocksApp && !f?.bloeckeJava) return true;
         return !!blockSettingsOf(this.main.getCurrentWorkspace()).javaLocked;
+    }
+
+    /** Blockansicht nicht verfügbar? In der Anwendung Texva (nur Text) – für alle, auch Lehrkräfte */
+    private blocksLocked(): boolean {
+        return Constants.isTexvaApp;
     }
 
     /** Datei ist ein Puzzle (Paket 17e) */
@@ -104,35 +135,40 @@ export class BlockModeController {
         return this.main.getCurrentWorkspace()?.getFiles().find((f) => f.hasMonacoModel() && f.getMonacoModel() === model);
     }
 
-    /** Struktogramm-Datei im Editor? */
-    private currentStructogramFile(): GUIFile | undefined {
+    /** Datei im Editor, die einen eigenen Editor hat (Struktogramm, Klassendiagramm)? */
+    private currentSpecialFile(): { ansicht: Sonderansicht; file: GUIFile } | undefined {
         const model = this.main.getMainEditor().getModel();
         if (!model) return undefined;
-        return this.main.getCurrentWorkspace()?.getFiles().find((f) => /\.struktogramm$/i.test(f.name) && f.hasMonacoModel() && f.getMonacoModel() === model);
+        const file = this.main.getCurrentWorkspace()?.getFiles().find((f) => f.hasMonacoModel() && f.getMonacoModel() === model);
+        const ansicht = file && this.sonder.find((s) => s.endung.test(file.name));
+        return ansicht ? { ansicht, file: file! } : undefined;
     }
 
-    /** Struktogramm-Datei zeigen bzw. den Struktogramm-Editor wieder schließen */
-    private async showStructogram(file: GUIFile | undefined) {
-        this.structFile = file;
+    /** offene Sonderansicht (Struktogramm- bzw. Klassendiagramm-Editor) */
+    private openSpecial(): Sonderansicht | undefined {
+        return this.sonder.find((s) => s.file);
+    }
+
+    /** Datei im eigenen Editor zeigen bzw. (file undefined) den Editor wieder schließen */
+    private async showSpecial(ansicht: Sonderansicht, file: GUIFile | undefined) {
+        ansicht.file = file;
         if (!file) {
-            this.structEditor?.hide();
-            this.structHost.style.display = "none";
+            ansicht.editor?.hide();
+            ansicht.host.style.display = "none";
             return;
         }
         this.$toggle.css("display", "none");
         this.view?.hide();
         this.host.style.display = "none";
+        for (const s of this.sonder) if (s !== ansicht && s.file) this.showSpecial(s, undefined);
         document.getElementById("editor")!.style.display = "none";
-        this.structHost.style.display = "";
-        if (!this.structPromise) {
-            this.structHost.innerHTML = `<div class="gsg-blocks-loading">Struktogramm wird geladen …</div>`;
-            this.structPromise = import("../structogram/StructogramEditor").then(({ StructogramEditor }) => {
-                this.structEditor = new StructogramEditor(this.main, this.structHost);
-                return this.structEditor;
-            });
+        ansicht.host.style.display = "";
+        if (!ansicht.promise) {
+            ansicht.host.innerHTML = `<div class="gsg-blocks-loading">${ansicht.laedt}</div>`;
+            ansicht.promise = ansicht.laden(this.main, ansicht.host).then((e) => ansicht.editor = e);
         }
-        const editor = await this.structPromise;
-        if (this.structFile !== file) return;
+        const editor = await ansicht.promise;
+        if (ansicht.file !== file) return;
         const workspace = this.main.getCurrentWorkspace();
         editor.show(file, !!workspace?.readonly && !this.main.user?.is_teacher);
     }
@@ -155,6 +191,7 @@ export class BlockModeController {
     /** Ansicht für eine Datei festlegen (Handbuch „Ausprobieren“: Beispiel so zeigen, wie es im Handbuch stand) */
     useMode(file: GUIFile, mode: Mode) {
         if (mode === "java" && this.javaLocked()) return;
+        if (mode === "blocks" && this.blocksLocked()) return;
         this.chosenMode.set(file, mode);
         // die neue Datei ist beim Öffnen evtl. noch nicht erkannt worden: Ansicht neu bestimmen
         this.refresh();
@@ -162,19 +199,21 @@ export class BlockModeController {
 
     /** Neue Datei im Editor (oder Einstellungen geändert): passende Ansicht wählen */
     refresh() {
-        const structFile = this.currentStructogramFile();
-        if (structFile) {
+        const special = this.currentSpecialFile();
+        if (special) {
             if (this.file && this.mode === "blocks") this.view?.hide();
             this.file = undefined;
-            this.showStructogram(structFile);
+            this.showSpecial(special.ansicht, special.file);
+            this.gewechselt();
             return;
         }
-        if (this.structFile) this.showStructogram(undefined);
+        const offen = this.openSpecial();
+        if (offen) this.showSpecial(offen, undefined);
         const file = this.currentFile();
         if (this.file && this.file !== file && this.mode === "blocks") this.view?.hide();
         this.file = file;
         // ohne Java-Ansicht (Freigabe der Lerngruppe, Projekteinstellung, Puzzle) gibt es nichts umzuschalten
-        this.$toggle.css("display", file && !this.javaLocked() ? "" : "none");
+        this.$toggle.css("display", file && !this.javaLocked() && !this.blocksLocked() ? "" : "none");
         if (!file) {
             this.apply("java");
             return;
@@ -182,14 +221,16 @@ export class BlockModeController {
         const startInBlocks = Constants.isBlocksApp || !!blockSettingsOf(this.main.getCurrentWorkspace()).start;
         let mode: Mode = this.chosenMode.get(file) ?? (startInBlocks || this.isPuzzle() ? "blocks" : "java");
         if (this.javaLocked()) mode = "blocks";
+        if (this.blocksLocked()) mode = "java";   // Texva: Projekteinstellung „startet in der Blockansicht“ gilt hier nicht
         this.apply(mode);
     }
 
     private choose(mode: Mode) {
         if (!this.file || mode === this.mode) return;
         if (mode === "java" && this.javaLocked()) return;
+        if (mode === "blocks" && this.blocksLocked()) return;
         if (mode === "java" && this.view?.hasLooseBlocks()
-            && !confirm("Einige Blöcke hängen nicht am Programmstart. Sie gehören nicht zum Programm und gehen beim Wechsel in die Java-Ansicht verloren. Trotzdem wechseln?")) {
+            && !confirm("Einige Blöcke hängen nicht am Programmstart. Sie gehören nicht zum Programm und gehen beim Wechsel in die Code-Ansicht verloren. Trotzdem wechseln?")) {
             return;
         }
         this.chosenMode.set(this.file, mode);
@@ -197,16 +238,22 @@ export class BlockModeController {
         this.apply(mode);
     }
 
+    /** Handbuch und Kennzeichnung über dem Editor folgen der offenen Datei */
+    private gewechselt() {
+        document.dispatchEvent(new CustomEvent(DATEI_GEWECHSELT));
+    }
+
     private async apply(mode: Mode) {
         this.mode = mode;
+        this.gewechselt();
         this.$blocksButton.toggleClass("active", mode === "blocks").attr("aria-pressed", String(mode === "blocks"));
         this.$javaButton.toggleClass("active", mode === "java").attr("aria-pressed", String(mode === "java"));
         const locked = this.javaLocked();
         this.$javaButton.prop("disabled", locked).attr("title", locked
             ? (this.isPuzzle() ? "Ein Puzzle löst man in der Blockansicht."
-                : Constants.isBlocksApp ? "Die Java-Ansicht ist für deine Lerngruppe (noch) nicht freigegeben."
-                : "Die Java-Ansicht ist für dieses Projekt von der Lehrkraft gesperrt.")
-            : "Programm als Java-Text bearbeiten");
+                : Constants.isBlocksApp ? "Die Code-Ansicht ist für deine Lerngruppe (noch) nicht freigegeben."
+                : "Die Code-Ansicht ist für dieses Projekt von der Lehrkraft gesperrt.")
+            : "Programm als Code bearbeiten");
 
         const editorDiv = document.getElementById("editor")!;
         if (mode === "java") {
@@ -243,12 +290,13 @@ export class BlockModeController {
     korrekturAnsicht(an: boolean) {
         if (an) {
             this.host.style.display = "none";
-            this.structHost.style.display = "none";
+            for (const s of this.sonder) s.host.style.display = "none";
             return;
         }
-        if (this.structFile) {
+        const offen = this.openSpecial();
+        if (offen) {
             document.getElementById("editor")!.style.display = "none";
-            this.structHost.style.display = "";
+            offen.host.style.display = "";
         } else if (this.file && this.mode === "blocks") {
             document.getElementById("editor")!.style.display = "none";
             this.host.style.display = "";
@@ -277,14 +325,15 @@ export class BlockModeController {
  * Auswahl übernimmt (true, wenn sich etwas geändert hat).
  */
 export function addBlockSettings(container: HTMLElement, workspace: Workspace, main: Main): () => boolean {
+    if (Constants.isTexvaApp) return () => false;   // Texva: keine Blockansicht, also auch kein Blockmodus
     const current = blockSettingsOf(workspace);
     const u = main.user;
     const staff = !!u && (u.is_teacher || u.is_admin || u.is_schooladmin);
     const div = document.createElement("div");
     div.className = "gsg-block-settings";
     div.innerHTML = `<div class="gsg-block-settings-title">Blockmodus</div>
-        <label><input type="checkbox" class="gsg-bs-start"> Java-Dateien starten in der Blockansicht</label>
-        <label><input type="checkbox" class="gsg-bs-locked"> Java-Ansicht für Schüler/innen sperren (nur Blöcke)</label>`;
+        <label><input type="checkbox" class="gsg-bs-start"> Code-Dateien starten in der Blockansicht</label>
+        <label><input type="checkbox" class="gsg-bs-locked"> Code-Ansicht für Schüler/innen sperren (nur Blöcke)</label>`;
     const start = div.querySelector<HTMLInputElement>(".gsg-bs-start")!;
     const locked = div.querySelector<HTMLInputElement>(".gsg-bs-locked")!;
     start.checked = !!current.start;

@@ -2,7 +2,7 @@ import * as monaco from "monaco-editor";
 import type { Main } from "../main/Main";
 import type { GUIFile } from "../workspace/File";
 import {
-    addCase, diagramOfDoc, findNode, insertNode, moveNode, newNode, parseDoc, removeCase, removeNode, serializeDoc,
+    addCase, arrowFromTyping, diagramOfDoc, findNode, insertNode, moveNode, newNode, parseDoc, removeCase, removeNode, serializeDoc,
     setCaseLabel, setText, setTitle, textOf, toggleOther, withNewIds, type ENode, type NewKind, type Place, type Slot, type StructogramDoc,
 } from "./StructogramDoc";
 import { docToJava, isRecognized, parseSignature } from "./PseudoJava";
@@ -65,7 +65,7 @@ export class StructogramEditor {
         title.className = "gsg-struct-title";
         title.innerHTML = `Struktogramm <span class="gsg-struct-sub">bearbeiten</span>`;
         bar.append(title,
-            this.button("java", "⇢ In Java umwandeln", "Java-Datei mit gleichem Namen anlegen bzw. aktualisieren", () => this.toJava()),
+            this.button("java", "⇢ In Code umwandeln", "Code-Datei mit gleichem Namen anlegen bzw. aktualisieren", () => this.toJava()),
             this.button("svg", "⤓ SVG", "Als Vektorbild speichern", () => this.save("svg")),
             this.button("png", "⤓ PNG", "Als Bild speichern", () => this.save("png")),
             this.button("print", "⎙ Drucken", "Struktogramm drucken", () => this.print()),
@@ -98,7 +98,18 @@ export class StructogramEditor {
         this.textInput.spellcheck = false;
         this.textInput.addEventListener("focus", () => this.model?.pushStackElement());
         this.textInput.addEventListener("blur", () => this.model?.pushStackElement());
-        this.textInput.addEventListener("input", () => this.editText(this.textInput.value));
+        this.textInput.addEventListener("input", () => {
+            // in Anweisungen wird „<-“ zum Zuweisungspfeil (wie Alt+- oder der Knopf ←)
+            if (this.selectedNode()?.kind === "stmt") {
+                const inp = this.textInput;
+                const r = arrowFromTyping(inp.value, inp.selectionStart ?? inp.value.length);
+                if (r.text !== inp.value) {
+                    inp.value = r.text;
+                    inp.setSelectionRange(r.caret, r.caret);
+                }
+            }
+            this.editText(this.textInput.value);
+        });
         this.textInput.addEventListener("keydown", (e) => {
             if (e.key === "Enter" || e.key === "Escape") {
                 e.preventDefault();
@@ -111,7 +122,7 @@ export class StructogramEditor {
                 this.typeArrow();
             }
         });
-        const arrow = this.button("arrow", "←", "Zuweisungspfeil einfügen (Alt+-)", () => this.typeArrow());
+        const arrow = this.button("arrow", "←", "Zuweisungspfeil einfügen (Alt+- oder <- tippen)", () => this.typeArrow());
         this.extras = document.createElement("span");
         this.extras.className = "gsg-sedit-extras";
         this.hint = document.createElement("span");
@@ -261,7 +272,7 @@ export class StructogramEditor {
             this.hint.textContent = sig.kind === "main" ? "Hauptprogramm (mit Namen: Hauptprogramm „Ballspiel“) – oder Signatur wie istGerade(x: Ganzzahl): Wahrheitswert" : "";
         } else if (node) {
             const vars = new Map(sig.kind === "main" ? [] : sig.params.map((p) => [p.name, p.type] as [string, string]));
-            this.hint.textContent = isRecognized(node.kind, textOf(node), vars) ? "" : "wird in Java ein TODO (Formulierung nicht erkannt)";
+            this.hint.textContent = isRecognized(node.kind, textOf(node), vars) ? "" : "wird in Code ein TODO (Formulierung nicht erkannt)";
         } else {
             this.hint.textContent = "";
         }

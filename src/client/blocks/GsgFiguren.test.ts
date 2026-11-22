@@ -4,7 +4,7 @@ import { GSG_BUEHNENBILD_NAME, GSG_BUEHNENBILDER, GSG_FIGUREN, GSG_SPRITESHEET_N
 import { SpriteLibraryEnum } from "../../compiler/java/runtime/graphics/SpriteLibraryEnum";
 
 /** Paket 18b: Bildtafel der Blöckly-Figuren (erzeugt mit docs/entwurf-figuren/bildtafel.py) */
-describe("Blöckly-Figuren und Bühnenbilder", () => {
+describe("Blocks-Figuren und Bühnenbilder", () => {
     const sheet = JSON.parse(readFileSync("assets/graphics/gsg-figuren.json.txt", "utf-8")) as {
         frames: Record<string, { frame: { x: number; y: number; w: number; h: number } }>;
         meta: { size: { w: number; h: number }; scale: string };

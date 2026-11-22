@@ -1,8 +1,8 @@
 import { buehnenbildAus, Kostueme } from "../../compiler/java/runtime/graphics/GsgBuehnenLogik";
-import { B, type BlockState } from "../blocks/BlockTypes";
+import { B, istErstelleBlock, type BlockState } from "../blocks/BlockTypes";
 import { JavaBlockGenerator } from "../blocks/JavaBlockGenerator";
 import { JavaBlockParser } from "../blocks/JavaBlockParser";
-import { istBlListe, type BloecklyContext } from "./BloecklySpec";
+import { alleVariablenBloecke, istBlListe, type BloecklyContext } from "./BloecklySpec";
 
 /**
  * Blöckly (Paket 18d): ein Projekt besteht aus Java-Dateien, die die Oberfläche anlegt und pflegt.
@@ -24,7 +24,7 @@ import { istBlListe, type BloecklyContext } from "./BloecklySpec";
 export const HAUPTPROGRAMM = "Hauptprogramm";
 export const BUEHNEN_DATEI = "Bühne";
 export const BUEHNEN_KLASSE = "Spiel";
-const HINWEIS = "// Blöckly: Dieses Hauptprogramm entsteht von selbst aus der Bühne und den Figuren.";
+const HINWEIS = "// Blocks: Dieses Hauptprogramm entsteht von selbst aus der Bühne und den Figuren.";
 
 export type FigurInfo = { klasse: string; figur: string; x: number; y: number };
 export type BuehnenInfo = { klasse: string; bild: string };
@@ -41,7 +41,8 @@ function zahl(v: number): string {
     return String(Math.round(v));
 }
 
-export function figurQuelltext(info: FigurInfo): string {
+/** mitFlagge: mit leerem Skript „Wenn 🚩 angeklickt“ (erste Figur, solange es im Projekt noch keins gibt) */
+export function figurQuelltext(info: FigurInfo, mitFlagge = false): string {
     return [
         `class ${info.klasse} extends Figur {`,
         "",
@@ -49,9 +50,15 @@ export function figurQuelltext(info: FigurInfo): string {
         `        super("${info.figur}", ${zahl(info.x)}, ${zahl(info.y)});`,
         "    }",
         "",
+        ...(mitFlagge ? ["    @BeimStart", "    void beimStart() {", "    }", ""] : []),
         "}",
         "",
     ].join("\n");
+}
+
+/** Gibt es in den Dateien schon ein Skript „Wenn 🚩 angeklickt“? */
+export function hatFlagge(texte: string[]): boolean {
+    return texte.some((t) => /@BeimStart\b/.test(t));
 }
 
 export function buehnenQuelltext(bild: string): string {
@@ -145,7 +152,7 @@ const VERGEBEN = new Set(["Figur", "Buehne", "Nachricht", "Object", "String", "M
 export function namensFehler(name: string, vorhanden: string[]): string | undefined {
     if (name.trim() === "") return "Bitte gib einen Namen ein.";
     if (!new RegExp(`^${NAME}$`, "u").test(name)) return "Ein Name besteht aus Buchstaben und Ziffern, beginnt mit einem Buchstaben und hat keine Leerzeichen.";
-    if (SCHLUESSELWOERTER.has(name)) return `„${name}“ ist ein Wort von Java und kein Name.`;
+    if (SCHLUESSELWOERTER.has(name)) return `„${name}“ ist ein reserviertes Wort und kein Name.`;
     if (VERGEBEN.has(name)) return `„${name}“ ist schon vergeben.`;
     if (vorhanden.some((v) => v.toLowerCase() === name.toLowerCase())) return `Eine Figur „${name}“ gibt es schon.`;
     return undefined;
@@ -170,6 +177,8 @@ export type Projekt<D extends Datei> = {
     buehne?: { datei: D; info: BuehnenInfo };
     /** in der Reihenfolge des Hauptprogramms; Figuren, die es (noch) nicht erzeugt, am Ende */
     figuren: { datei: D; info: FigurInfo }[];
+    /** Programmdateien, die weder Figur noch Bühne sind (z. B. eine zweite Bühne): laufen mit, gehören aber zu nichts */
+    weitere: D[];
 };
 
 /** Blöckly-Projekt aus den Dateien eines Workspace lesen */
@@ -177,8 +186,11 @@ export function liesProjekt<D extends Datei>(dateien: D[]): Projekt<D> {
     const haupt = dateien.find((d) => d.name === HAUPTPROGRAMM);
     let buehne: Projekt<D>["buehne"];
     const figuren: Projekt<D>["figuren"] = [];
+    const weitere: D[] = [];
     for (const datei of dateien) {
-        if (datei === haupt || /\.[A-Za-z]+$/.test(datei.name)) continue;
+        if (datei === haupt) continue;
+        // andere Dateiarten (Struktogramm, Bilder …) gehören nicht zum Programm; .java schon
+        if (/\.[A-Za-z]+$/.test(datei.name) && !/\.java$/i.test(datei.name)) continue;
         const text = datei.getText();
         const f = liesFigur(text);
         if (f) {
@@ -187,6 +199,7 @@ export function liesProjekt<D extends Datei>(dateien: D[]): Projekt<D> {
         }
         const b = liesBuehne(text);
         if (b && !buehne) buehne = { datei, info: b };
+        else weitere.push(datei);
     }
     const reihenfolge = haupt ? liesHauptprogramm(haupt.getText()) : [];
     const stelle = (k: string) => {
@@ -194,7 +207,16 @@ export function liesProjekt<D extends Datei>(dateien: D[]): Projekt<D> {
         return i < 0 ? Number.MAX_SAFE_INTEGER : i;
     };
     figuren.sort((a, b) => stelle(a.info.klasse) - stelle(b.info.klasse));
-    return { haupt, buehne, figuren };
+    return { haupt, buehne, figuren, weitere };
+}
+
+/**
+ * Steht im Hauptprogramm mehr als „new Klasse();“ und Kommentare? (Blöcke, die dort jemand abgelegt hat – sie laufen
+ * mit, gehören aber zu keiner Figur und sind in der Oberfläche nicht zu sehen)
+ */
+export function hauptprogrammHatMehr(text: string): boolean {
+    const ohneKommentare = text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
+    return ohneKommentare.replace(NEU, "").trim() !== "";
 }
 
 /** Ist das ein Blöckly-Projekt (Hauptprogramm und Bühne)? */
@@ -217,9 +239,9 @@ export function bildnummer(bild: string): number | undefined {
 /** Variablen einer Figur bzw. der Bühne (dort: für alle Figuren) mit Datentyp */
 export function variablenDerKlasse(text: string, ctx: BloecklyContext): Record<string, string> {
     const { state } = JavaBlockParser.parse(text, { bloeckly: ctx });
-    const kopf = state.blocks.blocks.find((b) => b.type === B.blFigure);
     const result: Record<string, string> = {};
-    for (let v = kopf?.inputs?.VARS?.block; v; v = v.next?.block) if (v.type === B.blVar && v.fields?.NAME) result[v.fields.NAME] = v.fields.TYPE ?? "int";
+    if (!state.blocks.blocks.some((b) => b.type === B.blFigure)) return result;
+    for (const v of alleVariablenBloecke(state.blocks.blocks)) if (v.fields?.NAME) result[v.fields.NAME] = v.fields.TYPE ?? "int";
     return result;
 }
 
@@ -232,7 +254,7 @@ export function startwert(typ: string): BlockState {
 
 /** Variable für den Kopf: mit Startwert, eine Liste (Paket 19f) ohne – sie ist am Anfang leer */
 export function neueKopfVariable(name: string, typ: string): BlockState {
-    if (istBlListe(typ)) return { type: B.blVar, fields: { NAME: name, TYPE: typ } };
+    if (istBlListe(typ)) return { type: B.blList, fields: { NAME: name, TYPE: typ } };
     return { type: B.blVar, fields: { NAME: name, TYPE: typ }, inputs: { VALUE: { block: startwert(typ) } } };
 }
 
@@ -293,20 +315,23 @@ export function globaleStellen(text: string, stage: string, name: string, istBue
     return anzahl;
 }
 
-/** Bühne ohne die Variable (aus dem unsichtbaren Kopf); keine Bühne oder unbekannte Variable: unverändert */
+/** Bühne ohne die Variable (aus dem unsichtbaren Kopf oder oben aus einem Skript); keine Bühne oder unbekannte Variable: unverändert */
 export function ohneVariable(text: string, name: string, ctx: BloecklyContext): string {
     const { state } = JavaBlockParser.parse(text, { bloeckly: ctx });
-    const kopf = state.blocks.blocks.find((b) => b.type === B.blFigure);
-    if (!kopf) return text;
-    let vorher: BlockState | undefined;
-    for (let v = kopf.inputs?.VARS?.block; v; vorher = v, v = v.next?.block) {
-        if (v.type !== B.blVar || v.fields?.NAME !== name) continue;
-        const rest = v.next?.block;
-        if (vorher) vorher.next = rest ? { block: rest } : undefined;
-        else if (rest) kopf.inputs!.VARS = { block: rest };
-        else delete kopf.inputs!.VARS;
-        if (vorher && !rest) delete vorher.next;
-        return JavaBlockGenerator.generate(state, { bloeckly: ctx }).code;
+    if (!state.blocks.blocks.some((b) => b.type === B.blFigure)) return text;
+    for (const oben of state.blocks.blocks) {
+        const eingang = oben.type === B.blFigure ? "VARS" : "BODY";
+        let vorher: BlockState | undefined;
+        for (let v = oben.inputs?.[eingang]?.block; v && (eingang === "VARS" || istErstelleBlock(v.type)); vorher = v, v = v.next?.block) {
+            if (!istErstelleBlock(v.type) || v.fields?.NAME !== name) continue;
+            const rest = v.next?.block;
+            if (vorher) {
+                if (rest) vorher.next = { block: rest };
+                else delete vorher.next;
+            } else if (rest) oben.inputs![eingang] = { block: rest };
+            else delete oben.inputs![eingang];
+            return JavaBlockGenerator.generate(state, { bloeckly: ctx }).code;
+        }
     }
     return text;
 }

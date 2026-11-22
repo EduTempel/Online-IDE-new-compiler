@@ -48,7 +48,7 @@ const NDS = ["niedersachsen"];
 export const STRUCTOGRAM_HANDBOOK: HandbookSection[] = [
     {
         id: "anweisungen", title: "Anweisungen und Variablen", icon: "▭",
-        intro: "Ein Struktogramm wird von oben nach unten gelesen. Jedes Rechteck ist eine **Anweisung**. Eine Variable bekommt ihren Wert mit dem Zuweisungspfeil `←` (im Editor: Knopf **←** oder **Alt + -**). Kommentare beginnen mit `//`.",
+        intro: "Ein Struktogramm wird von oben nach unten gelesen. Jedes Rechteck ist eine **Anweisung**. Eine Variable bekommt ihren Wert mit dem Zuweisungspfeil `←` (im Editor: Knopf **←**, **Alt + -** oder einfach `<-` tippen). Kommentare beginnen mit `//`.",
         entries: [
             entry({
                 title: "Zuweisung und Ausgabe", runs: true,
@@ -78,7 +78,7 @@ export const STRUCTOGRAM_HANDBOOK: HandbookSection[] = [
             entry({
                 title: "Wo gilt eine Variable?", runs: true,
                 text: "Im Struktogramm gilt eine Variable **ab ihrer ersten Zuweisung im ganzen Struktogramm** – auch wenn sie zuerst in einem Zweig oder einer Schleife einen Wert bekommt. " +
-                    "In Java gilt eine Variable dagegen nur bis zum Ende der Klammer `}`, in der sie angelegt wird. Deshalb legt die Java-Übersetzung `note` hier **vor** der Verzweigung an. " +
+                    "In Java gilt eine Variable dagegen nur bis zum Ende der Klammer `}`, in der sie angelegt wird. Deshalb legt die Übersetzung in Code `note` hier **vor** der Verzweigung an. " +
                     "Ausnahme: Die Zählvariable einer Zählschleife (`für i von …`) gilt nur in der Schleife.",
                 body: [s("punkte ← 17"), wenn("punkte ≥ 15", [s("note ← \"gut\"")], [s("note ← \"nicht ganz\"")]), s("gib note aus")],
             }),
@@ -324,7 +324,7 @@ export const STRUCTOGRAM_HANDBOOK: HandbookSection[] = [
             entry({
                 title: "Knoten zählen (rekursiv)", runs: true, libs: NDS,
                 head: "anzahlKnoten(b: Binärbaum vom Inhaltstyp Ganzzahl): Ganzzahl",
-                call: "BinTree b = new BinTree(5);\nb.setLeft(new BinTree(3));\nb.setRight(new BinTree(8));\nprintln(anzahlKnoten(b));",
+                call: "BinTree<Integer> b = new BinTree<>(5);\nb.setLeft(new BinTree<>(3));\nb.setRight(new BinTree<>(8));\nprintln(anzahlKnoten(b));",
                 text: "Ein leerer Baum hat 0 Knoten; sonst zählt die Wurzel 1 plus die Knoten beider Teilbäume.",
                 body: [wenn("b ist leer", [s("gib 0 zurück")],
                     [s("gib 1 + anzahlKnoten(linker Teilbaum von b) + anzahlKnoten(rechter Teilbaum von b) zurück")])],

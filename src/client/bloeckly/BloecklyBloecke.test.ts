@@ -157,7 +157,7 @@ async function compile(texts: string[]) {
     return { executable, errors: executable!.getAllErrors().filter((e) => e.level == "error").map((e) => `${e.message} (Zeile ${e.range.startLineNumber}: ${line(e.range.startLineNumber)})`) };
 }
 
-describe("Blöckly: Java -> Blöcke -> Java", () => {
+describe("Blocks: Java -> Blöcke -> Java", () => {
     test("jeder Block einer Figur wird erkannt und genauso zurückgeschrieben", () => {
         const { lines, types } = allForms(false);
         const text = figurMitSkripten(lines);
@@ -263,7 +263,7 @@ describe("Blöckly: Java -> Blöcke -> Java", () => {
         expect(JavaBlockGenerator.generate(state, { bloeckly: CTX }).code).toBe(text);
     });
 
-    test("ohne Figur oder Bühne: wie in Blöckva (Hauptprogramm)", () => {
+    test("ohne Figur oder Bühne: wie in Mix (Hauptprogramm)", () => {
         const { state } = JavaBlockParser.parse(hauptprogrammQuelltext("Spiel", ["Waschbär"]), { bloeckly: CTX });
         expect(state.blocks.blocks[0].type).toBe(B.start);
     });
@@ -338,7 +338,7 @@ describe("Blöckly: Java -> Blöcke -> Java", () => {
         expect(checkPuzzle(mixed, solution, bloecklyPuzzleLine).total).toBe(5);
     });
 
-    test("Variablen im Skript wie in Blöckva: „erstelle neue Variable …“ wird ein Block und genauso zurückgeschrieben", () => {
+    test("Variablen im Skript wie in Mix: „erstelle neue Variable …“ wird ein Block und genauso zurückgeschrieben", () => {
         const text = figurQuelltext({ klasse: "Kim", figur: "Pinguin", x: 0, y: 0 }).replace("\n}\n", [
             "",
             "    @BeimStart",

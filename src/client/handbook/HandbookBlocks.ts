@@ -119,6 +119,20 @@ export const BLOCK_HANDBOOK: HandbookSection[] = [
                     "}",
                 ),
             },
+            {
+                title: "Blöcke kopieren und verdoppeln",
+                text: "Rechtsklick auf einen Block:\n\n"
+                    + "- **Kopieren** legt den Block mit allem, was darin steckt, in die Zwischenablage. Einfügen mit **Strg+V** oder Rechtsklick auf eine freie Stelle → **Einfügen** – auch in einer anderen Datei.\n"
+                    + "- **Verdoppeln** legt sofort eine Kopie neben das Programm.\n"
+                    + "- **Ab hier kopieren** bzw. **Ab hier verdoppeln** nehmen auch alle Blöcke darunter mit.\n\n"
+                    + "Die Kopie hängt noch nirgends (grau) – zieh sie an die Stelle, an der sie laufen soll. Hier wurden die beiden Ausgaben einmal verdoppelt.",
+                code: lines(
+                    "println(\"Hallo\");",
+                    "println(\"Welt\");",
+                    "println(\"Hallo\");",
+                    "println(\"Welt\");",
+                ),
+            },
         ],
     },
     {
@@ -381,7 +395,7 @@ export const BLOCK_HANDBOOK: HandbookSection[] = [
     },
     {
         id: "reihungen", parent: "variablen", title: "Reihungen", icon: "🔢",
-        intro: "Eine **Reihung** (statische Reihung, in Java Array) speichert viele Werte desselben Typs unter einem Namen. Ihre Länge steht beim Anlegen fest. Die Positionen werden **ab 0** gezählt.",
+        intro: "Eine **Reihung** (statische Reihung, in Java: Array) speichert viele Werte desselben Typs unter einem Namen. Ihre Länge steht beim Anlegen fest. Die Positionen werden **ab 0** gezählt.",
         entries: [
             {
                 title: "Reihung mit Länge anlegen",
@@ -444,13 +458,13 @@ export const BLOCK_HANDBOOK: HandbookSection[] = [
     },
     {
         id: "listen", parent: "variablen", title: "Listen", icon: "📋",
-        intro: "Eine **Liste** (in Java ArrayList) wächst und schrumpft beim Einfügen und Entfernen. Positionen werden **ab 0** gezählt.",
+        intro: "Eine **Liste** wächst und schrumpft beim Einfügen und Entfernen. Beim Anlegen wählt man den Datentyp der Elemente – im Code steht er in spitzen Klammern: `Liste<String>`. Positionen werden **ab 0** gezählt.",
         entries: [
             {
                 title: "Liste anlegen und anhängen",
                 text: "Eine neue Liste ist leer. **hänge an** fügt hinten an, **Anzahl der Elemente** sagt, wie viele es gibt.",
                 code: lines(
-                    "ArrayList<String> namen = new ArrayList<String>();",
+                    "Liste<String> namen = new Liste<>();",
                     "namen.add(\"Ada\");",
                     "namen.add(\"Alan\");",
                     "println(namen.size());",
@@ -461,7 +475,7 @@ export const BLOCK_HANDBOOK: HandbookSection[] = [
                 title: "Einfügen, ersetzen, entfernen, lesen",
                 text: "**füge an Position … ein**, **setze Element**, **entferne Element**, **Element an Position**. Beim Einfügen rutschen die folgenden Elemente nach hinten, beim Entfernen nach vorne.",
                 code: lines(
-                    "ArrayList<String> namen = new ArrayList<String>();",
+                    "Liste<String> namen = new Liste<>();",
                     "namen.add(\"Ada\");",
                     "namen.add(\"Alan\");",
                     "namen.add(0, \"Grace\");",
@@ -475,7 +489,7 @@ export const BLOCK_HANDBOOK: HandbookSection[] = [
                 title: "alle Elemente entfernen",
                 text: "**entferne alle Elemente aus Liste** leert die Liste auf einmal; danach ist ihre Länge 0. Im Reiter **Variablen** sieht man jede Liste mit den Positionen ihrer Elemente und ihrer Länge.",
                 code: lines(
-                    "ArrayList<Integer> zahlen = new ArrayList<Integer>();",
+                    "Liste<Integer> zahlen = new Liste<>();",
                     "zahlen.add(7);",
                     "zahlen.add(9);",
                     "println(zahlen.size());",
@@ -489,7 +503,7 @@ export const BLOCK_HANDBOOK: HandbookSection[] = [
                 text: "**enthält** und **ist leer** sind Bedingungen und passen in die sechseckigen Löcher. "
                     + "**Position von** liefert die erste Position des Wertes (ab 0) – kommt er nicht vor: -1.",
                 code: lines(
-                    "ArrayList<Integer> zahlen = new ArrayList<Integer>();",
+                    "Liste<Integer> zahlen = new Liste<>();",
                     "zahlen.add(4);",
                     "if (zahlen.contains(4)) {",
                     "    println(\"4 ist dabei an Position \" + zahlen.indexOf(4));",
@@ -504,7 +518,7 @@ export const BLOCK_HANDBOOK: HandbookSection[] = [
                 title: "für jedes Element der Liste",
                 text: "Wie bei Reihungen besucht **für jedes Element** alle Elemente der Reihe nach.",
                 code: lines(
-                    "ArrayList<Integer> zahlen = new ArrayList<Integer>();",
+                    "Liste<Integer> zahlen = new Liste<>();",
                     "zahlen.add(3);",
                     "zahlen.add(5);",
                     "int summe = 0;",
@@ -519,20 +533,20 @@ export const BLOCK_HANDBOOK: HandbookSection[] = [
     },
     {
         id: "adt", parent: "variablen", title: "ADT", icon: "📚",
-        intro: "Die **abstrakten Datentypen** der Abiturklassen Niedersachsen: dynamische Reihung, Stapel, Schlange und Binärbaum. Beim Lesen wählt man aus, **als was** das Element gelesen wird (z. B. als Ganzzahl).",
+        intro: "Die **abstrakten Datentypen** der Abiturklassen Niedersachsen: dynamische Reihung, Stapel, Schlange und Binärbaum. Beim Anlegen wählt man den **Inhaltstyp** – was hineinkommt, z. B. Ganzzahlen oder Texte. Gelesene Elemente haben dann genau diesen Typ.",
         entries: [
             {
                 title: "Dynamische Reihung",
                 text: "Wie eine Liste, aber mit den Operationen der Abiturklassen: anhängen, einfügen an Position, ersetzen, löschen, Länge. Positionen ab 0.",
                 code: lines(
-                    "DynArray reihe = new DynArray();",
+                    "DynArray<Integer> reihe = new DynArray<>();",
                     "reihe.append(5);",
                     "reihe.append(8);",
                     "reihe.insertAt(0, 1);",
                     "reihe.setItem(1, 7);",
                     "reihe.delete(2);",
                     "println(reihe.getLength());",
-                    "println((int) reihe.getItem(0));",
+                    "println(reihe.getItem(0));",
                 ),
                 libs: ["niedersachsen"],
                 runs: true,
@@ -541,14 +555,14 @@ export const BLOCK_HANDBOOK: HandbookSection[] = [
                 title: "Stapel",
                 text: "Ein **Stapel** funktioniert wie ein Tellerstapel: Was zuletzt **aufgelegt** wurde, wird zuerst wieder **entnommen**. **oberstes Element** schaut nur nach, **entferne** wirft es weg. Die Schleife läuft, **bis** der Stapel **leer** ist.",
                 code: lines(
-                    "Stack stapel = new Stack();",
+                    "Stack<String> stapel = new Stack<>();",
                     "stapel.push(\"A\");",
                     "stapel.push(\"B\");",
                     "stapel.push(\"C\");",
                     "stapel.pop();",
-                    "println((String) stapel.top());",
+                    "println(stapel.top());",
                     "while (!stapel.isEmpty()) {",
-                    "    println((String) stapel.pop());",
+                    "    println(stapel.pop());",
                     "}",
                 ),
                 libs: ["niedersachsen"],
@@ -558,14 +572,14 @@ export const BLOCK_HANDBOOK: HandbookSection[] = [
                 title: "Schlange",
                 text: "Eine **Schlange** funktioniert wie eine Warteschlange: Wer zuerst kommt, ist zuerst dran. **erstes Element** schaut nur nach, **entnimm** liefert es und nimmt es heraus, **entferne** nimmt es heraus, ohne es zu liefern.",
                 code: lines(
-                    "Queue schlange = new Queue();",
+                    "Queue<String> schlange = new Queue<>();",
                     "schlange.enqueue(\"Ada\");",
                     "schlange.enqueue(\"Alan\");",
                     "schlange.enqueue(\"Grace\");",
                     "schlange.dequeue();",
-                    "println((String) schlange.head());",
-                    "println((String) schlange.dequeue());",
-                    "println((String) schlange.dequeue());",
+                    "println(schlange.head());",
+                    "println(schlange.dequeue());",
+                    "println(schlange.dequeue());",
                 ),
                 libs: ["niedersachsen"],
                 runs: true,
@@ -574,12 +588,12 @@ export const BLOCK_HANDBOOK: HandbookSection[] = [
                 title: "Binärbaum",
                 text: "Ein **Binärbaum** hat einen Inhalt und einen linken und rechten **Teilbaum**. Ein Baum ohne Teilbäume ist ein **Blatt**.",
                 code: lines(
-                    "BinTree baum = new BinTree(5);",
-                    "BinTree links = new BinTree(3);",
-                    "BinTree rechts = new BinTree(8);",
+                    "BinTree<Integer> baum = new BinTree<>(5);",
+                    "BinTree<Integer> links = new BinTree<>(3);",
+                    "BinTree<Integer> rechts = new BinTree<>(8);",
                     "baum.setLeft(links);",
                     "baum.setRight(rechts);",
-                    "println((int) baum.getItem());",
+                    "println(baum.getItem());",
                     "if (links.isLeaf()) {",
                     "    println(\"links ist ein Blatt\");",
                     "}",
@@ -591,12 +605,12 @@ export const BLOCK_HANDBOOK: HandbookSection[] = [
                 title: "Teilbäume lesen, Inhalt ändern, leeren",
                 text: "**linker Teilbaum von** liefert den Teilbaum, den man in einer eigenen Variable speichern kann. **setze Inhalt** ändert den Inhalt, **mache … leer** löscht einen Baum.",
                 code: lines(
-                    "BinTree baum = new BinTree(5);",
-                    "BinTree links = new BinTree(3);",
+                    "BinTree<Integer> baum = new BinTree<>(5);",
+                    "BinTree<Integer> links = new BinTree<>(3);",
                     "baum.setLeft(links);",
                     "baum.setItem(6);",
-                    "BinTree teil = baum.getLeft();",
-                    "println((int) teil.getItem());",
+                    "BinTree<Integer> teil = baum.getLeft();",
+                    "println(teil.getItem());",
                     "teil.setEmpty();",
                     "if (teil.isEmpty()) {",
                     "    println(\"jetzt leer\");",
@@ -858,7 +872,7 @@ export const BLOCK_HANDBOOK: HandbookSection[] = [
                 text: "**berührt** prüft, ob sich zwei Figuren überlappen. **x-Position (Mitte)** liefert, wo die Figur gerade ist. "
                     + "**verstecke** macht die Figur unsichtbar (mit **zeige** kommt sie wieder); eine versteckte Figur berührt nichts. "
                     + "**entferne** nimmt sie endgültig weg. Beides wählt man in der Auswahl desselben Blocks. "
-                    + "Im Blockmodus bleiben Blöcke an einer entfernten Figur danach einfach ohne Wirkung; in Java ist das ein Fehler – deshalb steht **entferne** hier erst am Ende.",
+                    + "Im Blockmodus bleiben Blöcke an einer entfernten Figur danach einfach ohne Wirkung; im Code ist das ein Fehler – deshalb steht **entferne** hier erst am Ende.",
                 code: lines(
                     "Circle ball = new Circle(100, 300, 30);",
                     "Rectangle wand = new Rectangle(600, 200, 20, 200);",
@@ -936,7 +950,7 @@ export const BLOCK_HANDBOOK: HandbookSection[] = [
                     + "Eine eingesammelte Figur **versteckt** man – eine versteckte Figur berührt nichts mehr. Aus der Liste entfernen sollte man sie in der Schleife über dieselbe Liste nicht. "
                     + "Im Reiter **Variablen** zeigt die Liste, wo jede Figur steht. Hier sammelt die Maus zehn Münzen ein.",
                 code: lines(
-                    "ArrayList<Circle> münzen = new ArrayList<Circle>();",
+                    "Liste<Circle> münzen = new Liste<>();",
                     "for (int durchlauf = 1; durchlauf <= 10; durchlauf++) {",
                     "    Circle münze = new Circle(Random.randint(20, 780), Random.randint(20, 580), 10);",
                     "    münze.setFillColor(\"yellow\");",
@@ -1296,7 +1310,7 @@ export const BLOCK_HANDBOOK: HandbookSection[] = [
             },
             {
                 title: "Deine Figuren waren Klassen",
-                text: "Kommst du aus **Blöckly**? Dort hattest du Figuren mit Skripten. In Wahrheit war jede Figur eine **Klasse**, die von **Figur** erbt (die Bühne erbt von **Buehne**), und jedes Skript eine **Operation** dieser Klasse. Der Hut „Wenn 🚩 angeklickt“ ist die Annotation `@BeimStart`, „Wenn diese Figur angeklickt wird“ ist `@WennAngeklickt`. Das Hauptprogramm erzeugt die Objekte mit **neues Objekt** – in Blöckly geschah das unsichtbar (dort ohne Variablen: `new Spiel();`). In Blöckly: Rechtsklick auf ein Projekt → **Als Blöckva-Projekt kopieren**.",
+                text: "Kommst du aus **Blocks**? Dort hattest du Figuren mit Skripten. In Wahrheit war jede Figur eine **Klasse**, die von **Figur** erbt (die Bühne erbt von **Buehne**), und jedes Skript eine **Operation** dieser Klasse. Der Hut „Wenn 🚩 angeklickt“ ist die Annotation `@BeimStart`, „Wenn diese Figur angeklickt wird“ ist `@WennAngeklickt`. Das Hauptprogramm erzeugt die Objekte mit **neues Objekt** – in Blocks geschah das unsichtbar (dort ohne Variablen: `new Spiel();`). In Blocks: Rechtsklick auf ein Projekt → **Als Mix-Projekt kopieren**.",
                 code: lines(
                     "Spiel buehne = new Spiel();",
                     "Waschbär waschbär = new Waschbär();",
@@ -1393,7 +1407,7 @@ export const BLOCK_HANDBOOK: HandbookSection[] = [
                 title: "Objekte in einer Liste",
                 text: "Listen können auch Objekte aufnehmen. **für jedes Element** ruft dann bei jedem Objekt eine Operation auf.",
                 code: lines(
-                    "ArrayList<Zaehler> alle = new ArrayList<Zaehler>();",
+                    "Liste<Zaehler> alle = new Liste<>();",
                     "alle.add(new Zaehler());",
                     "alle.add(new Zaehler());",
                     "for (Zaehler z : alle) {",
@@ -1444,8 +1458,8 @@ export const BLOCK_HANDBOOK: HandbookSection[] = [
         ],
     },
     {
-        id: "java", title: "Java", icon: "☕",
-        intro: "Für alles, was es (noch) nicht als Block gibt: **Kommentare** und **Java-Zeilen**. Was man dort schreibt, wird unverändert in das Java-Programm übernommen.",
+        id: "java", title: "Code", icon: "☕",
+        intro: "Für alles, was es (noch) nicht als Block gibt: **Kommentare** und **Code-Zeilen**. Was man dort schreibt, wird unverändert in das Programm übernommen – Java mit kleinen Anpassungen für den Unterricht.",
         entries: [
             {
                 title: "Kommentar",
@@ -1457,8 +1471,8 @@ export const BLOCK_HANDBOOK: HandbookSection[] = [
                 runs: true,
             },
             {
-                title: "Java-Anweisung und Java-Wert",
-                text: "Eine **Java-Anweisung** steht wie ein Block im Programm, ein **Java-Wert** passt in ein Loch. Hier wird die Kreiszahl π verwendet, für die es keinen eigenen Block gibt.",
+                title: "Code-Anweisung und Code-Wert",
+                text: "Eine **Code-Anweisung** steht wie ein Block im Programm, ein **Code-Wert** passt in ein Loch. Hier wird die Kreiszahl π verwendet, für die es keinen eigenen Block gibt.",
                 code: lines(
                     "double r = 2;",
                     "println(Math.PI * r * r);",

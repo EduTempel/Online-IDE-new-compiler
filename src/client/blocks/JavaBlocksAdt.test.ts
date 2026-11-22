@@ -25,6 +25,32 @@ const types = (code: string) => {
 };
 
 export const ADT = lines(
+    "Stack<Integer> stapel = new Stack<>();",
+    "stapel.push(3);",
+    "stapel.push(7);",
+    "int oben = stapel.top();",
+    "stapel.pop();",
+    "Queue<String> schlange = new Queue<>();",
+    "schlange.enqueue(\"Ada\");",
+    "schlange.enqueue(\"Bo\");",
+    "while (!schlange.isEmpty()) {",
+    "    println(schlange.dequeue());",
+    "}",
+    "BinTree<Integer> baum = new BinTree<>(5);",
+    "baum.setLeft(new BinTree<>(3));",
+    "baum.setRight(new BinTree<>());",
+    "BinTree<Integer> links = baum.getLeft();",
+    "if (links.isLeaf() && !baum.isEmpty()) {",
+    "    links.setItem(baum.getItem() + oben);",
+    "    baum.setEmpty();",
+    "}",
+    "println(links.getItem());",
+    "println(stapel.isEmpty());",
+    "println(stapel.top());",
+);
+
+/** ältere Programme ohne Inhaltstyp (bis 21.11.2026) */
+const ADT_ALT = lines(
     "Stack stapel = new Stack();",
     "stapel.push(3);",
     "stapel.push(7);",
@@ -60,6 +86,19 @@ describe("ADT: Stapel, Schlange, Binärbaum", () => {
         }
     });
 
+    test("ältere Programme ohne Inhaltstyp: die Blöcke ergänzen ihn (aus den Typumwandlungen)", () => {
+        expect(roundTrip(ADT_ALT)).toBe(ADT);
+        const dyn = lines("DynArray d = new DynArray();", "d.append(\"x\");", "println((String) d.getItem(0));");
+        expect(roundTrip(dyn)).toBe(lines("DynArray<String> d = new DynArray<>();", "d.append(\"x\");", "println(d.getItem(0));"));
+    });
+
+    test("ohne Inhaltstyp meldet der Compiler einen Fehler", async () => {
+        const r = await runJava(ADT_ALT, ["niedersachsen"]);
+        expect(r.errors.join(" ")).toContain("Gib den Inhaltstyp an");
+        const grundtyp = await runJava("Stack<int> s = new Stack<>();", ["niedersachsen"]);
+        expect(grundtyp.errors.join(" ")).toContain("Stack<Integer>");
+    });
+
     test("läuft mit den Abiturklassen", async () => {
         const r = await runJava(ADT, ["niedersachsen"]);
         expect(r.errors).toEqual([]);
@@ -68,14 +107,14 @@ describe("ADT: Stapel, Schlange, Binärbaum", () => {
 
     test("Rekursion mit Binärbaum-Parameter", () => {
         const code = lines(
-            "BinTree b = new BinTree(1);",
+            "BinTree<Integer> b = new BinTree<>(1);",
             "println(summe(b));",
             "",
-            "int summe(BinTree t) {",
+            "int summe(BinTree<Integer> t) {",
             "    if (t.isEmpty()) {",
             "        return 0;",
             "    }",
-            "    return (int) t.getItem() + summe(t.getLeft()) + summe(t.getRight());",
+            "    return t.getItem() + summe(t.getLeft()) + summe(t.getRight());",
             "}",
         );
         expect(roundTrip(code)).toBe(code);
@@ -96,9 +135,9 @@ describe("ADT im Struktogramm", () => {
             expect(text, phrase).toContain(phrase);
         }
         const tree = lines(
-            "BinTree baum = new BinTree(5);",
-            "baum.setLeft(new BinTree(3));",
-            "BinTree links = baum.getLeft();",
+            "BinTree<Integer> baum = new BinTree<>(5);",
+            "baum.setLeft(new BinTree<>(3));",
+            "BinTree<Integer> links = baum.getLeft();",
             "if (links.isLeaf()) {",
             "    links.setItem(4);",
             "}",

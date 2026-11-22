@@ -2,6 +2,10 @@
 
 /* —— Bühne im Reiter „Ausgabe“ —— */
 .jo_tab.gsg-bl-ausgabe { flex-direction: column; }
+/* nur die Höhe unter der Bühnenleiste – sonst ragt die Bühne unten heraus (und mit ihr das Antwortfeld von „frage“) */
+.jo_tab.gsg-bl-ausgabe > .jo_run-inner { flex: 1 1 0; height: auto; min-height: 0; }
+/* laufende Bühne mittig wie das Startbild */
+.jo_tab.gsg-bl-ausgabe .jo_graphics > .pixiWorld { left: 0; right: 0; margin: 0 auto; }
 .gsg-bl-buehnenleiste {
     flex: none;
     display: flex;
@@ -127,6 +131,24 @@
 #editoranderrors.gsg-bl-kostueme-an > #editor,
 #editoranderrors.gsg-bl-kostueme-an > #gsg-blocks,
 #editoranderrors.gsg-bl-kostueme-an > #gsg-structogram-editor { display: none !important; }
+/* weder Figur noch Bühne gewählt: keine Blöcke (BloecklyPanel.zeigeOhneAuswahl) */
+#editoranderrors.gsg-bl-ohne-auswahl > #editor,
+#editoranderrors.gsg-bl-ohne-auswahl > #gsg-blocks,
+#editoranderrors.gsg-bl-ohne-auswahl > #gsg-structogram-editor { display: none !important; }
+.gsg-bl-ohneauswahl {
+    flex: 1 1 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 20px;
+    text-align: center;
+    color: var(--fontColorNormal, #ccc);
+    font: 14px/1.4 Roboto, "Segoe UI", sans-serif;
+}
+.gsg-bl-ohneauswahl p { max-width: 420px; margin: 0; }
 .gsg-bl-kostueme {
     flex: 1 1 0;
     min-height: 0;
@@ -249,3 +271,25 @@ button.gsg-bl-kostuem:hover:not(:disabled) { background: rgba(127, 127, 127, .2)
 .gsg-bl-kartenweg { position: absolute; top: 6px; right: 6px; }
 .gsg-bl-karte-hoch { border-style: dashed; }
 .gsg-bl-hochsymbol { font-size: 44px; line-height: 110px; height: 110px; color: var(--brand-accent, #45B82F); }
+
+/* —— Blöcke, die zu keiner Figur gehören (verstecktes Hauptprogramm, fremde Dateien) —— */
+.gsg-bl-fremde:empty { display: none; }
+.gsg-bl-fremde { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--slider, #555); }
+.gsg-bl-fremde .gsg-bl-spaltentitel { color: #d9822b; }
+.gsg-bl-dateisymbol { font-size: 30px; line-height: 40px; }
+.gsg-bl-fremdhinweis { color: #d9822b; flex: 1 1 260px; }
+/* lange Kopfzeile (Hinweis) schiebt die Kacheln nach unten statt sie zu überdecken */
+.gsg-bl-figurenspalte > * { flex-shrink: 0; }
+
+/* —— Kopieren nach … (Figur, Bühne) —— */
+.gsg-bl-kachel.gsg-bl-ziel { border-color: var(--brand-accent, #45B82F); background: rgba(69, 184, 47, .3); transform: scale(1.08); }
+.gsg-bl-kachel { transition: transform .12s; }
+@keyframes gsg-bl-wackeln { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-6deg); } 75% { transform: rotate(6deg); } }
+.gsg-bl-kachel.gsg-bl-kopiert { animation: gsg-bl-wackeln .25s ease-in-out 2; }
+.gsg-bl-meldung {
+    position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 100000;
+    max-width: min(560px, calc(100vw - 32px)); padding: 10px 16px; border-radius: 8px;
+    background: #2e7d32; color: #fff; font: 14px Roboto, "Segoe UI", sans-serif; box-shadow: 0 4px 16px rgba(0, 0, 0, .3);
+}
+.gsg-bl-meldung-fehler { background: #b3261e; }
+.gsg-bl-kopierziele { display: flex; flex-wrap: wrap; gap: 8px; }

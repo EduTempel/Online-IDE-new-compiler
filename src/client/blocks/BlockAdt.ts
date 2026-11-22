@@ -3,7 +3,7 @@ import { B } from "./BlockTypes";
 import { tip } from "./BlockTooltips";
 import { collectVariables, visibleVariables } from "./BlockTypeSystem";
 import {
-    ADT_CLASSES, ADT_GETS, ADT_NAMES_DE, DEFAULT_ADT_NAME, isAdtClass, READ_TYPES, TREE_SIDES,
+    adtClassOf, ADT_CLASSES, ADT_GETS, ADT_NAMES_DE, DEFAULT_ADT_NAME, TREE_SIDES,
     type AdtClass,
 } from "./AdtSpec";
 
@@ -34,7 +34,10 @@ export class FieldAdtName extends Blockly.FieldDropdown {
         const kinds = this.kinds ?? [...ADT_CLASSES];
         const block = this.getSourceBlock();
         const names = new Set<string>();
-        if (block) for (const [name, type] of visibleVariables(block)) if (isAdtClass(type) && kinds.includes(type)) names.add(name);
+        if (block) for (const [name, type] of visibleVariables(block)) {
+            const cls = adtClassOf(type);
+            if (cls && kinds.includes(cls)) names.add(name);
+        }
         const current = this.getValue();
         if (typeof current === "string" && current) names.add(current);
         if (names.size === 0) names.add(DEFAULT_ADT_NAME[kinds[0]]);
@@ -56,7 +59,7 @@ const hint = (text: string) => ({ type: "field_label", text, class: "gsg-java-hi
 const value = (name: string) => ({ type: "input_value", name });
 const statement = { previousStatement: null, nextStatement: null };
 const adt = (kinds: AdtClass[], name = "NAME") => ({ type: "field_gsg_adt", name, text: DEFAULT_ADT_NAME[kinds[0]], kinds });
-const readType = { type: "field_dropdown", name: "TYPE", options: READ_TYPES };
+const typeField = { type: "field_gsg_type", name: "TYPE", text: "int", mode: "element" };   // Inhaltstyp
 const STACK: AdtClass[] = ["Stack"], QUEUE: AdtClass[] = ["Queue"], TREE: AdtClass[] = ["BinTree"];
 
 export function defineAdtBlocks(defineJson: (json: object[]) => void, colour: string) {
@@ -64,13 +67,12 @@ export function defineAdtBlocks(defineJson: (json: object[]) => void, colour: st
     const c = { colour, inputsInline: true };
     const nameField = (cls: AdtClass) => ({ type: "field_input", name: "NAME", text: DEFAULT_ADT_NAME[cls] });
     const ops = (cls: AdtClass) => ADT_GETS.find((g) => g.cls === cls)!.ops;
-    const readTip = " Zum Rechnen „als Ganzzahl“ usw. wählen.";
     defineJson([
         // ------------------------------------------------------------ Stapel
         {
-            type: B.stackNew, message0: "erstelle neuen Stapel %1 %2", args0: [nameField("Stack"), hint("new Stack()")],
+            type: B.stackNew, message0: "erstelle neuen Stapel %1 vom Inhaltstyp %2 %3", args0: [nameField("Stack"), typeField, hint("new Stack<>()")],
             ...statement, ...c, extensions: ["gsg_identifier"],
-            tooltip: "Legt einen leeren Stapel an (Stack der Abiturklassen Niedersachsen): wer zuletzt kommt, kommt zuerst dran.",
+            tooltip: "Legt einen leeren Stapel an (Stack der Abiturklassen Niedersachsen): wer zuletzt kommt, kommt zuerst dran. Der Inhaltstyp sagt, was hineinkommt.",
         },
         {
             type: B.stackPush, message0: "lege %1 auf Stapel %2 %3", args0: [value("V"), adt(STACK), hint(".push")],
@@ -81,16 +83,16 @@ export function defineAdtBlocks(defineJson: (json: object[]) => void, colour: st
             ...statement, ...c, tooltip: "Nimmt das oberste Element weg (ohne es zu benutzen).",
         },
         {
-            type: B.stackGet, message0: "%1 Stapel %2 %3 %4",
-            args0: [{ type: "field_dropdown", name: "OP", options: ops("Stack") }, adt(STACK), readType, hint(".top()")],
+            type: B.stackGet, message0: "%1 Stapel %2 %3",
+            args0: [{ type: "field_dropdown", name: "OP", options: ops("Stack") }, adt(STACK), hint(".top()")],
             output: null, ...c,
-            tooltip: tip("„oberstes Element“: nur ansehen. „entnimm“: ansehen und vom Stapel nehmen." + readTip, "(int) stapel.top()"),
+            tooltip: tip("„oberstes Element“: nur ansehen. „entnimm“: ansehen und vom Stapel nehmen.", "stapel.top()"),
         },
         // ------------------------------------------------------------ Schlange
         {
-            type: B.queueNew, message0: "erstelle neue Schlange %1 %2", args0: [nameField("Queue"), hint("new Queue()")],
+            type: B.queueNew, message0: "erstelle neue Schlange %1 vom Inhaltstyp %2 %3", args0: [nameField("Queue"), typeField, hint("new Queue<>()")],
             ...statement, ...c, extensions: ["gsg_identifier"],
-            tooltip: "Legt eine leere Schlange an (Queue der Abiturklassen Niedersachsen): wer zuerst kommt, kommt zuerst dran.",
+            tooltip: "Legt eine leere Schlange an (Queue der Abiturklassen Niedersachsen): wer zuerst kommt, kommt zuerst dran. Der Inhaltstyp sagt, was hineinkommt.",
         },
         {
             type: B.queueEnqueue, message0: "hänge %1 an Schlange %2 an %3", args0: [value("V"), adt(QUEUE), hint(".enqueue")],
@@ -101,14 +103,14 @@ export function defineAdtBlocks(defineJson: (json: object[]) => void, colour: st
             ...statement, ...c, tooltip: "Nimmt das vorderste Element weg (ohne es zu benutzen).",
         },
         {
-            type: B.queueGet, message0: "%1 Schlange %2 %3 %4",
-            args0: [{ type: "field_dropdown", name: "OP", options: ops("Queue") }, adt(QUEUE), readType, hint(".head()")],
+            type: B.queueGet, message0: "%1 Schlange %2 %3",
+            args0: [{ type: "field_dropdown", name: "OP", options: ops("Queue") }, adt(QUEUE), hint(".head()")],
             output: null, ...c,
-            tooltip: tip("„erstes Element“: nur ansehen. „entnimm“: ansehen und aus der Schlange nehmen." + readTip, "(int) schlange.head()"),
+            tooltip: tip("„erstes Element“: nur ansehen. „entnimm“: ansehen und aus der Schlange nehmen.", "schlange.head()"),
         },
         // ------------------------------------------------------------ Binärbaum
         {
-            type: B.treeNew, message0: "erstelle neuen Binärbaum %1 mit Inhalt %2 %3", args0: [nameField("BinTree"), value("V"), hint("new BinTree")],
+            type: B.treeNew, message0: "erstelle neuen Binärbaum %1 vom Inhaltstyp %2 mit Inhalt %3 %4", args0: [nameField("BinTree"), typeField, value("V"), hint("new BinTree<>")],
             ...statement, ...c, extensions: ["gsg_identifier"],
             tooltip: "Legt einen Binärbaum an (BinTree der Abiturklassen Niedersachsen). Ohne Inhalt: ein leerer Baum.",
         },
@@ -117,9 +119,9 @@ export function defineAdtBlocks(defineJson: (json: object[]) => void, colour: st
             ...statement, ...c, tooltip: "Ändert den Inhalt der Wurzel.",
         },
         {
-            type: B.treeItem, message0: "%1 Binärbaum %2 %3 %4",
-            args0: [{ type: "field_dropdown", name: "OP", options: ops("BinTree") }, adt(TREE), readType, hint(".getItem()")],
-            output: null, ...c, tooltip: tip("Der Inhalt der Wurzel." + readTip, "(int) baum.getItem()"),
+            type: B.treeItem, message0: "%1 Binärbaum %2 %3",
+            args0: [{ type: "field_dropdown", name: "OP", options: ops("BinTree") }, adt(TREE), hint(".getItem()")],
+            output: null, ...c, tooltip: tip("Der Inhalt der Wurzel.", "baum.getItem()"),
         },
         {
             type: B.treeSetChild, message0: "setze %1 Teilbaum von %2 auf %3 %4",
@@ -153,7 +155,7 @@ export function defineAdtBlocks(defineJson: (json: object[]) => void, colour: st
 const num = (n: string) => ({ block: { type: B.number, fields: { NUM: n } } });
 
 function firstOf(ws: Blockly.WorkspaceSvg, cls: AdtClass): string {
-    const names = [...collectVariables(ws)].filter(([, t]) => t === cls).map(([n]) => n).sort((a, b) => a.localeCompare(b, "de"));
+    const names = [...collectVariables(ws)].filter(([, t]) => adtClassOf(t) === cls).map(([n]) => n).sort((a, b) => a.localeCompare(b, "de"));
     return names[0] ?? DEFAULT_ADT_NAME[cls];
 }
 
@@ -162,22 +164,22 @@ export function adtExtraItems(ws: Blockly.WorkspaceSvg): object[] {
     const s = firstOf(ws, "Stack"), q = firstOf(ws, "Queue"), b = firstOf(ws, "BinTree");
     return [
         { kind: "label", text: `${ADT_NAMES_DE.Stack}: das zuletzt Hineingelegte kommt zuerst wieder heraus.` },
-        { kind: "block", type: B.stackNew, fields: { NAME: "stapel" } },
+        { kind: "block", type: B.stackNew, fields: { NAME: "stapel", TYPE: "int" } },
         { kind: "block", type: B.stackPush, fields: { NAME: s }, inputs: { V: num("1") } },
-        { kind: "block", type: B.stackGet, fields: { OP: "top", NAME: s, TYPE: "int" } },
-        { kind: "block", type: B.stackGet, fields: { OP: "pop", NAME: s, TYPE: "int" } },
+        { kind: "block", type: B.stackGet, fields: { OP: "top", NAME: s } },
+        { kind: "block", type: B.stackGet, fields: { OP: "pop", NAME: s } },
         { kind: "block", type: B.stackPop, fields: { NAME: s } },
         { kind: "block", type: B.adtIsEmpty, fields: { NAME: s } },
         { kind: "label", text: `${ADT_NAMES_DE.Queue}: das zuerst Angehängte kommt zuerst wieder heraus.` },
-        { kind: "block", type: B.queueNew, fields: { NAME: "schlange" } },
+        { kind: "block", type: B.queueNew, fields: { NAME: "schlange", TYPE: "int" } },
         { kind: "block", type: B.queueEnqueue, fields: { NAME: q }, inputs: { V: num("1") } },
-        { kind: "block", type: B.queueGet, fields: { OP: "head", NAME: q, TYPE: "int" } },
-        { kind: "block", type: B.queueGet, fields: { OP: "dequeue", NAME: q, TYPE: "int" } },
+        { kind: "block", type: B.queueGet, fields: { OP: "head", NAME: q } },
+        { kind: "block", type: B.queueGet, fields: { OP: "dequeue", NAME: q } },
         { kind: "block", type: B.queueDequeue, fields: { NAME: q } },
         { kind: "block", type: B.adtIsEmpty, fields: { NAME: q } },
         { kind: "label", text: `${ADT_NAMES_DE.BinTree}: Inhalt an der Wurzel, links und rechts je ein Teilbaum.` },
-        { kind: "block", type: B.treeNew, fields: { NAME: "baum" }, inputs: { V: num("5") } },
-        { kind: "block", type: B.treeItem, fields: { OP: "getItem", NAME: b, TYPE: "int" } },
+        { kind: "block", type: B.treeNew, fields: { NAME: "baum", TYPE: "int" }, inputs: { V: num("5") } },
+        { kind: "block", type: B.treeItem, fields: { OP: "getItem", NAME: b } },
         { kind: "block", type: B.treeSetItem, fields: { NAME: b }, inputs: { V: num("7") } },
         { kind: "block", type: B.treeChild, fields: { SIDE: "left", NAME: b } },
         { kind: "block", type: B.treeSetChild, fields: { SIDE: "left", NAME: b }, inputs: { T: { block: { type: B.objNew, fields: { CLASS: "BinTree" }, extraState: { args: 1 }, inputs: { ARG0: num("3") } } } } },

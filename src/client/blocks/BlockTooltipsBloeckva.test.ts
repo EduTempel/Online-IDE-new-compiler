@@ -17,7 +17,7 @@ const JAVA_BLOCKS = new Set<string>([B.javaStatement, B.javaExpression, B.javaRa
 setTooltipApp(4);
 defineBlocks();
 
-describe("Tooltips ohne Java (Blöckva)", () => {
+describe("Tooltips ohne Java (Mix)", () => {
     test("kein Block zeigt Java im Tooltip", () => {
         let checked = 0;
         for (const type of [...new Set(Object.values(B) as string[])]) {

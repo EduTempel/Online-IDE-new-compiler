@@ -13,6 +13,7 @@ import { transferElements } from '../../../tools/HtmlTools.js';
 import { MainEmbedded } from '../../embedded/MainEmbedded.js';
 import { MemoryTab } from '../../../compiler/assembly/debugger/MemoryTab.js';
 import { addStructogramTab } from '../../structogram/StructogramTab.js';
+import { addKlassendiagrammKnopf } from '../../klassendiagramm/KlassenTab.js';
 import { addTaskTab } from '../../task/TaskTab.js';
 import { addHandbookTab } from '../../handbook/HandbookTab.js';
 import { addTraceTab } from '../../trace/TraceTab.js';
@@ -195,6 +196,7 @@ export class RightDiv {
             // GSG: Struktogramm der Datei im Editor (darf den Start der IDE nie verhindern)
             try {
                 addStructogramTab(this.main, this.tabManager);
+                addKlassendiagrammKnopf(this.main, this.classDiagramTab); // GSG: Klassendiagramm als Datei (Paket 20)
                 addObjectsTab(this.main, this.tabManager); // GSG: Objektdiagramm, Zurückblättern, Zeitlupe
                 addTraceTab(this.main, this.tabManager);  // GSG: Tracetabelle
                 // unten (bzw. ohne Teilung mit in der Reiterleiste)

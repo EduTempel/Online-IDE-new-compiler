@@ -79,7 +79,7 @@ export class ErrorManager {
             case "warning": category = `<span class="jo_warning_category">${ErrorManagerMessages.warning()}: </span>`; break;
             case "info": category = `<span class="jo_info_category">${ErrorManagerMessages.info()}: </span>`; break;
         }
-        let $message = jQuery('<div class="jo_error-text">' + category + error.message + "</div>");
+        let $message = jQuery('<div class="jo_error-text">' + category + error.message.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") + "</div>");   // GSG: Stack<Integer> sichtbar
 
         $div.append($lineColumn).append($message);
 

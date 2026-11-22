@@ -17,7 +17,7 @@ export function bloeckvaMenuItems(main: Main, workspace: Workspace): TreeviewCon
     const darf = !!u && (u.is_teacher || u.is_admin || u.is_schooladmin || u.gsgFreigaben?.bloecke !== false);
     if (!darf) return [];
     return [{
-        caption: "Als Blöckva-Projekt kopieren ...",
+        caption: "Als Mix-Projekt kopieren ...",
         callback: () => { void kopieren(main, workspace); },
     }];
 }
@@ -37,14 +37,14 @@ async function kopieren(main: Main, workspace: Workspace) {
     const kopie = antwort.workspace;
     const inhalt = el("div", "gsg-bl-bloeckva");
     inhalt.append(
-        el("p", undefined, `„${kopie.name}“ liegt jetzt als Kopie ganz oben in deinen Projekten in Blöckva. Das Original bleibt hier.`),
-        el("p", undefined, "In Blöckva siehst du, was die ganze Zeit dahintersteckte: Jede Figur ist eine Klasse, jedes Skript eine Operation dieser Klasse."));
+        el("p", undefined, `„${kopie.name}“ liegt jetzt als Kopie ganz oben in deinen Projekten in Mix. Das Original bleibt hier.`),
+        el("p", undefined, "In Mix siehst du, was die ganze Zeit dahintersteckte: Jede Figur ist eine Klasse, jedes Skript eine Operation dieser Klasse."));
     const zeile = el("div", "gsg-bl-knoepfe");
-    const oeffnen = knopf("Blöckva öffnen", "Die Kopie in Blöckva öffnen (neuer Tab)", "gsg-bl-knopf gsg-bl-start");
-    const fertig = knopf("Schließen", "Hier in Blöckly bleiben");
+    const oeffnen = knopf("Mix öffnen", "Die Kopie in Mix öffnen (neuer Tab)", "gsg-bl-knopf gsg-bl-start");
+    const fertig = knopf("Schließen", "Hier in Blocks bleiben");
     zeile.append(oeffnen, fertig);
     inhalt.append(zeile);
-    const schliessen = dialog("Kopie in Blöckva", inhalt);
+    const schliessen = dialog("Kopie in Mix", inhalt);
     oeffnen.addEventListener("click", () => { schliessen(); void openSchoolStartPageAt(`#oeffnen=bloecke:${kopie.id}`); });
     fertig.addEventListener("click", schliessen);
     oeffnen.focus();

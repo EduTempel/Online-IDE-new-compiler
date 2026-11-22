@@ -163,6 +163,7 @@ import { Sprite3dClass } from "../graphics/3d/FastSprite/Sprite3dClass.ts";
 import { ClassClass } from "./ClassClass.ts";
 import { Icosahedron3dClass } from "../graphics/3d/Icosahedron3dClass.ts";
 import { CopyOnWriteArrayListClass } from "./collections/CopyOnWriteArrayListClass.ts";
+import { GsgListeClass } from "./collections/GsgListeClass.ts";   // GSG: Liste<T>
 import { StreamInterface } from "./collections/StreamInterface.ts";
 import { SystemStreamClass } from "./collections/SystemStreamClass.ts";
 import { PredicateInterface } from "./functional/PredicateInterface.ts";
@@ -230,7 +231,7 @@ export class SystemModule extends JavaLibraryModule {
             CloneNotSupportedExceptionClass, NoSuchElementExceptionClass, UnsupportedOperationExceptionClass,
 
             // Collections
-            IteratorInterface, IterableInterface, CollectionInterface, ListInterface, ArrayListClass, CopyOnWriteArrayListClass,
+            IteratorInterface, IterableInterface, CollectionInterface, ListInterface, ArrayListClass, CopyOnWriteArrayListClass, GsgListeClass,   // GSG: Liste<T>
 
             CollectionsClass,
             QueueInterface, DequeInterface, LinkedListClass,

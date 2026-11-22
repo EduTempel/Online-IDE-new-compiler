@@ -627,7 +627,7 @@ export class SettingsMessages {
     });
 
     static OutputSettingsDescription = () => lm({
-        'de': `Hier können Sie die Einstellungen für die Ausgabe (rechter Teil der Online-IDE) anpassen.`,
+        'de': `Hier können Sie die Einstellungen für die Ausgabe (rechter Teil von InfoLab) anpassen.`,
         'en': `Here you can adjust the settings for the output (right part of the online IDE).`,
         'fr': `Ici, vous pouvez ajuster les paramètres de la sortie (partie droite de l'IDE en ligne).`
     });
@@ -639,7 +639,7 @@ export class SettingsMessages {
     });
 
     static clearOutputAfterWorkspaceChangeDescription = () => lm({
-        'de': `Hier können Sie einstellen, ob die Ausgabe (rechter Teil der Online-IDE) automatisch gelöscht werden soll, wenn Sie den Workspace wechseln.`,
+        'de': `Hier können Sie einstellen, ob die Ausgabe (rechter Teil von InfoLab) automatisch gelöscht werden soll, wenn Sie den Workspace wechseln.`,
         'en': `Here you can set whether the output (right part of the online IDE) should be automatically cleared when you change the workspace.`,
         'fr': `Ici, vous pouvez définir si la sortie (partie droite de l'IDE en ligne) doit être automatiquement effacée lorsque vous changez de workspace.`
     });
@@ -735,7 +735,7 @@ export class SettingsMessages {
     });
 
     static EnablePruefungFunctionalityDescription = () => lm({
-        'de': 'Hier können Sie einstellen, ob die Funktionalität "Prüfungen" in der Online-IDE aktiviert oder deaktiviert werden soll.',
+        'de': 'Hier können Sie einstellen, ob die Funktionalität "Prüfungen" in InfoLab aktiviert oder deaktiviert werden soll.',
         'en': 'Here you can set whether the functionality "Exams" should be enabled or disabled in the online IDE.',
         'fr': 'Ici, vous pouvez définir si la fonctionnalité "Examens" doit être activée ou désactivée dans l\'IDE en ligne.'
     });

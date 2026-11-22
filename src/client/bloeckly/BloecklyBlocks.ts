@@ -1,16 +1,15 @@
 import * as Blockly from "blockly/core";
 import { Kostueme } from "../../compiler/java/runtime/graphics/GsgBuehnenLogik";
 import { GSG_BUEHNENBILDER } from "../../compiler/java/runtime/graphics/GsgFigurenLibrary";
-import { B } from "../blocks/BlockTypes";
+import { B, istErstelleBlock } from "../blocks/BlockTypes";
 import { defineLabelled } from "../blocks/BlockLabels";
 import { operationsFlyout } from "../blocks/BlockOperations";
 import { DEFAULT_MESSAGE } from "../blocks/BlockParts";
 import { collectVariables, mainWorkspace } from "../blocks/BlockTypeSystem";
 import { KEYS, keyLabel } from "../blocks/FigureSpec";
 import { namensFehler } from "./BloecklyProjekt";
-import { knopfGehoertZu } from "../blocks/BlockMikrowelt";
 import {
-    availableFor, BL_BLOCKS, BL_CATEGORIES, BL_HATS, BL_STAGE, categoryColour, istBlListe, VON_ATTRIBUTE, vonOptionen, WERT_TYPES, type BlArg, type BlBlock, type BlCategory, type BlOption,
+    availableFor, BL_BLOCKS, BL_CATEGORIES, BL_HATS, BL_LISTEN_FARBE, BL_LISTEN_TYPEN, BL_STAGE, blHat, categoryColour, istBlListe, VON_ATTRIBUTE, vonOptionen, WERT_TYPES, type BlArg, type BlBlock, type BlCategory, type BlOption,
     type BlSource, type HeaderState,
 } from "./BloecklySpec";
 
@@ -31,8 +30,6 @@ export type BloecklyUi = {
     figuren: string[];
     /** Variablen für alle Figuren (in der Bühne) */
     globals: Record<string, string>;
-    /** neue Variable für alle Figuren anlegen (schreibt die Bühne) */
-    addGlobal?: (name: string, typ: string) => void;
     /** Variable für alle Figuren umbenennen bzw. löschen (Rechtsklick in der Kategorie Variablen) */
     globaleUmbenennen?: (alt: string, neu: string) => void;
     /** liefert die Figuren, die sie noch benutzen (dann bleibt sie) */
@@ -179,6 +176,7 @@ let defined = false;
 export function defineBloecklyBlocks() {
     if (defined) return;
     defined = true;
+    Blockly.registry.register(Blockly.registry.Type.CONNECTION_CHECKER, Blockly.registry.DEFAULT, KopfChecker, true);
     Blockly.fieldRegistry.register("field_gsg_bl_choice", FieldBlChoice as unknown as Blockly.fieldRegistry.RegistrableField);
     Blockly.fieldRegistry.register("field_gsg_bl_von_attr", FieldVonAttr as unknown as Blockly.fieldRegistry.RegistrableField);
     // Paket 19b: „[x-Position ▾] von [Pinguin ▾]“ – wechselt die Figur, passt die linke Auswahl dazu
@@ -265,15 +263,26 @@ export function defineBloecklyBlocks() {
         {
             type: B.blFigure, message0: "%1", args0: [{ type: "field_label", name: "TITLE", text: "Figur", class: "gsg-bl-titel" }],
             message1: "%1", args1: [{ type: "field_label", name: "VARS_LABEL", text: "Variablen:" }],
-            message2: "%1", args2: [{ type: "input_statement", name: "VARS" }],
+            message2: "%1", args2: [{ type: "input_statement", name: "VARS", check: BL_VAR_CHECK }],
             colour: categoryColour("variablen"), mutator: "bl_header",
-            tooltip: "Die Variablen dieser Figur. Neue Variablen legst du unter „Variablen“ an. Aussehen und Startposition stehen im Reiter „Figuren“.",
+            tooltip: "Die Variablen dieser Figur (auf der Bühne: für alle Figuren). Zieh aus „Variablen“ den Block „erstelle Variable …“ hier hinein. "
+                + "Aussehen und Startposition stehen im Reiter „Figuren“.",
         },
         {
-            type: B.blVar, message0: "%1 %2 Startwert %3",
+            // wie „erstelle neue Variable“ in Blöckva, aber oben im Skript: gilt in allen Skripten (Variable der Klasse)
+            type: B.blVar, message0: "erstelle Variable %2 vom Datentyp %1 mit Startwert %3",
             args0: [{ type: "field_gsg_type", name: "TYPE", text: "double", mode: "simple" }, { type: "field_input", name: "NAME", text: "punkte" }, { type: "input_value", name: "VALUE" }],
-            ...statement, inputsInline: true, colour: categoryColour("variablen"), extensions: ["gsg_identifier"],
-            tooltip: "Eine Variable mit Datentyp, Name und Startwert. Sie gilt in allen Skripten (einer Figur bzw. aller Figuren).",
+            previousStatement: null, nextStatement: null, inputsInline: true, colour: categoryColour("variablen"), extensions: ["gsg_identifier"],
+            tooltip: "Legt eine Variable an und gibt ihr einen Startwert. Sie gehört oben in ein Skript und gilt dann in allen Skripten – "
+                + "auf der Bühne für alle Figuren, in einer Figur nur für diese Figur. Den Startwert hat sie schon, bevor das Programm startet.",
+        },
+        {
+            // 11.11.2026 wie „erstelle neue Liste … vom Datentyp …“ in Blöckva, aber oben im Skript (wie „erstelle Variable“)
+            type: B.blList, message0: "erstelle Liste %1 vom Datentyp %2",
+            args0: [{ type: "field_input", name: "NAME", text: "einkauf" }, { type: "field_dropdown", name: "TYPE", options: BL_LISTEN_TYPEN }],
+            previousStatement: null, nextStatement: null, inputsInline: true, colour: BL_LISTEN_FARBE, extensions: ["gsg_identifier"],
+            tooltip: "Legt eine Liste an (am Anfang leer). Der Block gehört oben in ein Skript. In einer Figur gilt die Liste dann in allen Skripten "
+                + "der Figur, auf der Bühne für alle Figuren.",
         },
     );
     defineLabelled(defs as never);
@@ -282,8 +291,49 @@ export function defineBloecklyBlocks() {
 // ------------------------------------------------------------------ Werkzeugleiste
 
 const CATEGORY_KEY = (id: BlCategory) => "BL_" + id.toUpperCase();
-export const NEW_VARIABLE_BUTTON = "BL_NEW_VARIABLE";
-export const NEW_LIST_BUTTON = "BL_NEW_LIST";
+/** Eingang „Variablen …“ des (unsichtbaren) Kopfblocks älterer Projekte */
+const BL_VAR_CHECK = "BL_VAR";
+/** im Kopfblock erlaubt: Variablen, Kommentare und Text, den das Laden nicht als Block erkannt hat */
+const IM_KOPF = new Set<string>([B.blVar, B.blList, B.comment, B.javaStatement, B.javaRaw]);
+
+/** Führt diese obere Verbindung (Eingang „Variablen …“ oder „danach“ eines Blocks) in den Kopfblock? */
+function imKopf(oben: Blockly.Connection): boolean {
+    if (oben.getCheck()?.includes(BL_VAR_CHECK)) return true;
+    const blk = oben.getSourceBlock();
+    return oben === blk.nextConnection && blk.getSurroundParent()?.type === B.blFigure;
+}
+
+/**
+ * 11.11.2026: Steht diese obere Verbindung oben in einem Skript – direkt unter dem Hut oder unter Variablen, die dort
+ * stehen? Lose Variablen dürfen aneinanderhängen (man kann sie dann zusammen in ein Skript ziehen).
+ */
+function obenImSkript(oben: Blockly.Connection): boolean {
+    const blk = oben.getSourceBlock();
+    if (oben !== blk.nextConnection) return !!blHat(blk.type) && oben === blk.getInput("BODY")?.connection;
+    if (!istErstelleBlock(blk.type)) return false;
+    const darueber = blk.previousConnection?.targetConnection;
+    return !darueber || obenImSkript(darueber);
+}
+
+/**
+ * Blockly lässt Blöcke ohne eigene Prüfung überall andocken. Deshalb: „erstelle Variable“ nur oben in ein Skript
+ * (im Java-Code wird daraus eine Variable der Figur bzw. auf der Bühne für alle Figuren, die vor dem Skript steht),
+ * und kein anderer Block schiebt sich davor. Im (unsichtbaren) Kopfblock älterer Projekte nur Variablen und
+ * Kommentare – „frage“ oder „sage“ stünden dort außerhalb eines Skripts (Compilerfehler).
+ */
+class KopfChecker extends Blockly.ConnectionChecker {
+    override doTypeChecks(a: Blockly.Connection, b: Blockly.Connection): boolean {
+        if (!super.doTypeChecks(a, b)) return false;
+        const vorher = Blockly.ConnectionType.PREVIOUS_STATEMENT;
+        const [oben, unten] = a.type === vorher ? [b, a] : [a, b];
+        if (unten.type !== vorher || oben.type !== Blockly.ConnectionType.NEXT_STATEMENT) return true;
+        const typ = unten.getSourceBlock().type;
+        if (imKopf(oben)) return IM_KOPF.has(typ);
+        if (istErstelleBlock(typ)) return obenImSkript(oben);
+        const darunter = oben.targetBlock();
+        return !(istErstelleBlock(darunter?.type) && darunter !== unten.getSourceBlock());
+    }
+}
 
 type Item = Record<string, unknown>;
 const num = (n: string) => ({ block: { type: B.number, fields: { NUM: n } } });
@@ -393,18 +443,30 @@ function categoryItems(id: BlCategory, ws: Blockly.WorkspaceSvg): Item[] {
     return specs;
 }
 
+/** freier Name für eine neue Variable: punkte, punkte2, … */
+function freierName(basis: string, belegt: Iterable<string>): string {
+    const klein = new Set([...belegt].map((n) => n.toLowerCase()));
+    for (let i = 1; ; i++) {
+        const name = i === 1 ? basis : basis + i;
+        if (!klein.has(name.toLowerCase())) return name;
+    }
+}
+
 /**
- * Variablen wie in Blöckva: „erstelle neue Variable …“ im Skript (gilt nur dort); dazu der Knopf für Variablen,
- * die alle Figuren und Skripte gemeinsam haben (z. B. Punkte). Darunter die Blöcke aller bekannten Variablen.
+ * Variablen wie in Scratch: für alle Figuren oder nur für diese Figur. Jede wird mit „erstelle Variable …“ oben in
+ * einem Skript angelegt (Bühne: für alle Figuren, Figur: nur für diese Figur) und bekommt dabei ihren Startwert.
+ * Variablen nur für ein Skript („erstelle neue Variable …“) bietet Blöckly nicht an (Jg. 9/10); in alten Projekten
+ * bleiben sie lesbar. Darunter die Blöcke aller bekannten Variablen.
  */
 function variableItems(ws: Blockly.WorkspaceSvg): Item[] {
-    const items: Item[] = [
-        label("Neue Variable im Skript (gilt nur in diesem Skript):"),
-        blk(B.varDeclare, { fields: { NAME: "zahl", TYPE: "int" }, inputs: { VALUE: num("0") } }),
-        label("Gemeinsam für alle Figuren und Skripte (z. B. Punkte):"),
-        { kind: "button", text: "Neue Variable für alle Figuren", callbackKey: NEW_VARIABLE_BUTTON },
-    ];
     const all = [...collectVariables(mainWorkspace(ws)).entries()].sort((a, b) => a[0].localeCompare(b[0], "de"));
+    const belegt = [...all.map(([n]) => n), ...Object.keys(ui.globals), ...ui.figuren];
+    const items: Item[] = [
+        label(ui.stage ? "Für alle Figuren (z. B. Punkte) – oben in ein Skript der Bühne ziehen (direkt unter den Startblock):"
+            : "Nur für diese Figur (jeder Klon hat eigene Werte) – oben in ein Skript dieser Figur ziehen (direkt unter den Startblock):"),
+        blk(B.blVar, { fields: { NAME: freierName(ui.stage ? "punkte" : "leben", belegt), TYPE: ui.stage ? "int" : "int" }, inputs: { VALUE: num(ui.stage ? "0" : "3") } }),
+        ...(ui.stage ? [] : [label("Variablen für alle Figuren legst du auf der Bühne an.")]),
+    ];
     const vars = all.filter(([, t]) => !istBlListe(t));
     if (vars.length === 0) items.push(label("Lege eine Variable an – dann erscheinen hier ihre Blöcke."));
     else {
@@ -415,18 +477,18 @@ function variableItems(ws: Blockly.WorkspaceSvg): Item[] {
         const numeric = vars.find(([, t]) => t === "int" || t === "double");
         if (numeric) items.push(blk(B.varChange, { fields: { OP: "+", NAME: numeric[0] }, inputs: { VALUE: num("1") } }));
     }
-    return [...items, ...listItems(all.filter(([, t]) => istBlListe(t)))];
+    return [...items, ...listItems(all.filter(([, t]) => istBlListe(t)), belegt)];
 }
 
 /** Paket 19f: Listen wie in Scratch (Positionen ab 0) – Knopf „Neue Liste“ und die Blöcke zur ersten Liste */
-function listItems(lists: [string, string][]): Item[] {
+function listItems(lists: [string, string][], belegt: string[]): Item[] {
     const items: Item[] = [
-        label("Listen: viele Werte unter einem Namen. Das erste Element hat die Position 0."),
-        { kind: "button", text: "Neue Liste für alle Figuren", callbackKey: NEW_LIST_BUTTON },
+        label("Listen: viele Werte unter einem Namen. Das erste Element hat die Position 0. Auch „erstelle Liste“ gehört oben in ein Skript:"),
+        blk(B.blList, { fields: { NAME: freierName("einkauf", belegt), TYPE: "Liste<String>" } }),
     ];
     if (lists.length === 0) return items;
     const [name, typ] = lists[0];
-    const wert = () => (typ === "ArrayList<String>" ? txt("Ding") : num("1"));
+    const wert = () => (typ === "Liste<String>" ? txt("Ding") : num("1"));
     const NAME = { NAME: name };
     items.push(
         label("Deine Listen: " + lists.map((l) => l[0]).join(", ")),
@@ -453,16 +515,11 @@ export function bloecklyToolbox(hidden: string[] = []): Blockly.utils.toolbox.To
     } as Blockly.utils.toolbox.ToolboxDefinition;
 }
 
-/** Inhalte der Kategorien und den Knopf „Neue Variable“ anmelden */
+/** Inhalte der Kategorien anmelden */
 export function registerBloecklyToolbox(ws: Blockly.WorkspaceSvg) {
     for (const c of BL_CATEGORIES) {
         ws.registerToolboxCategoryCallback(CATEGORY_KEY(c.id), (w) => categoryItems(c.id, w) as unknown as Blockly.utils.toolbox.FlyoutItemInfoArray);
     }
-    ws.registerButtonCallback(NEW_VARIABLE_BUTTON, () => void newVariable(ws));
-    ws.registerButtonCallback(NEW_LIST_BUTTON, () => void newVariable(ws, true));
-    // Paket 19k: in einer Mikrowelt nur, wenn die passenden Blöcke dabei sind
-    knopfGehoertZu(NEW_VARIABLE_BUTTON, [B.varGet, B.varSet, B.varChange + ":+"]);
-    knopfGehoertZu(NEW_LIST_BUTTON, [B.listAdd, B.listRemove, B.listClear, B.listInsert, B.listSet, B.listGet, B.listIndexOf, B.listSize, B.listContains]);
     registerGlobalVariableMenu();
 }
 
@@ -542,20 +599,4 @@ async function deleteGlobal(name: string | undefined) {
         return;
     }
     setTimeout(() => (ws?.getToolbox() as Blockly.Toolbox | null)?.refreshSelection(), 50);
-}
-
-/** „Neue Variable für alle Figuren“ (bzw. „Neue Liste“, Paket 19f): steht (unsichtbar) in der Bühne */
-async function newVariable(ws: Blockly.WorkspaceSvg, liste = false) {
-    const { neueVariableFragen } = await import("./BloecklyDialog");
-    const taken = [...collectVariables(mainWorkspace(ws)).keys(), ...Object.keys(ui.globals), ...ui.figuren];
-    const answer = await neueVariableFragen(false, (name) => {
-        if (name === "") return "Bitte gib einen Namen ein.";
-        const f = namensFehler(name, []);
-        if (f) return f.replace("Figur", liste ? "Liste" : "Variable");
-        if (taken.some((t) => t.toLowerCase() === name.toLowerCase())) return `„${name}“ gibt es schon.`;
-        return undefined;
-    }, liste);
-    if (!answer) return;
-    ui.addGlobal?.(answer.name, answer.typ);
-    setTimeout(() => (ws.getToolbox() as Blockly.Toolbox | null)?.refreshSelection(), 50);
 }

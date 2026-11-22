@@ -13,15 +13,14 @@ export type BlockPermissions = {
     scope: boolean;
 };
 
-type Freigaben = { bloeckeVorschau?: unknown; bloeckeBeschriftung?: unknown; gueltigkeit?: unknown; bloecklyJava?: unknown };
+type Freigaben = { bloeckeVorschau?: unknown; bloeckeBeschriftung?: unknown; gueltigkeit?: unknown };
 
 export function blockPermissions(user: unknown, bloeckly = false): BlockPermissions {
     const f = (user as { gsgFreigaben?: Freigaben } | null | undefined)?.gsgFreigaben;
     const flag = (v: unknown) => (typeof v === "boolean" ? v : true);
     if (bloeckly) {
-        // Blöckly (Paket 18): eine Freigabe für alles, was Java zeigt (Vorschau, Java-Beschriftung)
-        const java = flag(f?.bloecklyJava);
-        return { preview: java, javaLabels: java, scope: flag(f?.gueltigkeit) };
+        // Blöckly zeigt nie Texva: keine Vorschau, Beschriftung immer deutsch (für alle, auch Lehrkräfte)
+        return { preview: false, javaLabels: false, scope: flag(f?.gueltigkeit) };
     }
     return { preview: flag(f?.bloeckeVorschau), javaLabels: flag(f?.bloeckeBeschriftung), scope: flag(f?.gueltigkeit) };
 }

@@ -33,7 +33,7 @@ async function compile(texts: string[]) {
     return executable!.getAllErrors().filter((e) => e.level == "error").map((e) => `${e.message} (Zeile ${e.range.startLineNumber})`);
 }
 
-describe("Handbuch Blöckly (Paket 18h)", () => {
+describe("Handbuch Blocks (Paket 18h)", () => {
     test("alle acht Kategorien der Werkzeugleiste haben einen Abschnitt; Kennungen und Titel eindeutig", () => {
         const ids = BLOECKLY_HANDBOOK.map((s) => s.id);
         for (const c of BL_CATEGORIES) expect(ids).toContain(c.id);
@@ -41,7 +41,7 @@ describe("Handbuch Blöckly (Paket 18h)", () => {
         expect(new Set(entries.map((e) => e.title)).size).toBe(entries.length);
     });
 
-    test.each(entries.map((e) => [e.section + ": " + e.title, e] as const))("%s: Blöcke ↔ Java unverändert, nur Blöckly-Blöcke", (_, e) => {
+    test.each(entries.map((e) => [e.section + ": " + e.title, e] as const))("%s: Blöcke ↔ Java unverändert, nur Blocks-Blöcke", (_, e) => {
         const files = e.bloeckly!.files;
         expect(liesProjekt(files.map((f) => ({ name: f.name, getText: () => f.text, isFolder: false }) as never)).figuren.length).toBeGreaterThan(0);
         expect(e.bloeckly!.show.length).toBeGreaterThan(0);
@@ -58,7 +58,7 @@ describe("Handbuch Blöckly (Paket 18h)", () => {
         expect(await compile(e.bloeckly!.files.map((f) => f.text))).toEqual([]);
     });
 
-    test("Hilfe per Rechtsklick findet Blöckly-Blöcke", () => {
+    test("Hilfe per Rechtsklick findet Blocks-Blöcke", () => {
         expect(findBlockEntry(BLOECKLY_HANDBOOK, "bl_gehe", "bewegung")?.section).toBe("bewegung");
         expect(findBlockEntry(BLOECKLY_HANDBOOK, "bl_naechstes_kostuem", "aussehen")?.section).toBe("aussehen");
         expect(findBlockEntry(BLOECKLY_HANDBOOK, "bl_klon", "steuerung")?.section).toBe("steuerung");

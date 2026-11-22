@@ -34,6 +34,7 @@ import { ProgrammingLanguageData } from '../../../compiler/common/programminglan
 import { ByArchitecture } from '../../../compiler/assembly/byassembly/ByArchitecture.js';
 import { openSchoolStartPage } from './SchoolStartPage.js';
 import { bloeckvaMenuItems } from '../../bloeckly/BloecklyNachBloeckva.js';
+import { explorerGruppe } from './Dateiart.js';   // GSG
 
 
 export class ProjectExplorer {
@@ -86,6 +87,7 @@ export class ProjectExplorer {
             comparator: (a, b) => {
                 return a.name > b.name ? 1 : a.name < b.name ? -1 : 0;
             },
+            groupExtractor: (file) => explorerGruppe(file),   // GSG: Ordner, Klassendiagramme, Struktogramme, Code
             contextMenu: {
                 messageNewNode: ProjectExplorerMessages.newFile(),
                 messageRename: AccordionMessages.rename()
@@ -113,9 +115,9 @@ export class ProjectExplorer {
                 return null;
             }
 
-            // GSG: in der Anwendung "Struktogramme" werden neue Dateien Struktogramme
-            if (Constants.isStructogramApp && !node.isFolder && !/\.[A-Za-z]+$/.test(name)) {
-                name += ".struktogramm";
+            // GSG: in den Anwendungen "Struktogramme" und "Klassendiagramme" werden neue Dateien Struktogramme bzw. Klassendiagramme
+            if ((Constants.isStructogramApp || Constants.isKlassendiagrammApp) && !node.isFolder && !/\.[A-Za-z]+$/.test(name)) {
+                name += Constants.isKlassendiagrammApp ? ".klassendiagramm" : ".struktogramm";
                 node.caption = name;
             }
             let file = new GUIFile(this.main, name);
@@ -917,11 +919,12 @@ export class ProjectExplorer {
 
     lastOpenFile: GUIFile = null;
     dontScrollIntoViewOnNextSetActive: boolean = false;
-    /** GSG (Blöckly, Paket 18d): das Hauptprogramm entsteht von selbst; Schüler/innen sehen es nicht */
+    /** GSG (Blöckly): true nur, während die Figurenleiste das Hauptprogramm ausdrücklich öffnet */
+    gsgHauptprogrammZeigen = false;
+    /** GSG (Blöckly, Paket 18d): das Hauptprogramm entsteht von selbst; niemand öffnet es aus Versehen (BloecklyPanel) */
     isHiddenFile(file: GUIFile): boolean {
         if (!Constants.isBloecklyApp || file.isFolder || file.name !== "Hauptprogramm") return false;
-        const u = this.main.user;
-        return !(u && (u.is_teacher || u.is_admin || u.is_schooladmin));
+        return !this.gsgHauptprogrammZeigen;
     }
 
     setFileActive(file: GUIFile) {

@@ -16,6 +16,8 @@ type Figur = {
     aussehen: string;
     x?: number;
     y?: number;
+    /** Variablen nur für diese Figur (Zeilen wie FIGURVARIABLE) */
+    variablen?: string[];
     /** Skripte und eigene Blöcke (Zeilen, schon eingerückt wie in der Klasse) */
     skripte?: string[];
 };
@@ -48,6 +50,9 @@ const eigener = (kopf: string, ...rumpf: string[]) => [`    ${kopf} {`, ...einr(
 const skripte = (...s: string[][]) => s.flatMap((x, i) => (i ? ["", ...x] : x));
 
 const VARIABLE = (typ: string, name: string, wert: string) => `    static ${typ} ${name} = ${wert};`;
+const FIGURVARIABLE = (typ: string, name: string, wert: string) => `    ${typ} ${name} = ${wert};`;
+/** Liste einer Figur (am Anfang leer): Liste<String> einkauf = new Liste<>(); */
+const LISTE = (elem: "Double" | "String", name: string) => `    Liste<${elem}> ${name} = new Liste<>();`;
 
 // ------------------------------------------------------------------ Dateien eines Beispiels
 
@@ -60,19 +65,13 @@ function mitMitgliedern(quelltext: string, zeilen: string[]): string {
 export type BloecklyDatei = { name: string; text: string };
 
 export function beispielDateien(b: Beispiel): BloecklyDatei[] {
-    // Variablen für alle Figuren stehen oben in der Bühne (vor dem Konstruktor), die Skripte am Ende
-    let buehne = buehnenQuelltext(b.buehne?.bild ?? "");
-    const variablen = b.buehne?.variablen ?? [];
-    if (variablen.length) {
-        const kopf = buehne.indexOf("\n\n") + 2;
-        buehne = buehne.slice(0, kopf) + variablen.join("\n") + "\n\n" + buehne.slice(kopf);
-    }
-    buehne = mitMitgliedern(buehne, b.buehne?.skripte ?? []);
+    // Variablen direkt vor dem ersten Skript (in Blöckly stehen sie oben darin); auf der Bühne für alle Figuren
+    const buehne = mitMitgliedern(buehnenQuelltext(b.buehne?.bild ?? ""), [...(b.buehne?.variablen ?? []), ...(b.buehne?.skripte ?? [])]);
     return [
         { name: BUEHNEN_DATEI, text: buehne },
         ...b.figuren.map((f) => ({
             name: f.klasse,
-            text: mitMitgliedern(figurQuelltext({ klasse: f.klasse, figur: f.aussehen, x: f.x ?? 0, y: f.y ?? 0 }), f.skripte ?? []),
+            text: mitMitgliedern(figurQuelltext({ klasse: f.klasse, figur: f.aussehen, x: f.x ?? 0, y: f.y ?? 0 }), [...(f.variablen ?? []), ...(f.skripte ?? [])]),
         })),
         { name: HAUPTPROGRAMM, text: hauptprogrammQuelltext(BUEHNEN_KLASSE, b.figuren.map((f) => f.klasse)) },
     ];
@@ -209,6 +208,19 @@ export const BLOECKLY_HANDBOOK: HandbookSection[] = [
                     flagge("setzeStoppuhrZurueck();", "sage(\"Du hast 5 Sekunden!\");"),
                     skript("@WennStoppuhrUeber(5)", "wennStoppuhr", ["sage(\"Die Zeit ist um!\");", "stoppeAlles();"])))],
             }),
+            eintrag({
+                title: "Skripte in eine andere Figur kopieren",
+                text: "Zieh ein Skript auf eine andere Figur oder die Bühne im Reiter **Figuren** – die Kachel leuchtet auf, die Figur bekommt eine Kopie, dein Skript bleibt, wo es war. "
+                    + "Oder: Rechtsklick auf den Startblock → **Skript kopieren nach …**. Variablen nur für diese Figur und eigene Blöcke, die das Skript braucht, kommen mit. "
+                    + "Einzelne Blöcke: Rechtsklick → **Kopieren** (oder **Ab hier kopieren** mit den Blöcken darunter), andere Figur anklicken, Rechtsklick auf eine freie Stelle → **Einfügen** (oder **Strg+C** und **Strg+V**) – danach an einen Startblock hängen. "
+                    + "**Verdoppeln** legt in derselben Figur eine Kopie neben das Skript. "
+                    + "„Wenn 🚩 angeklickt“ gibt es nur einmal im Projekt; davon kommen nur die Blöcke darunter mit.",
+                figuren: [
+                    W(taste(" ", "dreheRechts(15);", "gehe(10);"), -100, 0),
+                    { klasse: "Pinguin", aussehen: "Pinguin", x: 100, y: 0, skripte: taste(" ", "dreheRechts(15);", "gehe(10);") },
+                ],
+                zeige: ["Waschbär"],
+            }),
         ],
     },
     {
@@ -340,53 +352,53 @@ export const BLOECKLY_HANDBOOK: HandbookSection[] = [
     },
     {
         id: "variablen", title: "Variablen", icon: "📦",
-        intro: "Eine **Variable** merkt sich einen Wert. **erstelle neue Variable** im Skript gilt nur in diesem Skript. Mit **Neue Variable für alle Figuren** entsteht eine Variable, die alle Figuren und die Bühne gemeinsam haben – zum Beispiel Punkte. Eine **Liste** merkt sich viele Werte (Positionen ab 0).",
+        intro: "Eine **Variable** merkt sich einen Wert. Du legst sie mit **erstelle Variable** an und gibst ihr dabei einen Startwert. Der Block gehört oben in ein Skript, zum Beispiel unter „Wenn 🚩 angeklickt“ oder „Wenn ich … empfange“. "
+            + "In einer Figur gilt die Variable dann in allen Skripten dieser Figur (jeder Klon hat seine eigene), auf der Bühne für alle Figuren – zum Beispiel Punkte. "
+            + "Den Startwert hat sie von Anfang an, auch wenn das Skript noch nicht gelaufen ist. Eine **Liste** merkt sich viele Werte (Positionen ab 0).",
         entries: [
             eintrag({
-                title: "Variable im Skript",
-                text: "Die Schritte werden mit jeder Runde größer: Die Figur wird immer schneller.",
-                figuren: [W(flagge("int schritte = 2;", "for (int durchlauf = 1; durchlauf <= 10; durchlauf++) {", "    gehe(schritte);", "    schritte += 2;", "    warte(0.2);", "}"), -200, 0)],
+                title: "Variable nur für eine Figur",
+                text: "**schritte** steht oben im Skript des Waschbären und gehört nur ihm. Die Schritte werden mit jeder Runde größer: Die Figur wird immer schneller.",
+                figuren: [{ ...W(flagge("for (int durchlauf = 1; durchlauf <= 10; durchlauf++) {", "    gehe(schritte);", "    schritte += 2;", "    warte(0.2);", "}"), -200, 0),
+                    variablen: [FIGURVARIABLE("int", "schritte", "2")] }],
             }),
             eintrag({
                 title: "Punkte für alle Figuren",
-                text: "**punkte** gehört allen Figuren. Jeder Klick auf den Waschbären oder den Pinguin zählt mit – beide erhöhen dieselbe Variable.",
-                buehne: { variablen: [VARIABLE("int", "punkte", "0")] },
+                text: "**punkte** wird auf der Bühne erstellt und gehört deshalb allen Figuren. Jeder Klick auf den Waschbären oder den Pinguin zählt mit – beide erhöhen dieselbe Variable.",
+                buehne: { variablen: [VARIABLE("int", "punkte", "0")], skripte: flagge() },
                 figuren: [
                     W(angeklickt("Spiel.punkte++;", "sage(Spiel.punkte, 1);"), -100, 0),
                     { klasse: "Pinguin", aussehen: "Pinguin", x: 100, y: 0, skripte: angeklickt("Spiel.punkte++;", "sage(Spiel.punkte, 1);") },
                 ],
-                zeige: ["Waschbär"],
+                zeige: [BUEHNEN_DATEI, "Waschbär"],
             }),
             eintrag({
                 title: "Listen: eine Einkaufsliste",
-                text: "Eine **Liste** merkt sich viele Werte unter einem Namen. **Neue Liste für alle Figuren** legt sie an (mit Zahlen oder Texten). "
+                text: "Eine **Liste** merkt sich viele Werte unter einem Namen. **erstelle Liste** legt sie an (mit Zahlen oder Texten) – wie eine Variable oben in einem Skript: "
+                    + "in einer Figur nur für diese Figur, auf der Bühne für alle Figuren. Am Anfang ist die Liste leer. "
                     + "Die Positionen zählen **ab 0**: Das erste Element ist **Element 0**, das letzte **Element (Länge − 1)**. "
                     + "Der Waschbär schreibt drei Sachen auf und sagt sie dann der Reihe nach.",
-                buehne: { variablen: ["    static ArrayList<String> einkauf = new ArrayList<String>();"] },
-                figuren: [W(flagge(
-                    "Spiel.einkauf.clear();",
-                    "Spiel.einkauf.add(\"Äpfel\");",
-                    "Spiel.einkauf.add(\"Brot\");",
-                    "Spiel.einkauf.add(\"Käse\");",
-                    "int position = 0;",
-                    "for (int durchlauf = 1; durchlauf <= Spiel.einkauf.size(); durchlauf++) {",
-                    "    sage(\"Element \" + position + \": \" + Spiel.einkauf.get(position), 1);",
+                figuren: [{ ...W(flagge(
+                    "einkauf.add(\"Äpfel\");",
+                    "einkauf.add(\"Brot\");",
+                    "einkauf.add(\"Käse\");",
+                    "for (int durchlauf = 1; durchlauf <= einkauf.size(); durchlauf++) {",
+                    "    sage(\"Element \" + position + \": \" + einkauf.get(position), 1);",
                     "    position++;",
-                    "}"))],
+                    "}")), variablen: [LISTE("String", "einkauf"), FIGURVARIABLE("int", "position", "0")] }],
             }),
             eintrag({
                 title: "Steht es schon auf der Liste?",
                 text: "Klick auf den Waschbären: Er fragt, was er mitbringen soll. **enthält** prüft, ob es schon auf der Liste steht; "
                     + "sonst kommt es mit **füge … zu … hinzu** ans Ende. **Position von** sagt, an welcher Stelle etwas steht (−1: gar nicht).",
-                buehne: { variablen: ["    static ArrayList<String> einkauf = new ArrayList<String>();"] },
-                figuren: [W(angeklickt(
+                figuren: [{ ...W(angeklickt(
                     "frage(\"Was soll ich mitbringen?\");",
-                    "if (Spiel.einkauf.contains(antwort())) {",
-                    "    sage(\"Steht schon auf Position \" + Spiel.einkauf.indexOf(antwort()) + \".\", 2);",
+                    "if (einkauf.contains(antwort())) {",
+                    "    sage(\"Steht schon auf Position \" + einkauf.indexOf(antwort()) + \".\", 2);",
                     "} else {",
-                    "    Spiel.einkauf.add(antwort());",
-                    "    sage(\"Notiert! Jetzt sind es \" + Spiel.einkauf.size() + \".\", 2);",
-                    "}"))],
+                    "    einkauf.add(antwort());",
+                    "    sage(\"Notiert! Jetzt sind es \" + einkauf.size() + \".\", 2);",
+                    "}")), variablen: [LISTE("String", "einkauf")] }],
             }),
         ],
     },
@@ -406,12 +418,12 @@ export const BLOECKLY_HANDBOOK: HandbookSection[] = [
                 title: "Eigene Blöcke mit Ergebnis",
                 text: "Wählst du bei **liefert** eine Zahl, einen Text oder einen Wahrheitswert, wird dein Block ein runder (bzw. spitzer) Block wie **x-Position** oder **berührt …?**. "
                     + "**gib zurück** legt das Ergebnis fest und beendet den Block. **istGerade** liefert wahr, wenn beim Teilen durch 2 kein Rest bleibt.",
-                figuren: [W(skripte(
-                    flagge("for (int zahl = 1; zahl <= 4; zahl++) {", "    if (istGerade(zahl)) {", "        sage(zahl + \" ist gerade\", 1);", "    } else {",
-                        "        sage(zahl + \" ist ungerade\", 1);", "    }", "}", "sage(\"5 zum Quadrat ist \" + quadrat(5));"),
+                figuren: [{ ...W(skripte(
+                    flagge("for (int durchlauf = 1; durchlauf <= 4; durchlauf++) {", "    if (istGerade(zahl)) {", "        sage(zahl + \" ist gerade\", 1);", "    } else {",
+                        "        sage(zahl + \" ist ungerade\", 1);", "    }", "    zahl++;", "}", "sage(\"5 zum Quadrat ist \" + quadrat(5));"),
                     eigener("boolean istGerade(int x)", "return x % 2 == 0;"),
                     eigener("int quadrat(int x)", "return x * x;"),
-                ))],
+                )), variablen: [FIGURVARIABLE("int", "zahl", "1")] }],
             }),
         ],
     },
@@ -463,11 +475,11 @@ export const BLOECKLY_HANDBOOK: HandbookSection[] = [
             }),
             eintrag({
                 title: "Fangspiel",
-                text: "Fange mit dem Waschbären (Pfeiltasten) die Pinguine, die vom Himmel fallen. Jeder gefangene Pinguin gibt einen Punkt, jeder verpasste kostet ein Leben. Die Bühne setzt die Variablen und startet das Spiel.",
+                text: "Fange mit dem Waschbären (Pfeiltasten) die Pinguine, die vom Himmel fallen. Jeder gefangene Pinguin gibt einen Punkt, jeder verpasste kostet ein Leben. Die Bühne erstellt die Variablen und startet das Spiel.",
                 buehne: {
                     bild: "Schulhof",
                     variablen: [VARIABLE("int", "punkte", "0"), VARIABLE("int", "leben", "3")],
-                    skripte: flagge("punkte = 0;", "leben = 3;", "Nachricht.sende(\"los\");"),
+                    skripte: flagge("Nachricht.sende(\"los\");"),
                 },
                 figuren: [
                     W(nachricht("los",
@@ -554,12 +566,12 @@ export const BLOECKLY_HANDBOOK: HandbookSection[] = [
         ],
     },
     {
-        id: "bloeckva", title: "Weiter nach Blöckva", icon: "🎓",
-        intro: "In Blöckva (Jahrgang 11) programmierst du mit Blöcken, die näher an Java sind. Deine Blöckly-Projekte kannst du mitnehmen.",
+        id: "bloeckva", title: "Weiter nach Mix", icon: "🎓",
+        intro: "In Mix (Jahrgang 11) programmierst du mit Blöcken, die näher an Java sind – mit kleinen Anpassungen für den Unterricht. Deine Blocks-Projekte kannst du mitnehmen.",
         entries: [
             eintrag({
                 title: "Deine Figuren sind Klassen",
-                text: "Rechtsklick auf ein Projekt in der Projektliste → **Als Blöckva-Projekt kopieren**. In Blöckva siehst du, was die ganze Zeit dahintersteckte: Jede Figur ist eine **Klasse**, die von **Figur** erbt, jedes Skript eine **Operation** mit einer Annotation wie `@BeimStart`. Das Hauptprogramm erzeugt die Bühne und die Figuren mit `new`. Klappe unten „Java-Code“ auf, wenn deine Lerngruppe Java sehen darf.",
+                text: "Rechtsklick auf ein Projekt in der Projektliste → **Als Mix-Projekt kopieren**. In Mix siehst du, was die ganze Zeit dahintersteckte: Jede Figur ist eine **Klasse**, die von **Figur** erbt, jedes Skript eine **Operation** mit einer Annotation wie `@BeimStart`. Das Hauptprogramm erzeugt die Bühne und die Figuren mit `new`.",
                 figuren: [W(skripte(
                     flagge("while (true) {", "    gehe(10);", "    pralleVomRandAb();", "}"),
                     angeklickt("sage(\"Ich bin ein Objekt der Klasse Waschbär!\", 2);"),

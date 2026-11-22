@@ -20,6 +20,7 @@ export const B = {
     // Blöckly (Paket 18e): eine Klasse je Figur bzw. Bühne; die Blöcke meinen immer diese Figur
     blFigure: "bl_figure",          // Kopf der Klasse (Kennung "start"): Anweisungen VARS (Variablen); extraState { klasse, oberklasse, ctor, prefix, suffix }
     blVar: "bl_var",                // Felder NAME, TYPE; Eingang VALUE  (int punkte = 0; auf der Bühne static)
+    blList: "bl_list",              // 11.11.2026 wie Blöckva: Felder NAME, TYPE (Liste<Double>/<String>)  (Liste<Double> l = new Liste<>(); Bühne static)
     blFlag: "bl_flag",              // Hut „Wenn 🚩 angeklickt“: BODY; extraState { name }  (@BeimStart void beimStart() { … })
     blKey: "bl_key",                // Hut „Wenn Taste … gedrückt“: Feld KEY; BODY  (@WennTaste("a") void wennTasteA() { … })
     blClick: "bl_click",            // Hut „Wenn diese Figur angeklickt“: BODY  (@WennAngeklickt void wennAngeklickt() { … })
@@ -70,7 +71,7 @@ export const B = {
     array2dSet: "j_array2d_set",    // Feld NAME; Eingänge R, C, V  (m[r][c] = v;)
     array2dSize: "j_array2d_size",  // Felder NAME, DIM (rows/cols)  (m.length / m[0].length)
     forEach: "j_foreach",           // Felder VAR, LIST; Anweisungen DO  (for (int x : a))
-    listNew: "j_list_new",          // Felder NAME, TYPE  (ArrayList<Integer> l = new ArrayList<Integer>();)
+    listNew: "j_list_new",          // Felder NAME, TYPE  (Liste<Integer> l = new Liste<>();)
     listAdd: "j_list_add",          // Feld NAME; Eingang V  (l.add(v);)
     listInsert: "j_list_insert",    // Feld NAME; Eingänge I, V  (l.add(i, v);)
     listRemove: "j_list_remove",    // Feld NAME; Eingang I  (l.remove(i);)
@@ -83,26 +84,26 @@ export const B = {
     collIsEmpty: "j_coll_isempty",  // Feld NAME  (l.isEmpty() einer Liste)
 
     // ADT (abstrakte Datentypen, Abiturklassen Niedersachsen): dynamische Reihung
-    dynNew: "j_dyn_new",            // Feld NAME  (DynArray d = new DynArray();)
+    dynNew: "j_dyn_new",            // Felder NAME, TYPE (Inhaltstyp)  (DynArray<Integer> d = new DynArray<>();)
     dynAppend: "j_dyn_append",      // Feld NAME; Eingang V  (d.append(v);)
     dynInsert: "j_dyn_insert",      // Feld NAME; Eingänge I, V  (d.insertAt(i, v);)
     dynSet: "j_dyn_set",            // Feld NAME; Eingänge I, V  (d.setItem(i, v);)
     dynDelete: "j_dyn_delete",      // Feld NAME; Eingang I  (d.delete(i);)
-    dynGet: "j_dyn_get",            // Felder NAME, TYPE (Object = ohne Umwandlung); Eingang I  ((int) d.getItem(i))
+    dynGet: "j_dyn_get",            // Feld NAME; Eingang I  (d.getItem(i))
     dynLength: "j_dyn_length",      // Feld NAME  (d.getLength())
     dynIsEmpty: "j_dyn_isempty",    // Feld NAME  (d.isEmpty())
     // ADT: Stapel, Schlange, Binärbaum (Abiturklassen Niedersachsen); Feld NAME = Name der Variablen
-    stackNew: "j_stack_new",        // Feld NAME  (Stack s = new Stack();)
+    stackNew: "j_stack_new",        // Felder NAME, TYPE (Inhaltstyp)  (Stack<Integer> s = new Stack<>();)
     stackPush: "j_stack_push",      // Feld NAME; Eingang V  (s.push(v);)
     stackPop: "j_stack_pop",        // Feld NAME  (s.pop(); – Element verwerfen)
-    stackGet: "j_stack_get",        // Felder OP (top/pop), NAME, TYPE  ((int) s.top())
-    queueNew: "j_queue_new",        // Feld NAME  (Queue q = new Queue();)
+    stackGet: "j_stack_get",        // Felder OP (top/pop), NAME  (s.top())
+    queueNew: "j_queue_new",        // Felder NAME, TYPE (Inhaltstyp)  (Queue<Integer> q = new Queue<>();)
     queueEnqueue: "j_queue_enqueue",// Feld NAME; Eingang V  (q.enqueue(v);)
     queueDequeue: "j_queue_dequeue",// Feld NAME  (q.dequeue(); – Element verwerfen)
-    queueGet: "j_queue_get",        // Felder OP (head/dequeue), NAME, TYPE  ((int) q.head())
-    treeNew: "j_tree_new",          // Feld NAME; Eingang V (Inhalt, freiwillig)  (BinTree b = new BinTree(v);)
+    queueGet: "j_queue_get",        // Felder OP (head/dequeue), NAME  (q.head())
+    treeNew: "j_tree_new",          // Felder NAME, TYPE (Inhaltstyp); Eingang V (Inhalt, freiwillig)  (BinTree<Integer> b = new BinTree<>(v);)
     treeSetItem: "j_tree_setitem",  // Feld NAME; Eingang V  (b.setItem(v);)
-    treeItem: "j_tree_item",        // Felder OP (getItem), NAME, TYPE  ((int) b.getItem())
+    treeItem: "j_tree_item",        // Felder OP (getItem), NAME  (b.getItem())
     treeSetChild: "j_tree_setchild",// Felder SIDE (left/right), NAME; Eingang T  (b.setLeft(t);)
     treeChild: "j_tree_child",      // Felder SIDE, NAME  (b.getLeft())
     treeDelete: "j_tree_delete",    // Feld NAME  (b.setEmpty();)
@@ -216,7 +217,7 @@ export const COLLECTION_DECLARATIONS: Record<string, CollKind> = {
     j_array_new: "array", j_array_values: "array", j_array2d_new: "array2d", j_list_new: "list", j_dyn_new: "dyn",
 };
 
-/** Methodenaufrufe an ArrayList und DynArray: Block, Java-Methode, Eingänge in Java-Reihenfolge */
+/** Methodenaufrufe an Liste und DynArray: Block, Java-Methode, Eingänge in Java-Reihenfolge */
 export const COLLECTION_CALLS: { type: string; kind: "list" | "dyn"; method: string; args: string[]; stmt: boolean }[] = [
     { type: "j_list_add", kind: "list", method: "add", args: ["V"], stmt: true },
     { type: "j_list_insert", kind: "list", method: "add", args: ["I", "V"], stmt: true },
@@ -241,14 +242,13 @@ export const COLLECTION_CALLS: { type: string; kind: "list" | "dyn"; method: str
 export const COLLECTION_USES: string[] = ["j_array_get", "j_array_set", "j_array_length", "j_array2d_get", "j_array2d_set",
     "j_array2d_size", ...new Set(COLLECTION_CALLS.map((c) => c.type))];
 
-/** Elementtyp einer ArrayList: Hüllklasse in Java */
+/** Elementtyp einer Liste: Hüllklasse in Java */
 export const WRAPPERS: Record<string, string> = { int: "Integer", double: "Double", String: "String", boolean: "Boolean", char: "Character" };
 
 /** Datentyp der Variablen in "für jedes Element" */
 export function elementJavaType(c: { kind: CollKind; elem: string | null } | undefined): string {
     if (!c) return "var";
-    if (c.kind === "dyn") return "Object";
-    if (c.kind === "list") return WRAPPERS[c.elem ?? ""] ?? c.elem ?? "Object";
+    if (c.kind === "list" || c.kind === "dyn") return WRAPPERS[c.elem ?? ""] ?? c.elem ?? "Object";
     if (c.kind === "array2d") return (c.elem ?? "int") + "[]";
     return c.elem ?? "int";
 }
@@ -271,3 +271,8 @@ export type BlockState = {
 export type WorkspaceState = {
     blocks: { languageVersion: 0; blocks: BlockState[] };
 };
+
+/** Blöckly: „erstelle Variable …“ bzw. „erstelle Liste …“ – oben in einem Skript, Variable der Figur bzw. Bühne */
+export function istErstelleBlock(type: string | undefined): boolean {
+    return type === B.blVar || type === B.blList;
+}

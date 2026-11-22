@@ -39,7 +39,7 @@ export const ZOO = lines(
     "bello.bellen();",
     "bello.setAlter(bello.getAlter() + 1);",
     "println(bello.getAlter());",
-    "ArrayList<Tier> tiere = new ArrayList<Tier>();",
+    "Liste<Tier> tiere = new Liste<>();",
     "tiere.add(bello);",
     "tiere.add(new Tier(\"Katze\"));",
     "for (Tier t : tiere) {",

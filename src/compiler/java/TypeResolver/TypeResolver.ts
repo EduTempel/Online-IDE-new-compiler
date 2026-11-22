@@ -1,4 +1,5 @@
 import { ErrormessageWithId } from "../../../tools/language/LanguageManager.ts";
+import { brauchtInhaltstyp, eigeneKlasseUeberdeckt, grundtypAlsInhaltstyp, ohneInhaltstyp } from "./GsgInhaltstyp";   // GSG
 import { ErrorLevel } from "../../common/Error";
 import { Helpers, Klass, StepParams } from "../../common/interpreter/StepFunction";
 import { IRange } from "../../common/range/Range";
@@ -121,7 +122,7 @@ export class TypeResolver {
                     continue;
                 }
                 otherType = this.libraryModuleManager.typestore.getType(tdn.identifier);
-                if (otherType) {
+                if (otherType && !eigeneKlasseUeberdeckt(tdn.identifier)) {   // GSG: eigene Klasse Liste erlaubt
                     this.pushError(JCM.typenameUsedInLibrary(tdn.identifier), tdn.range, tdn.module, "error");
                     continue;
                 }
@@ -281,6 +282,7 @@ export class TypeResolver {
                 if (type) {
                     typeNode.resolvedType = type;
                     if (type.hasGenericParameters() && !isPartOfGenericType) {
+                        if (brauchtInhaltstyp(type)) this.pushError(ohneInhaltstyp(type.identifier), typeNode.range, module);   // GSG: Stack ohne <…>
                         // if(type.identifier != 'Group') this.pushError(JCM.genericTypeWithNonGenericReference(type.toString()), typeNode.range, module, "warning");
                         let baseType: ASTTypeNode = Object.assign({}, typeNode);
 
@@ -322,7 +324,7 @@ export class TypeResolver {
                     // TODO: Check upper/lower bounds of gp against gpType!
                     if (gpType) {
                         if (gpType.isPrimitive) {
-                            this.pushError(JCM.noPrimitiveTypeForGenericParameter(baseType.identifier), typeNode.range, module);
+                            this.pushError(grundtypAlsInhaltstyp(baseType.identifier, gpType.identifier), typeNode.range, module);   // GSG: mit Hüllklasse
                         } else {
                             typeMap.set(gp, <NonPrimitiveType>gpType);
                         }

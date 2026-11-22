@@ -26,7 +26,7 @@ function blocks(code: string): BlockState[] {
 }
 
 const CODE = lines(
-    "ArrayList<Circle> münzen = new ArrayList<Circle>();",
+    "Liste<Circle> münzen = new Liste<>();",
     "Sprite figur = new Sprite(400, 300, SpriteLibrary.Ship_1, 0);",
     "for (int durchlauf = 1; durchlauf <= 10; durchlauf++) {",
     "    Circle münze = new Circle(Random.randint(20, 780), Random.randint(20, 580), 10);",

@@ -43,7 +43,7 @@ export class StructogramView {
             b.addEventListener("click", action);
             return b;
         };
-        this.takeButton = button("＋ Datei", "Als Struktogramm-Datei anlegen (zum Bearbeiten, Austeilen, Umwandeln in Java)", () => this.takeOver());
+        this.takeButton = button("＋ Datei", "Als Struktogramm-Datei anlegen (zum Bearbeiten, Austeilen, Umwandeln in Code)", () => this.takeOver());
         bar.append(title, this.takeButton,
             button("⤓ SVG", "Als Vektorbild speichern (z. B. für Arbeitsblätter)", () => this.saveSvg()),
             button("⤓ PNG", "Als Bild speichern", () => this.savePng()),
@@ -135,7 +135,7 @@ export class StructogramView {
         if (this.diagrams.length > 1 && !confirm(`Für jedes der ${this.diagrams.length} Struktogramme eine Struktogramm-Datei anlegen?`)) return;
         const base = (this.file?.name ?? "Programm").replace(/\.java$/i, "");
         for (const d of this.diagrams) {
-            const main = /^Hauptprogramm(?:\s+„(.+)“)?$/u.exec(d.title);
+            const main = d.main ? [d.title, d.title === "Hauptprogramm" ? undefined : d.title] : null;
             const keyPart = /^wenn .*: ([\p{L}_$][\p{L}\p{N}_$]*)$/u.exec(d.title);   // Programmteile (Taste, Nachricht, Klick, Start)
             const name = main ? (main[1]?.replace(/[\\/:*?"<>|]/g, "").trim() || base) : keyPart ? keyPart[1]
                 : (/^(?:Konstruktor\s+)?([\p{L}_$][\p{L}\p{N}_$]*)/u.exec(d.title)?.[1] ?? base);

@@ -1,5 +1,6 @@
 import * as Blockly from "blockly/core";
 import { VAR_TYPES } from "./BlockTypes";
+import { adtTypeName } from "./AdtSpec";
 import { FIGURE_CLASSES } from "./FigureSpec";
 import { classInfos, typeLabel } from "./BlockTypeSystem";
 import { labelMode } from "./BlockLabels";
@@ -45,8 +46,9 @@ export class FieldType extends Blockly.FieldDropdown {
         if (mode !== "element" && mode !== "simple" && !bloeckly) {
             groups.push([...scalars, ...classes].map((t) => t + "[]"));
             groups.push(scalars.map((t) => t + "[][]"));
-            groups.push([...scalars, ...classes].map((t) => `ArrayList<${({ int: "Integer", double: "Double", boolean: "Boolean", char: "Character" } as Record<string, string>)[t] ?? t}>`));
-            groups.push(["DynArray", "Stack", "Queue", "BinTree"]);
+            groups.push([...scalars, ...classes].map((t) => `Liste<${({ int: "Integer", double: "Double", boolean: "Boolean", char: "Character" } as Record<string, string>)[t] ?? t}>`));
+            // Abiturklassen mit Inhaltstyp (22.11.2026): DynArray<Integer>, Stack<String> …
+            for (const cls of ["DynArray", "Stack", "Queue", "BinTree"] as const) groups.push(scalars.map((t) => adtTypeName(cls, t)));
         }
         // Elemente einer Liste bzw. Reihung dürfen auch Figuren sein (Paket 15e: viele Figuren)
         if (mode === "element" && !bloeckly) groups.push([...FIGURE_CLASSES]);

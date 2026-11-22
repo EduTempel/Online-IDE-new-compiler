@@ -32,7 +32,7 @@ export class LoginMessages {
     });
     
     static webGLNotSupported = () => lm({
-        'de': "Von diesem Browser wird WebGL nicht unterstützt. Es kann daher sein, dass die Grafikfunktionen der Online-IDE nicht oder nur eingeschränkt funktionieren. Bitte verwenden Sie einen aktuellen Browser wie Chrome, Firefox, Edge oder Safari.",
+        'de': "Von diesem Browser wird WebGL nicht unterstützt. Es kann daher sein, dass die Grafikfunktionen von InfoLab nicht oder nur eingeschränkt funktionieren. Bitte verwenden Sie einen aktuellen Browser wie Chrome, Firefox, Edge oder Safari.",
         'en': 'WebGL is not supported by this browser. Therefore, the graphics functions of the online IDE may not work or only work to a limited extent. Please use a modern browser such as Chrome, Firefox, Edge or Safari.'
     });
 

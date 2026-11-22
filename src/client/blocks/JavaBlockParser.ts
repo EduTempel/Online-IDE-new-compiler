@@ -1,9 +1,9 @@
 import { Lexer } from "../../compiler/java/lexer/Lexer";
 import { TokenType } from "../../compiler/java/TokenType";
 import { B, COLLECTION_CALLS, elementJavaType, INPUT_METHODS, MATH_FUNCTIONS, VAR_TYPES, type BlockState, type CollKind, type Param, type WorkspaceState } from "./BlockTypes";
-import { attributesOf, collectionOfType, collectionType, findMethod, isClassType, methodsOf, typeInfo, unwrap, type ClassInfo, type ClassMap } from "./ClassModel";
+import { attributesOf, collectionOfType, collectionType, findMethod, isClassType, LISTEN_KLASSEN, methodsOf, typeInfo, unwrap, type ClassInfo, type ClassMap } from "./ClassModel";
 import { ANY_TARGET, EDGE_TARGET, FIGURE_ACTIONS, FIGURE_CALLS, FIGURE_CREATIONS, FIGURE_PROPS, FILLED, isFigureClass, MOUSE_TARGET, type FigureClass } from "./FigureSpec";
-import { ADT_CALLS, ADT_CREATIONS, ADT_GET_TYPES, getOp, isAdtClass, TREE_DELETES, TREE_SIDES, TREE_TESTS, type AdtClass } from "./AdtSpec";
+import { ADT_CALLS, ADT_CREATIONS, ADT_GET_TYPES, adtClassOf, adtTypeName, adtTypeOf, getOp, TREE_DELETES, TREE_SIDES, TREE_TESTS, type AdtClass } from "./AdtSpec";
 import { CLICK_PART_ANNOTATION, KEY_PART_ANNOTATION, MESSAGE_PART_ANNOTATION, START_PART_ANNOTATION } from "../../compiler/common/interpreter/GsgParts";
 import {
     availableFor, BL_BLOCKS, BL_HATS, FIGURE_SUPER, formAvailable, isDefaultHatName, isFormLiteral, istBlListe, parsedForm, specialValues, STAGE_SUPER,
@@ -130,6 +130,9 @@ export class JavaBlockParser {
         this.baseVars = this.vars;
         const vars: BlockState[] = [];
         const hats: BlockState[] = [];
+        // 11.11.2026: Variablen direkt vor einem Skript stehen in Blöckly oben in diesem Skript
+        const pending: BlockState[] = [];
+        const flush = () => { vars.push(...pending); pending.length = 0; };
         let ctor = "";
         this.pos = c + 5;
         while (this.pos < end) {
@@ -137,6 +140,7 @@ export class JavaBlockParser {
             const t = this.peek()!;
             if (t.tt === TokenType.comment) {
                 this.pos++;
+                flush();
                 vars.push(this.commentBlock(begin));
                 continue;
             }
@@ -150,6 +154,7 @@ export class JavaBlockParser {
                     const close = this.matching(begin + 1);
                     if (toks[close + 1]?.tt === TokenType.leftCurlyBracket) {
                         const bodyEnd = this.matching(close + 1);
+                        flush();
                         ctor = this.text(begin, bodyEnd + 1);
                         this.pos = bodyEnd + 1;
                         continue;
@@ -158,15 +163,31 @@ export class JavaBlockParser {
                     if (!(e instanceof Fail)) throw e;
                 }
             }
-            const hat = this.tryBloecklyHat() ?? this.tryMethod();
+            const script = this.tryBloecklyHat();
+            const hat = script ?? this.tryMethod();
             if (hat) {
                 hat.x = 20;
                 hat.y = 20 + hats.length * 200;   // der Kopf ist in der Fläche unsichtbar
+                if (script && pending.length) {
+                    for (let i = 0; i < pending.length - 1; i++) pending[i].next = { block: pending[i + 1] };
+                    const body = script.inputs?.BODY?.block;
+                    if (body) pending[pending.length - 1].next = { block: body };
+                    script.inputs = { ...(script.inputs ?? {}), BODY: { block: pending[0] } };
+                    pending.length = 0;
+                }
+                flush();
                 hats.push(hat);
                 continue;
             }
-            vars.push(this.tryBloecklyVar() ?? this.rawStatement());
+            const v = this.tryBloecklyVar();
+            if (v) {
+                pending.push(v);
+                continue;
+            }
+            flush();
+            vars.push(this.rawStatement());
         }
+        flush();
         for (let i = vars.length - 2; i >= 0; i--) vars[i].next = { block: vars[i + 1] };
         const state: HeaderState = {
             klasse: cls, oberklasse: superName, ctor,
@@ -255,17 +276,17 @@ export class JavaBlockParser {
         const name = String(this.toks[ty.next].value);
         const after = this.toks[ty.next + 1]?.tt;
         const fields = { NAME: name, TYPE: ty.type };
-        // Paket 19f: Liste – ArrayList<Double> namen = new ArrayList<Double>();  (auch new ArrayList<>())
+        // Paket 19f: Liste – Liste<Double> namen = new Liste<>();  (auch new Liste<Double>(), ältere Programme ArrayList)
         if (istBlListe(ty.type)) {
             const t = (i: number) => this.toks[ty.next + i];
             const w = String(t(5)?.value ?? "");
             const diamond = t(5)?.tt === TokenType.greater;
             const leer = diamond ? 5 : 6;
-            if (after !== TokenType.assignment || t(2)?.tt !== TokenType.keywordNew || t(3)?.value !== "ArrayList" || t(4)?.tt !== TokenType.lower
-                || (!diamond && (ty.type !== `ArrayList<${w}>` || t(6)?.tt !== TokenType.greater)) || t(leer + 1)?.tt !== TokenType.leftBracket
+            if (after !== TokenType.assignment || t(2)?.tt !== TokenType.keywordNew || !LISTEN_KLASSEN.has(String(t(3)?.value)) || t(4)?.tt !== TokenType.lower
+                || (!diamond && (ty.type !== `Liste<${w}>` || t(6)?.tt !== TokenType.greater)) || t(leer + 1)?.tt !== TokenType.leftBracket
                 || t(leer + 2)?.tt !== TokenType.rightBracket || t(leer + 3)?.tt !== TokenType.semicolon) return undefined;
             this.pos = ty.next + leer + 4;
-            return this.block(B.blVar, begin, this.pos, { fields });
+            return this.block(B.blList, begin, this.pos, { fields });
         }
         if (!(VAR_TYPES as readonly string[]).includes(ty.type)) return undefined;
         if (after === TokenType.semicolon) {
@@ -460,22 +481,28 @@ export class JavaBlockParser {
     // ------------------------------------------------------------------ Datentypen und Klassen
 
     /**
-     * Datentyp ab Token i: int, String, Hund, int[], Hund[][], ArrayList<Integer>, DynArray …
-     * Liefert den Typ als Text und die Position dahinter (oder undefined).
+     * Datentyp ab Token i: int, String, Hund, int[], Hund[][], Liste<Integer>, DynArray<Integer> …
+     * Liefert den Typ als Text und die Position dahinter (oder undefined). ArrayList<X> wird zu Liste<X> (22.11.2026).
      */
     typeAt(i: number): { type: string; next: number } | undefined {
         const t = this.toks[i];
         if (t?.tt !== TokenType.identifier) return undefined;
         let type = String(t.value), k = i + 1;
-        if (type === "ArrayList") {
+        if (LISTEN_KLASSEN.has(type) && (type === "ArrayList" || this.toks[k]?.tt === TokenType.lower)) {   // Liste ohne <…>: eigene Klasse
             const w = this.toks[k + 1];
             if (this.toks[k]?.tt !== TokenType.lower || w?.tt !== TokenType.identifier || this.toks[k + 2]?.tt !== TokenType.greater) return undefined;
-            type = `ArrayList<${String(w.value)}>`;
+            type = `Liste<${String(w.value)}>`;
+            k += 3;
+        } else if (adtTypeOf(type) && this.toks[k]?.tt === TokenType.lower) {
+            // Abiturklassen mit Inhaltstyp: Stack<Integer>, DynArray<String> (22.11.2026)
+            const w = this.toks[k + 1];
+            if (w?.tt !== TokenType.identifier || this.toks[k + 2]?.tt !== TokenType.greater) return undefined;
+            type = `${type}<${String(w.value)}>`;
             k += 3;
         }
         let dims = 0;
         for (let n; (n = this.emptyBrackets(k)) > 0; dims++) k += n;
-        if (dims > 2 || (dims > 0 && type.startsWith("ArrayList"))) return undefined;
+        if (dims > 2 || (dims > 0 && type.startsWith("Liste<"))) return undefined;
         return { type: type + "[]".repeat(dims), next: k };
     }
 
@@ -731,11 +758,19 @@ export class JavaBlockParser {
         return b;
     }
 
+    /** Parameter als Variablen; Abiturklassen ohne Inhaltstyp (ältere Programme) können ihn noch bekommen */
+    private useParams(params: Param[]) {
+        for (const p of params) {
+            this.vars.set(p.name, p.type);
+            if (adtTypeOf(p.type) && !adtTypeOf(p.type)!.elem) this.rawAdt.set(p.name, { param: p, type: p.type });
+        }
+    }
+
     /** Rumpf einer Operation bzw. eines Konstruktors mit den Parametern als Variablen */
     private methodBody(params: Param[]): BlockState | undefined {
         const outer = this.vars;
         this.vars = new Map(outer);
-        for (const p of params) this.vars.set(p.name, p.type);
+        this.useParams(params);
         try {
             this.expect(TokenType.leftCurlyBracket);
             const body = this.statementList(true);
@@ -768,7 +803,9 @@ export class JavaBlockParser {
                 return methodsOf(this.classes, this.currentClass).find((m) => m.name === f.NAME)?.ret ?? this.topMethods.get(f.NAME ?? "");
             case B.arrayGet: case B.listGet: return this.collection(f.NAME ?? "")?.elem ?? undefined;
             case B.array2dGet: return this.collection(f.NAME ?? "")?.elem ?? undefined;
-            case B.dynGet: return f.TYPE && f.TYPE !== "Object" ? f.TYPE : undefined;
+            case B.dynGet: return this.collection(f.NAME ?? "")?.elem ?? undefined;
+            case B.stackGet: case B.queueGet: case B.treeItem: return adtTypeOf(this.vars.get(f.NAME ?? ""))?.elem ?? undefined;
+            case B.treeChild: return this.vars.get(f.NAME ?? "");
             case B.text: case B.concat: case B.strSubstring: case B.strCase: return "String";
         }
         return undefined;
@@ -838,7 +875,7 @@ export class JavaBlockParser {
         try {
             const close = this.matching(ret.next + 1);
             const params = this.parseParams(ret.next + 1, close);
-            for (const p of params) this.vars.set(p.name, p.type);
+            this.useParams(params);
             this.pos = close + 1;
             if (!this.is(TokenType.leftCurlyBracket)) throw new Fail();
             this.pos++;
@@ -1321,14 +1358,15 @@ export class JavaBlockParser {
             const valueTok = this.toks[decl.next + 2];
             const isNew = afterName.tt === TokenType.assignment && valueTok?.tt === TokenType.keywordNew;
             if ((info.kind === "array" || info.kind === "array2d") && (isNew || valueTok?.tt === TokenType.leftCurlyBracket)) return this.arrayDeclaration();
-            if (info.kind === "list" && isNew && this.toks[decl.next + 3]?.value === "ArrayList") return this.listDeclaration();
-            if (info.kind === "dyn" && isNew && this.toks[decl.next + 3]?.value === "DynArray") return this.dynDeclaration();
+            if (info.kind === "list" && isNew && LISTEN_KLASSEN.has(String(this.toks[decl.next + 3]?.value))) return this.listDeclaration();
+            if (info.kind === "dyn" && isNew && this.toks[decl.next + 3]?.value === "DynArray") return this.dynDeclaration(decl.type, decl.next);
             if (isFigureClass(decl.type) && isNew) {
                 const f = this.figureDeclaration(decl.type, String(declName.value), decl.next + 2);
                 if (f) return f;
             }
-            if (isAdtClass(decl.type) && isNew) {
-                const a = this.adtDeclaration(decl.type, String(declName.value), decl.next + 2);
+            const adtCls = adtClassOf(decl.type);
+            if (adtCls && isNew) {
+                const a = this.adtDeclaration(adtCls, adtTypeOf(decl.type)!.elem, String(declName.value), decl.next + 2);
                 if (a) return a;
             }
             this.pos = decl.next + 1;
@@ -1345,6 +1383,12 @@ export class JavaBlockParser {
             this.pos = end + 1;
             const b = this.block(B.varDeclare, begin, this.pos, { fields });
             b.inputs = { VALUE: { block: this.expression(valueStart, end) } };
+            // ältere Programme: BinTree links = baum.getLeft(); – Inhaltstyp vom Wert übernehmen
+            const raw = adtTypeOf(decl.type), valueType = adtTypeOf(this.staticType(b.inputs.VALUE.block));
+            if (raw && !raw.elem && valueType?.cls === raw.cls && valueType.elem) {
+                b.fields = { ...b.fields, TYPE: adtTypeName(raw.cls, valueType.elem) };
+                this.vars.set(fields.NAME, b.fields.TYPE);
+            }
             return b;
         }
 
@@ -1395,8 +1439,9 @@ export class JavaBlockParser {
             const f = this.figureStatement(name, figureType);
             if (f) return f;
         }
-        if (isAdtClass(figureType) && second.tt === TokenType.dot) {
-            const a = this.adtStatement(name, figureType);
+        const adtCls = adtClassOf(figureType);
+        if (adtCls && second.tt === TokenType.dot) {
+            const a = this.adtStatement(name, adtCls);
             if (a) return a;
         }
         const coll = this.collection(name);
@@ -1570,21 +1615,61 @@ export class JavaBlockParser {
         return undefined;
     }
 
-    /** Stack s = new Stack();  Queue q = new Queue();  BinTree b = new BinTree();  BinTree b = new BinTree(5); */
-    private adtDeclaration(cls: AdtClass, name: string, newIndex: number): BlockState | undefined {
+    /**
+     * Stack<Integer> s = new Stack<>();  Queue<String> q = new Queue<String>();  BinTree<Integer> b = new BinTree<>(5);
+     * Ohne Inhaltstyp (ältere Programme: Stack s = new Stack();) wird er aus einer Typumwandlung wie (String) s.pop()
+     * erraten, sonst Ganzzahl – die Blöcke erzeugen dann den Code mit Inhaltstyp.
+     */
+    private adtDeclaration(cls: AdtClass, elem: string | null, name: string, newIndex: number): BlockState | undefined {
         const begin = this.pos;
-        const open = newIndex + 2;
-        if (this.toks[newIndex + 1]?.value !== cls || this.toks[open]?.tt !== TokenType.leftBracket) return undefined;
+        if (this.toks[newIndex + 1]?.value !== cls) return undefined;
+        const diamond = this.diamondAt(newIndex + 2, elem);
+        if (diamond === undefined) return undefined;
+        elem = elem ?? diamond;
+        const open = newIndex + 2 + (this.toks[newIndex + 2]?.tt === TokenType.lower ? (diamond ? 3 : 2) : 0);
+        if (this.toks[open]?.tt !== TokenType.leftBracket) return undefined;
         const close = this.matching(open);
         if (this.toks[close + 1]?.tt !== TokenType.semicolon) return undefined;
         const args = this.argBounds(open, close);
         if (!args || args.length > (cls === "BinTree" ? 1 : 0)) return undefined;
         const inputs = args.length ? { V: { block: this.expression(args[0][0], args[0][1]) } } : undefined;
         this.pos = close + 2;
-        this.vars.set(name, cls);
-        const b = this.block(ADT_CREATIONS.find((c) => c.cls === cls)!.block, begin, this.pos, { fields: { NAME: name } });
+        this.vars.set(name, adtTypeName(cls, elem ?? "int"));
+        const b = this.block(ADT_CREATIONS.find((c) => c.cls === cls)!.block, begin, this.pos, { fields: { NAME: name, TYPE: elem ?? "int" } });
         if (inputs) b.inputs = inputs;
+        if (!elem) this.rawAdt.set(name, { block: b, type: this.vars.get(name)! });
         return b;
+    }
+
+    /**
+     * Hinter "new Klasse" an Position i: "<>" bzw. "<Typ>" (passend zu elem) oder nichts. Liefert den Inhaltstyp
+     * aus "<Typ>" bzw. null, undefined wenn es nicht passt.
+     */
+    private diamondAt(i: number, elem: string | null): string | null | undefined {
+        if (this.toks[i]?.tt !== TokenType.lower) return null;
+        if (this.toks[i + 1]?.tt === TokenType.greater) return null;
+        const w = this.toks[i + 1];
+        if (w?.tt !== TokenType.identifier || this.toks[i + 2]?.tt !== TokenType.greater) return undefined;
+        const e = unwrap(String(w.value));
+        return elem && elem !== e ? undefined : e;
+    }
+
+    /**
+     * Deklarationen ohne Inhaltstyp (Name -> Block und vorläufiger Datentyp), deren Inhaltstyp noch aus einer
+     * Typumwandlung kommen kann – nur solange der Name noch diese Variable meint (nicht ein Parameter woanders)
+     */
+    rawAdt = new Map<string, { block?: BlockState; param?: Param; type: string }>();
+
+    /** (String) s.pop() bei "Stack s" ohne Inhaltstyp: der Inhaltstyp ist String (true, wenn so erraten) */
+    guessContentType(name: string, elem: string): boolean {
+        const raw = this.rawAdt.get(name);
+        if (!raw || this.vars.get(name) !== raw.type) return false;
+        this.rawAdt.delete(name);
+        const t = adtTypeOf(raw.type)!;
+        if (raw.block) raw.block.fields = { ...raw.block.fields, TYPE: elem };
+        if (raw.param) raw.param.type = adtTypeName(t.cls, elem);
+        this.vars.set(name, adtTypeName(t.cls, elem));
+        return true;
     }
 
     /** s.push(v);  s.pop();  q.enqueue(v);  b.setItem(v);  b.setLeft(t);  b.deleteRight(); … */
@@ -1705,7 +1790,7 @@ export class JavaBlockParser {
         return b;
     }
 
-    /** ArrayList<Integer> l = new ArrayList<Integer>();  (auch new ArrayList<>()) */
+    /** Liste<Integer> l = new Liste<>();  (auch new Liste<Integer>(), ältere Programme ArrayList) */
     private listDeclaration(): BlockState {
         const begin = this.pos;
         this.pos++;
@@ -1716,7 +1801,7 @@ export class JavaBlockParser {
         const name = String(this.expect(TokenType.identifier).value);
         this.expect(TokenType.assignment);
         this.expect(TokenType.keywordNew);
-        if (this.expect(TokenType.identifier).value !== "ArrayList") throw new Fail();
+        if (!LISTEN_KLASSEN.has(String(this.expect(TokenType.identifier).value))) throw new Fail();
         this.expect(TokenType.lower);
         if (this.is(TokenType.identifier)) {
             if (this.peek()!.value !== wrapper) throw new Fail();
@@ -1730,19 +1815,26 @@ export class JavaBlockParser {
         return this.block(B.listNew, begin, this.pos, { fields: { NAME: name, TYPE: elem } });
     }
 
-    /** DynArray d = new DynArray(); */
-    private dynDeclaration(): BlockState {
+    /** DynArray<Integer> d = new DynArray<>();  (ältere Programme: DynArray d = new DynArray();) */
+    private dynDeclaration(type: string, next: number): BlockState {
         const begin = this.pos;
-        this.pos++;
+        let elem = adtTypeOf(type)?.elem ?? null;
+        this.pos = next;
         const name = String(this.expect(TokenType.identifier).value);
         this.expect(TokenType.assignment);
         this.expect(TokenType.keywordNew);
         if (this.expect(TokenType.identifier).value !== "DynArray") throw new Fail();
+        const diamond = this.diamondAt(this.pos, elem);
+        if (diamond === undefined) throw new Fail();
+        if (this.is(TokenType.lower)) this.pos += diamond ? 3 : 2;
+        elem = elem ?? diamond;
         this.expect(TokenType.leftBracket);
         this.expect(TokenType.rightBracket);
         this.expect(TokenType.semicolon);
-        this.remember(name, "dyn", null);
-        return this.block(B.dynNew, begin, this.pos, { fields: { NAME: name } });
+        this.remember(name, "dyn", elem ?? "int");
+        const b = this.block(B.dynNew, begin, this.pos, { fields: { NAME: name, TYPE: elem ?? "int" } });
+        if (!elem) this.rawAdt.set(name, { block: b, type: this.vars.get(name)! });
+        return b;
     }
 
     /** a[i] = v;  m[r][c] = v;  liste.add(v);  d.insertAt(i, v); … */
@@ -1978,15 +2070,16 @@ class ExpressionParser {
             // Typumwandlung: (int) x, (double) x, (char) x
             const castType = this.p.tok(start + 1), castClose = this.p.tok(start + 2);
             const ct = String(castType?.value);
-            const dynGetFollows = this.isDynGetAt(start + 3);
+            const dynGetFollows = this.isDynGetAt(start + 3);   // Element einer Abiturklasse
             if (castType?.tt === TokenType.identifier && castClose?.tt === TokenType.rightBracket && start + 3 < this.to
                 && (["int", "double", "char"].includes(ct) || (dynGetFollows && ((VAR_TYPES as readonly string[]).includes(ct) || this.p.extended)))) {
                 this.pos = start + 3;
                 const inner = this.unary();
-                // (int) d.getItem(i), (int) s.top() …: Element als Ganzzahl
-                if ((inner.type === B.dynGet || ADT_GET_TYPES.has(inner.type)) && inner.fields?.TYPE === "Object") {
-                    inner.fields.TYPE = ct;
-                    return inner;
+                // (int) d.getItem(i), (String) s.top() …: ältere Programme ohne Inhaltstyp – die Umwandlung
+                // verrät den Inhaltstyp; sonst ist sie überflüssig, wenn sie zum Inhaltstyp passt
+                if (inner.type === B.dynGet || ADT_GET_TYPES.has(inner.type)) {
+                    const name = String(inner.fields?.NAME ?? "");
+                    if (this.p.guessContentType(name, ct) || this.p.staticType(inner) === ct) return inner;
                 }
                 if (!["int", "double", "char"].includes(ct)) throw new Fail();
                 return this.p.value(B.cast, { fields: { TYPE: ct }, inputs: { VALUE: { block: inner } } });
@@ -2029,9 +2122,11 @@ class ExpressionParser {
             this.chain();
             return this.p.value(B.javaExpression, { fields: { CODE: this.p.sourceText(start, this.pos) } });
         }
-        // new Klasse(…): neues Objekt
-        if (t.tt === TokenType.keywordNew && this.p.tok(start + 1)?.tt === TokenType.identifier && this.p.tok(start + 2)?.tt === TokenType.leftBracket) {
-            const open = start + 2, close = this.p.matchingBracket(open);
+        // new Klasse(…): neues Objekt (Abiturklassen mit "<>": new BinTree<>(5))
+        const diamond = t.tt === TokenType.keywordNew && adtClassOf(String(this.p.tok(start + 1)?.value ?? ""))
+            && this.p.tok(start + 2)?.tt === TokenType.lower && this.p.tok(start + 3)?.tt === TokenType.greater ? 2 : 0;
+        if (t.tt === TokenType.keywordNew && this.p.tok(start + 1)?.tt === TokenType.identifier && this.p.tok(start + 2 + diamond)?.tt === TokenType.leftBracket) {
+            const open = start + 2 + diamond, close = this.p.matchingBracket(open);
             if (close >= this.to) throw new Fail();
             const b = this.p.value(B.objNew, { fields: { CLASS: String(this.p.tok(start + 1)!.value) } });
             this.p.addArguments(b, open, close);
@@ -2080,8 +2175,8 @@ class ExpressionParser {
         let b = base;
         while (this.peek()?.tt === TokenType.dot) {
             // Stapel, Schlange, Binärbaum: s.top(), q.isEmpty(), b.getLeft(), b.isLeaf() …
-            const adtType = b.type === B.varGet ? this.p.staticType(b) : undefined;
-            if (isAdtClass(adtType)) {
+            const adtType = b.type === B.varGet ? adtClassOf(this.p.staticType(b)) : undefined;
+            if (adtType) {
                 const adt = this.adtValue(String(b.fields?.NAME ?? ""), adtType);
                 if (adt) {
                     b = adt;
@@ -2194,7 +2289,8 @@ class ExpressionParser {
         if (a?.tt !== TokenType.identifier || dot?.tt !== TokenType.dot) return false;
         if (this.p.collection(String(a.value))?.kind === "dyn" && m?.value === "getItem") return true;
         const t = this.p.staticType({ type: B.varGet, fields: { NAME: String(a.value) } } as BlockState);
-        return isAdtClass(t) && !!getOp(t, String(m?.value ?? ""));
+        const cls = adtClassOf(t);
+        return !!cls && !!getOp(cls, String(m?.value ?? ""));
     }
 
     /** a[i], m[r][c], a.length, m[0].length, liste.get(i), liste.size(), d.getItem(i) … */
@@ -2234,7 +2330,7 @@ class ExpressionParser {
         const method = String(tok(2)!.value);
         const spec = COLLECTION_CALLS.find((c) => c.kind === kind && c.method === method && c.args.length === argc && !c.stmt);
         if (!spec) return undefined;
-        const b = this.p.value(spec.type, { fields: spec.type === B.dynGet ? { ...fields, TYPE: "Object" } : fields });
+        const b = this.p.value(spec.type, { fields });
         this.p.callInputs(b, spec.args, open, close);
         this.pos = close + 1;
         return b;
@@ -2264,7 +2360,7 @@ class ExpressionParser {
         const method = String(m.value);
         let result: BlockState | undefined;
         const get = getOp(cls, method);
-        if (get) result = this.p.value(get.block, { fields: { OP: method, NAME: name, TYPE: "Object" } });
+        if (get) result = this.p.value(get.block, { fields: { OP: method, NAME: name } });
         else if (method === "isEmpty") result = this.p.value(B.adtIsEmpty, { fields: { NAME: name } });
         else if (cls === "BinTree") {
             const side = TREE_SIDES.find(([, , , read]) => read === method);

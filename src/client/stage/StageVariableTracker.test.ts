@@ -90,7 +90,7 @@ int b = 3;
     });
 
     test("neu übersetzen nach dem Lauf (z. B. Block verschoben): Endwerte bleiben stehen", async () => {
-        const code = `ArrayList<Integer> liste = new ArrayList<Integer>();
+        const code = `Liste<Integer> liste = new Liste<>();
 liste.add(5);
 int zahl = 3;
 `;
@@ -120,13 +120,13 @@ int danach = 9;
 
 describe("Listenanzeige: Positionen und Länge", () => {
     test("Liste, Reihung und dynamische Reihung: Elemente einzeln und Länge; nach clear leer", async () => {
-        const { interpreter, tracker } = await setup(`ArrayList<Double> werte = new ArrayList<Double>();
+        const { interpreter, tracker } = await setup(`Liste<Double> werte = new Liste<>();
 werte.add(1.0);
 werte.add(2.5);
 char[] zeichen = {'a', 'b', 'c'};
-DynArray d = new DynArray();
+DynArray<String> d = new DynArray<>();
 d.append("Ada");
-ArrayList<String> leer = new ArrayList<String>();
+Liste<String> leer = new Liste<>();
 leer.add("weg");
 leer.clear();
 int zahl = 4;
@@ -141,7 +141,7 @@ int zahl = 4;
     });
 
     test("lange Liste: höchstens 100 Elemente, Länge stimmt", async () => {
-        const { interpreter, tracker } = await setup(`ArrayList<Integer> viele = new ArrayList<Integer>();
+        const { interpreter, tracker } = await setup(`Liste<Integer> viele = new Liste<>();
 for (int i = 0; i < 150; i++) {
     viele.add(i);
 }
@@ -195,6 +195,14 @@ describe("Gültigkeitsbereiche (Paket 16g)", () => {
         expect(has(seen, ["Hauptprogramm: summe=0", "  in der for-Schleife (Zeile 2–5): i=1, quadrat=1"])).toBe(true);
         expect(has(seen, ["Hauptprogramm: summe=0", "  in der for-Schleife (Zeile 2–5): i=1, quadrat=1", "Methode zeige(): wert=1, doppelt=2"])).toBe(true);
         expect(groups(tracker.monitors)).toEqual(["Hauptprogramm: summe=10"]);
+    });
+
+    test("benanntes Hauptprogramm: Überschrift ist nur der Name des Programms", async () => {
+        const { interpreter, tracker } = await setup("// Hauptprogramm „Rechnen“\n" + PROGRAM);
+        const seen = stepwiseGroups(interpreter, tracker);
+        expect(has(seen, ["Rechnen: summe=0", "  in der for-Schleife (Zeile 3–6): i=1, quadrat=1", "Methode zeige(): wert=1, doppelt=2"])).toBe(true);
+        expect(seen.flat().some((g) => g.startsWith("Hauptprogramm"))).toBe(false);
+        expect(groups(tracker.monitors)).toEqual(["Rechnen: summe=10"]);
     });
 
     test("Blöcke: Namen der Blöcke statt Java-Wörtern", async () => {

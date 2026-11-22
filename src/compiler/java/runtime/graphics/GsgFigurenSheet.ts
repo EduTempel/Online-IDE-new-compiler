@@ -26,7 +26,7 @@ export function loadGsgFigurenSheet(jsonUrl: string, pngUrl: string): Promise<vo
                 PIXI.Assets.cache.set(GSG_FIGUREN_SHEET_KEY, sheet);
             });
         }))
-        .catch((e) => console.warn("Bildtafel der Blöckly-Figuren nicht geladen:", e));
+        .catch((e) => console.warn("Bildtafel der Blocks-Figuren nicht geladen:", e));
 }
 
 /** die geladene Tafel (oder undefined, solange sie lädt) */

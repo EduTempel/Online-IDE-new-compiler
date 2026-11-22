@@ -1,5 +1,6 @@
 import { Main } from "../Main.js";
 import { toggleGrosseAnsicht } from './GrosseAnsicht.js';
+import { aussehenMenuText, aussehenUmschalten } from './GsgModern.js';
 import { openHandbook } from "../../handbook/Handbook.js";
 import { UserData, type GetSingleUseSessionTokenResponse } from "../../communication/Data.js";
 import { PasswordChanger } from "./UserMenu.js";
@@ -197,7 +198,9 @@ export class MainMenu {
                                 }
                             },
                             // GSG: größere Schrift, Zeilen und Knöpfe (Beamer, jüngere Schüler/innen)
-                            { identifier: "Große Ansicht ein/aus", action: () => { toggleGrosseAnsicht(this.main); } }
+                            { identifier: "Große Ansicht ein/aus", action: () => { toggleGrosseAnsicht(this.main); } },
+                            // GSG: Aussehen Modern │ Retro
+                            { identifier: aussehenMenuText(), action: () => { aussehenUmschalten(); } }
 
                         ]
                     }

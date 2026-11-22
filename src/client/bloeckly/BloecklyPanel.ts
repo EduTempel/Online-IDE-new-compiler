@@ -7,13 +7,14 @@ import type { Main } from "../main/Main";
 import { GUIFile } from "../workspace/File";
 import { bildchen, bildtafel, buehnenbildName, zeichne } from "./BloecklyBilder";
 import {
-    bibliotheksfigur, bildnummer, BUEHNEN_DATEI, buehnenQuelltext, figurQuelltext, freierName, HAUPTPROGRAMM,
-    hauptprogrammQuelltext, klassenname, liesProjekt, mitBuehnenbild, mitFigur, mitStart, namensFehler, umbenannt,
+    bibliotheksfigur, bildnummer, BUEHNEN_DATEI, buehnenQuelltext, figurQuelltext, freierName, HAUPTPROGRAMM, hatFlagge,
+    hauptprogrammHatMehr, hauptprogrammQuelltext, klassenname, liesProjekt, mitBuehnenbild, mitFigur, mitStart, namensFehler, umbenannt,
     type FigurInfo, type Projekt,
 } from "./BloecklyProjekt";
 import "/assets/css/gsg-bloeckly.css";
 import { dialog, el, knopf } from "./BloecklyDialog";
 import { eigeneFigurDialog, eigeneFigurEntfernen } from "./BloecklyEigeneFigur";
+import { istModern } from "../main/gui/GsgModern";
 import { beiEigenenFiguren, eigeneFiguren } from "../../compiler/java/runtime/graphics/GsgEigeneFiguren";
 
 /**
@@ -40,7 +41,7 @@ export function addBloecklyTab(main: Main, tabs: TabManager, outputTab: Tab): Ta
 }
 
 class BloecklyPanel {
-    private projekt: Projekt<GUIFile> = { figuren: [] };
+    private projekt: Projekt<GUIFile> = { figuren: [], weitere: [] };
     private workspace: unknown;
     private signatur = "";
     private beschaeftigt = false;
@@ -55,6 +56,11 @@ class BloecklyPanel {
     private liste = el("div", "gsg-bl-liste");
     private buehnenSpalte = el("div", "gsg-bl-buehnenspalte");
     private hinweis = el("div", "gsg-bl-hinweis");
+    /** Programmteile, die zu keiner Figur gehören (versteckte Blöcke im Hauptprogramm, fremde Dateien) */
+    private fremde = el("div", "gsg-bl-fremde");
+    /** über „Gehört zu keiner Figur“ geöffnet: darf im Editor stehen, obwohl weder Figur noch Bühne */
+    private angesehen?: GUIFile;
+    private umleitung = false;
 
     // Bühne
     private leiste = el("div", "gsg-bl-buehnenleiste");
@@ -64,6 +70,10 @@ class BloecklyPanel {
     // Skripte │ Kostüme
     private umschalter = el("div", "gsg-bl-umschalter");
     private kostuemFlaeche = el("div", "gsg-bl-kostueme");
+    /** an Stelle der Blöcke, wenn weder Figur noch Bühne gewählt ist (Blöcke gibt es nur bei Figuren und der Bühne) */
+    private ohneAuswahl = el("div", "gsg-bl-ohneauswahl");
+    /** nach dem Start bzw. Wechsel des Projekts: bis dahin die Bühne wählen (auch wenn die IDE die zuletzt offene Datei öffnet) */
+    private buehneBis = 0;
 
     constructor(private main: Main, private tab: Tab, private outputTab: Tab) {
         this.baueReiter();
@@ -96,7 +106,7 @@ class BloecklyPanel {
         // Paket 18i: eigene Bilder als Figur
         const hoch = knopf("＋ Eigene Figur hochladen", "Eigene Bilder (PNG, JPG, SVG) als Kostüme einer neuen Figur", "gsg-bl-knopf gsg-bl-neu gsg-bl-hoch");
         hoch.addEventListener("click", () => this.eigeneFigur());
-        haupt.append(this.kopf, this.liste, neu, hoch);
+        haupt.append(this.kopf, this.liste, neu, hoch, this.fremde);
         // neue Bildtafel (anderes Projekt, hochgeladen): Bildchen neu zeichnen
         beiEigenenFiguren(() => this.zeigeAlles());
         body.append(haupt, this.buehnenSpalte, this.hinweis);
@@ -131,7 +141,7 @@ class BloecklyPanel {
     }
 
     private baueUmschalter() {
-        const skripte = knopf("🧩 Skripte", "Skripte der Figur (Blöcke bzw. Java)", "gsg-bl-reiter");
+        const skripte = knopf("🧩 Skripte", "Skripte der Figur", "gsg-bl-reiter");
         const kostueme = knopf("🖌 Kostüme", "Kostüme der Figur bzw. Bühnenbilder", "gsg-bl-reiter");
         skripte.dataset.modus = "skripte";
         kostueme.dataset.modus = "kostueme";
@@ -148,6 +158,8 @@ class BloecklyPanel {
         bereich?.insertBefore(this.umschalter, document.getElementById("debugpanel")?.nextSibling ?? null);
         bereich?.insertBefore(this.kostuemFlaeche, document.getElementById("bottomdiv-outer"));
         this.kostuemFlaeche.style.display = "none";
+        bereich?.insertBefore(this.ohneAuswahl, document.getElementById("bottomdiv-outer"));
+        this.ohneAuswahl.style.display = "none";
     }
 
     private warteAufInterpreter() {
@@ -194,8 +206,15 @@ class BloecklyPanel {
         this.signatur = signatur;
         this.projekt = liesProjekt(dateien.filter((f) => !f.isFolder));
         if (anderesProjekt) {
+            this.angesehen = undefined;
             this.setzeVorschau(true);
-            if (ws && dateien.length === 0 && this.darfAendern()) {
+            // Blöckly startet mit der Bühne (die IDE öffnet sonst die zuletzt offene Datei); ein ganz neues Projekt
+            // dagegen mit seiner ersten Figur – dort steht schon „Wenn 🚩 angeklickt“
+            this.buehneBis = dateien.length > 0 ? Date.now() + 2500 : 0;
+            // leeres oder unvollständiges Projekt (z. B. ausgeteilt, über das Menü angelegt): Bühne und Hauptprogramm
+            // gleich anlegen – Blöcke gibt es nur bei Figuren und der Bühne
+            const unvollstaendig = dateien.length === 0 || !this.projekt.haupt || !this.projekt.buehne;
+            if (ws && unvollstaendig && this.darfAendern()) {
                 void this.einrichten();
                 return;
             }
@@ -232,13 +251,14 @@ class BloecklyPanel {
         this.liste.replaceChildren();
         this.buehnenSpalte.replaceChildren();
         this.hinweis.replaceChildren();
+        this.fremde.replaceChildren();
         const ok = !!p.haupt && !!p.buehne;
         this.tab.bodyDiv.classList.toggle("gsg-bl-kein-projekt", !ok);
         if (!ok) {
             const ws = this.main.getCurrentWorkspace();
-            this.hinweis.append(el("p", undefined, ws ? "Dieses Projekt ist noch kein Blöckly-Projekt (es fehlen Bühne oder Hauptprogramm)." : "Wähle links ein Projekt."));
+            this.hinweis.append(el("p", undefined, ws ? "Dieses Projekt ist noch kein Blocks-Projekt (es fehlen Bühne oder Hauptprogramm)." : "Wähle links ein Projekt."));
             if (ws && this.darfAendern()) {
-                const b = knopf("Als Blöckly-Projekt einrichten", "Bühne und Hauptprogramm anlegen");
+                const b = knopf("Als Blocks-Projekt einrichten", "Bühne und Hauptprogramm anlegen");
                 b.addEventListener("click", () => void this.einrichten());
                 this.hinweis.append(b);
             }
@@ -269,10 +289,71 @@ class BloecklyPanel {
         const wahl = knopf("Bühnenbild wählen", "Bühnenbild aus der Bibliothek");
         wahl.addEventListener("click", () => this.bildWaehlen());
         this.buehnenSpalte.append(el("div", "gsg-bl-spaltentitel", "Bühne"), kachel, wahl);
+        this.zeigeFremde();
+    }
+
+    /** Blöcke, die zu keiner Figur gehören, laufen mit – hier sind sie zu finden (sonst „unsichtbares Programm“) */
+    private zeigeFremde() {
+        const p = this.projekt;
+        const fremd = [...(p.haupt && hauptprogrammHatMehr(p.haupt.getText()) ? [p.haupt] : []), ...p.weitere];
+        if (fremd.length === 0) return;
+        const reihe = el("div", "gsg-bl-liste");
+        for (const datei of fremd) {
+            const kachel = el("button", "gsg-bl-kachel gsg-bl-fremdkachel");
+            kachel.type = "button";
+            kachel.title = `${datei.name}: Blöcke ansehen`;
+            kachel.append(el("span", "gsg-bl-dateisymbol", "📄"), el("span", "gsg-bl-name", datei.name));
+            kachel.addEventListener("click", () => this.ansehen(datei));
+            kachel.dataset.datei = datei.name;
+            reihe.append(kachel);
+        }
+        this.fremde.append(el("div", "gsg-bl-spaltentitel", "⚠ Gehört zu keiner Figur"),
+            el("p", "gsg-bl-leer", "Blöcke hier laufen beim Start mit, gehören aber weder zu einer Figur noch zur Bühne."), reihe);
+    }
+
+    /** Datei öffnen, die weder Figur noch Bühne ist (auch das sonst versteckte Hauptprogramm) */
+    private ansehen(datei: GUIFile) {
+        this.angesehen = datei;
+        const explorer = this.main.projectExplorer;
+        explorer.gsgHauptprogrammZeigen = datei === this.projekt.haupt;
+        try {
+            explorer.setFileActive(datei);
+        } finally {
+            explorer.gsgHauptprogrammZeigen = false;
+        }
+        this.zeigeAuswahl();
+    }
+
+    /** Darf diese Datei im Editor stehen? Figuren, die Bühne und ausdrücklich angesehene Dateien */
+    private istWaehlbar(datei: GUIFile | undefined): boolean {
+        const p = this.projekt;
+        return !!datei && (datei === p.buehne?.datei || datei === this.angesehen || p.figuren.some((f) => f.datei === datei));
+    }
+
+    /**
+     * In Blöckly ist immer eine Figur oder die Bühne gewählt – sonst landeten Blöcke „im Nirwana“ (z. B. im versteckten
+     * Hauptprogramm, das beim Start als zuletzt geöffnete Datei im Editor stehen kann). Sonst: erste Figur bzw. Bühne öffnen.
+     */
+    private sorgeFuerAuswahl() {
+        const ws = this.main.getCurrentWorkspace();
+        const p = this.projekt;
+        if (this.beschaeftigt || this.umleitung || !ws || ws !== this.workspace || !p.buehne) return;
+        const zurBuehne = Date.now() < this.buehneBis;
+        if (zurBuehne ? this.istBuehneAusgewaehlt() : this.istWaehlbar(this.aktuelleDatei())) return;
+        this.umleitung = true;
+        // nicht mitten im Wechsel des Editor-Modells umschalten
+        setTimeout(() => {
+            this.umleitung = false;
+            if (this.beschaeftigt || this.main.getCurrentWorkspace() !== ws) return;
+            if (Date.now() < this.buehneBis ? this.istBuehneAusgewaehlt() : this.istWaehlbar(this.aktuelleDatei())) return;
+            const ziel = this.projekt.buehne?.datei ?? this.projekt.figuren[0]?.datei;
+            if (ziel && ws.getFiles().includes(ziel)) this.main.projectExplorer.setFileActive(ziel);
+        }, 0);
     }
 
     /** Kopfzeile, Hervorhebung, Umschalter und Kostüme passend zur Datei im Editor */
     private zeigeAuswahl() {
+        this.sorgeFuerAuswahl();
         const datei = this.aktuelleDatei();
         for (const k of Array.from(this.tab.bodyDiv.querySelectorAll<HTMLElement>(".gsg-bl-kachel"))) {
             k.classList.toggle("gsg-bl-gewaehlt", !!datei && k.dataset.datei === datei.name);
@@ -281,8 +362,10 @@ class BloecklyPanel {
         const buehne = this.istBuehneAusgewaehlt();
         this.kopf.replaceChildren();
         if (fig) {
+            const { x, y } = this.position(fig);
             this.kopf.append(el("strong", undefined, fig.info.klasse),
-                el("span", "gsg-bl-pos", `x: ${Math.round(this.ziehen?.fig === fig ? this.ziehen.x : fig.info.x)}   y: ${Math.round(this.ziehen?.fig === fig ? this.ziehen.y : fig.info.y)}`));
+                istModern() ? this.positionsFelder(fig, Math.round(x), Math.round(y))
+                    : el("span", "gsg-bl-pos", `x: ${Math.round(x)}   y: ${Math.round(y)}`));
             if (this.darfAendern()) {
                 const umbenennen = knopf("✎", "Figur umbenennen", "gsg-bl-mini");
                 umbenennen.addEventListener("click", () => void this.umbenennen(fig));
@@ -292,6 +375,14 @@ class BloecklyPanel {
             }
         } else if (buehne) {
             this.kopf.append(el("strong", undefined, "Bühne"), el("span", "gsg-bl-pos", this.projekt.buehne!.info.bild || "ohne Bühnenbild"));
+        } else if (datei && datei === this.angesehen) {
+            this.kopf.append(el("strong", undefined, `⚠ ${datei.name}`), el("span", "gsg-bl-fremdhinweis",
+                "gehört zu keiner Figur – die Blöcke laufen trotzdem mit. Zieh sie auf eine Figur oder die Bühne (oder Strg+C, Figur anklicken, Strg+V) und entferne sie dann hier."));
+            if (this.darfAendern()) {
+                const weg = knopf("🗑 Entfernen", datei === this.projekt.haupt ? "Die Blöcke aus dem Hauptprogramm entfernen" : "Diese Datei löschen", "gsg-bl-mini");
+                weg.addEventListener("click", () => void this.fremdeEntfernen(datei));
+                this.kopf.append(weg);
+            }
         } else {
             this.kopf.append(el("span", "gsg-bl-pos", "Klicke eine Figur an, um ihre Skripte zu sehen."));
         }
@@ -315,10 +406,64 @@ class BloecklyPanel {
         }
         this.kostuemFlaeche.style.display = kostueme ? "" : "none";
         if (kostueme) this.zeigeKostueme(fig);
+        this.zeigeOhneAuswahl(!passend && !(datei && datei === this.angesehen) && !!this.main.getCurrentWorkspace());
         this.zeichneVorschau();
     }
 
+    /**
+     * Weder Figur noch Bühne gewählt (z. B. unvollständiges Projekt, das nicht eingerichtet werden darf): keine Blöcke
+     * zeigen – sonst entstünde ein Programm, das zu keiner Figur gehört und beim Wählen einer Figur „verschwindet“.
+     */
+    private zeigeOhneAuswahl(an: boolean) {
+        const bereich = document.getElementById("editoranderrors");
+        if (bereich && bereich.classList.contains("gsg-bl-ohne-auswahl") !== an) {
+            bereich.classList.toggle("gsg-bl-ohne-auswahl", an);
+            if (!an) setTimeout(() => window.dispatchEvent(new Event("resize")), 0);
+        }
+        this.ohneAuswahl.style.display = an ? "" : "none";
+        if (!an) return;
+        const ok = !!this.projekt.haupt && !!this.projekt.buehne;
+        this.ohneAuswahl.replaceChildren(el("p", undefined, ok
+            ? "Klicke unter „Figuren“ eine Figur oder die Bühne an – Skripte gibt es nur bei Figuren und bei der Bühne."
+            : "Dieses Projekt ist noch kein Blocks-Projekt: Es fehlen Bühne oder Hauptprogramm."));
+        if (!ok && this.darfAendern()) {
+            const b = knopf("Als Blocks-Projekt einrichten", "Bühne und Hauptprogramm anlegen");
+            b.addEventListener("click", () => void this.einrichten());
+            this.ohneAuswahl.append(b);
+        }
+    }
+
+    /** Modern: Startposition als Eingabefelder (wie unter der Bühne in Scratch) */
+    private positionsFelder(fig: Fig, x: number, y: number): HTMLElement {
+        const felder = el("div", "gsg-bl-felder");
+        const feld = (achse: "x" | "y", wert: number, grenze: number) => {
+            const label = el("label", undefined, achse);
+            const input = el("input");
+            input.type = "number";
+            input.value = String(wert);
+            input.min = String(-grenze);
+            input.max = String(grenze);
+            input.dataset.achse = achse;
+            input.disabled = !this.darfAendern();
+            input.addEventListener("change", () => {
+                const zahl = Number(input.value);
+                if (!Number.isFinite(zahl)) return;
+                const neu = Math.max(-grenze, Math.min(grenze, Math.round(zahl)));
+                if (achse === "x") fig.info.x = neu; else fig.info.y = neu;
+                this.schreibe(fig.datei, mitStart(fig.datei.getText(), fig.info.x, fig.info.y));
+                this.setzeVorschau(true);
+            });
+            label.append(input);
+            felder.append(label);
+        };
+        feld("x", x, BUEHNE_BREITE / 2);
+        feld("y", y, BUEHNE_HOEHE / 2);
+        return felder;
+    }
+
     private oeffne(datei: GUIFile) {
+        this.angesehen = undefined;
+        this.buehneBis = 0;   // selbst gewählt: nicht mehr zur Bühne umlenken
         this.main.projectExplorer.setFileActive(datei);
         this.zeigeAuswahl();
     }
@@ -482,6 +627,9 @@ class BloecklyPanel {
         this.zeichneVorschau();
         const pos = this.kopf.querySelector(".gsg-bl-pos");
         if (pos) pos.textContent = `x: ${z.x}   y: ${z.y}`;
+        for (const input of Array.from(this.kopf.querySelectorAll<HTMLInputElement>(".gsg-bl-felder input"))) {
+            input.value = String(input.dataset.achse === "x" ? z.x : z.y);
+        }
     }
 
     private loslassen(e: PointerEvent) {
@@ -510,11 +658,6 @@ class BloecklyPanel {
         this.main.getCompiler()?.triggerCompile();
     }
 
-    private istStaff(): boolean {
-        const u = this.main.user;
-        return !!u && (u.is_teacher || u.is_admin || u.is_schooladmin);
-    }
-
     private async neueDatei(name: string, text: string): Promise<GUIFile | undefined> {
         const ws = this.main.getCurrentWorkspace();
         if (!ws) return undefined;
@@ -526,7 +669,7 @@ class BloecklyPanel {
             ws.removeFile(datei);
             return undefined;
         }
-        if (name !== HAUPTPROGRAMM || this.istStaff()) {
+        if (name !== HAUPTPROGRAMM) {
             this.main.projectExplorer.fileTreeview.addNode(false, name,
                 FileTypeManager.filenameToFileType(name, this.main.getCurrentProgrammingLanguage()).iconclass, datei);
         }
@@ -561,7 +704,9 @@ class BloecklyPanel {
             if (p.figuren.length === 0 && ws.getFiles().length <= 1) {
                 const f = GSG_FIGUREN[0];
                 const klasse = klassenname(f.titel);
-                erste = await this.neueDatei(klasse, figurQuelltext({ klasse, figur: f.name, x: 0, y: 0 }));
+                // Startblock „Wenn 🚩 angeklickt“ gleich dabei (ihn gibt es nur einmal im Projekt)
+                const flagge = !hatFlagge(ws.getFiles().filter((d) => !d.isFolder).map((d) => d.getText()));
+                erste = await this.neueDatei(klasse, figurQuelltext({ klasse, figur: f.name, x: 0, y: 0 }, flagge));
             }
             p = liesProjekt(ws.getFiles().filter((f) => !f.isFolder));
             const haupttext = hauptprogrammQuelltext(p.buehne?.info.klasse ?? "Spiel", p.figuren.map((f) => f.info.klasse));
@@ -700,7 +845,8 @@ class BloecklyPanel {
             const klasse = freierName(klassenname(titel), vorhanden);
             // wie in Scratch: irgendwo auf der Bühne
             const x = Math.round((Math.random() - 0.5) * 300), y = Math.round((Math.random() - 0.5) * 180);
-            const datei = await this.neueDatei(klasse, figurQuelltext({ klasse, figur, x, y }));
+            const flagge = !hatFlagge(ws.getFiles().filter((d) => !d.isFolder).map((d) => d.getText()));
+            const datei = await this.neueDatei(klasse, figurQuelltext({ klasse, figur, x, y }, flagge));
             if (!datei) return;
             this.aktualisiereHauptprogramm([...this.projekt.figuren.map((f) => f.info.klasse), klasse]);
             this.main.projectExplorer.setFileActive(datei);
@@ -760,6 +906,36 @@ class BloecklyPanel {
                 if (node) node.caption = neu;
             }
             await this.main.networkManager.sendUpdatesAsync(true);
+        } finally {
+            this.beschaeftigt = false;
+            this.neu();
+        }
+    }
+
+    /** Blöcke, die zu keiner Figur gehören, entfernen: Hauptprogramm neu schreiben bzw. fremde Datei löschen */
+    private async fremdeEntfernen(datei: GUIFile) {
+        const ws = this.main.getCurrentWorkspace();
+        if (!ws || !this.darfAendern()) return;
+        const haupt = datei === this.projekt.haupt;
+        if (!await this.bestaetige(haupt ? "Blöcke entfernen" : "Datei löschen",
+            haupt ? "Alle Blöcke entfernen, die im Hauptprogramm stehen? Figuren und Bühne bleiben, wie sie sind."
+                : `Die Datei „${datei.name}“ mit allen ihren Blöcken löschen?`, haupt ? "Entfernen" : "Löschen")) return;
+        this.beschaeftigt = true;
+        try {
+            // erst zu einer Figur wechseln, damit die Blockansicht die Datei nicht mehr schreibt
+            this.angesehen = undefined;
+            const ziel = this.projekt.figuren[0]?.datei ?? this.projekt.buehne?.datei;
+            if (ziel) this.main.projectExplorer.setFileActive(ziel);
+            if (haupt) {
+                this.aktualisiereHauptprogramm();
+            } else {
+                const ok = this.main.user.is_testuser || await this.main.networkManager.sendDeleteWorkspaceOrFileAsync("file", [datei.id!]);
+                if (!ok) return;
+                ws.removeFile(datei);
+                const node = this.main.projectExplorer.fileTreeview.findNodeByElement(datei);
+                if (node) this.main.projectExplorer.fileTreeview.removeNodeAndItsFolderContents(node);
+                this.main.getCompiler()?.triggerCompile();
+            }
         } finally {
             this.beschaeftigt = false;
             this.neu();

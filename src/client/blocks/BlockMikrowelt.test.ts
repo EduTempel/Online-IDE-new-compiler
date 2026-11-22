@@ -40,7 +40,7 @@ describe("19k Mikrowelten", () => {
             .toEqual(["Lege eine Variable an.", "Listen", "Neue Liste", "Anderes", "Sonstiges"]);
     });
 
-    test("Werkzeugleiste von Blöckva: leere Kategorien verschwinden, Variablen bleiben als Ordner für Listen", () => {
+    test("Werkzeugleiste von Mix: leere Kategorien verschwinden, Variablen bleiben als Ordner für Listen", () => {
         const def = toolbox() as { contents: ToolboxEintrag[] };
         const r = mikroweltToolbox(def, { steuerung: [B.repeat], listen: [B.listAdd] });
         const ids = (items: ToolboxEintrag[]): unknown[] => items.filter((c) => c.kind === "category")

@@ -1,4 +1,4 @@
-import { B } from "../blocks/BlockTypes";
+import { B, istErstelleBlock, type BlockState } from "../blocks/BlockTypes";
 import { STIFTFARBEN } from "../../compiler/java/runtime/graphics/GsgMalstift";
 import { keyPartName } from "../blocks/FigureSpec";
 import {
@@ -39,9 +39,13 @@ export function categoryColour(id: BlCategory): string {
     return BL_CATEGORIES.find((c) => c.id === id)!.colour;
 }
 
-/** Paket 19f: Listen (wie Variablen im Kopf: für alle Figuren in der Bühne) – Art und Java-Typ */
-export const BL_LISTEN: [string, string][] = [["Zahlen", "ArrayList<Double>"], ["Texte", "ArrayList<String>"]];
-export const istBlListe = (typ: string | undefined): boolean => BL_LISTEN.some((l) => l[1] === typ);
+/** Paket 19f: Listen – Art und Java-Typ (11.11.2026: „erstelle Liste … vom Datentyp …“ wie Blöckva, oben in einem Skript) */
+export const BL_LISTEN: [string, string][] = [["Zahlen", "Liste<Double>"], ["Texte", "Liste<String>"]];
+/** Auswahl im Block „erstelle Liste“ */
+export const BL_LISTEN_TYPEN: [string, string][] = [["Zahl", "Liste<Double>"], ["Text", "Liste<String>"]];
+/** Liste<Double> bzw. Liste<String>; ältere Programme: ArrayList<…> (22.11.2026 auf Liste umgestellt) */
+export const blListeTyp = (typ: string | undefined): string | undefined => typ?.replace(/^ArrayList</, "Liste<");
+export const istBlListe = (typ: string | undefined): boolean => BL_LISTEN.some((l) => l[1] === blListeTyp(typ));
 /** Listen-Blöcke: etwas dunkler als die Variablen (wie in Scratch) */
 export const BL_LISTEN_FARBE = "#c4581c";
 
@@ -445,6 +449,31 @@ export const BL_HATS: BlHat[] = [
 
 export function blHat(type: string | undefined): BlHat | undefined {
     return BL_HATS.find((h) => h.type === type);
+}
+
+/**
+ * 11.11.2026: „erstelle Variable …“ steht oben in einem Skript (ohne Kopfblock). Im Java-Code wird daraus eine
+ * Variable der Klasse direkt vor dem Skript – in einer Figur nur für diese Figur, auf der Bühne (static) für alle.
+ * Liefert diese Variablen-Blöcke und den Rest des Skripts.
+ */
+export function skriptVariablen(skript: BlockState): { variablen: BlockState[]; rest?: BlockState } {
+    const variablen: BlockState[] = [];
+    let b = blHat(skript.type) ? skript.inputs?.BODY?.block : undefined;
+    while (b && istErstelleBlock(b.type)) {
+        variablen.push(b);
+        b = b.next?.block;
+    }
+    return { variablen, rest: blHat(skript.type) ? b : skript.inputs?.BODY?.block };
+}
+/** Alle „erstelle Variable …“ einer Datei: aus dem (unsichtbaren) Kopf und oben aus den Skripten */
+export function alleVariablenBloecke(oben: BlockState[]): BlockState[] {
+    const ergebnis: BlockState[] = [];
+    for (const s of oben) {
+        if (s.type === B.blFigure) {
+            for (let v = s.inputs?.VARS?.block; v; v = v.next?.block) if (istErstelleBlock(v.type)) ergebnis.push(v);
+        } else ergebnis.push(...skriptVariablen(s).variablen);
+    }
+    return ergebnis;
 }
 
 /** Vorschlag für den Namen eines Programmteils zu einer Nachricht: „Tor!“ → beiTor */

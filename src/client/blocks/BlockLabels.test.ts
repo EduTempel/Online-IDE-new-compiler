@@ -59,7 +59,7 @@ const PROGRAM = [
     "        summe--;",
     "    }",
     "}",
-    "ArrayList<String> namen = new ArrayList<String>();",
+    "Liste<String> namen = new Liste<>();",
     "namen.add(\"Ada\");",
     "println(namen.get(0).toUpperCase(), quadrat(summe));",
     "begruesse();",

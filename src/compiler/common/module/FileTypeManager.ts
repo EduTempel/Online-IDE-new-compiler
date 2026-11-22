@@ -20,6 +20,7 @@ export class FileTypeManager {
         { name: "Markup", file_type: 1, iconclass: "img_file-dark-md", language: "md", suffix: ".md" },
         // GSG: Struktogramm-Dateien (JSON, eigener Editor im Blockmodus-Paket)
         { name: "Struktogramm", file_type: 1, iconclass: "img_file-dark-struktogramm", language: "json", suffix: ".struktogramm" },
+        { name: "Klassendiagramm", file_type: 1, iconclass: "img_file-dark-klassendiagramm", language: "json", suffix: ".klassendiagramm" },   // GSG, Paket 20
         { name: "Assembler-Quelltext", file_type: 0, iconclass: "img_file-dark-assembly", language: ProgrammingLanguageData.ByAssembly.monacoLanguageSelector, suffix: "." + ProgrammingLanguageData.ByAssembly.fileEndingWithOutDot }
     ];
 

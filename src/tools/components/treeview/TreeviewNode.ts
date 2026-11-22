@@ -6,6 +6,7 @@ import { ExpandCollapseComponent, ExpandCollapseListener, ExpandCollapseState } 
 import { IconButtonComponent } from "../IconButtonComponent.ts";
 import { DragKind, Treeview } from "./Treeview.ts";
 import { TreeviewMessages } from "./TreeviewMessages.ts";
+import { markiereGruppen, mitGruppen } from "./TreeviewGruppen.ts";   // GSG
 
 export type TreeviewNodeOnClickHandler<E> = (element: E | undefined) => void;
 
@@ -540,7 +541,7 @@ export class TreeviewNode<E, K> {
                     let callbackResponse = await this.treeview.renameCallback(this._externalObject!, newText, this);
                     if (callbackResponse.success) {
                         this.caption = callbackResponse.correctedName ?? newText;
-                        if (this.treeview.config.comparator && this.treeview.config.orderBy == "comparator") {
+                        if ((this.treeview.config.comparator && this.treeview.config.orderBy == "comparator") || this.treeview.config.groupExtractor) {
                             this.parent?.sort();
                         }
                     } else {
@@ -550,7 +551,7 @@ export class TreeviewNode<E, K> {
                 }
 
                 this.caption = newText;
-                if (this.treeview.config.comparator && this.treeview.config.orderBy == "comparator") {
+                if ((this.treeview.config.comparator && this.treeview.config.orderBy == "comparator") || this.treeview.config.groupExtractor) {
                     this.parent?.sort();
                 }
 
@@ -824,7 +825,7 @@ export class TreeviewNode<E, K> {
 
         this._treeview.adjustAllLeftMarginsToDepth();
 
-        if(this._treeview.config.orderBy == "comparator"){
+        if(this._treeview.config.orderBy == "comparator" || this._treeview.config.groupExtractor){
             this.sort();
         }
     }
@@ -917,6 +918,7 @@ export class TreeviewNode<E, K> {
                 return Math.sign(orderExtractor(e1) - orderExtractor(e2))
             }
         }
+        comparator = mitGruppen(this._treeview.config.groupExtractor, comparator);   // GSG
 
         if (this.children.indexOf(child) < 0) {
             let index = this.children.length;
@@ -939,6 +941,7 @@ export class TreeviewNode<E, K> {
                     }
                 }
             }
+            markiereGruppen(this._treeview.config.groupExtractor, this.children);   // GSG
 
         }
 
@@ -948,6 +951,7 @@ export class TreeviewNode<E, K> {
         let index = this.children.indexOf(child);
         if (index >= 0) this.children.splice(index, 1);
         child.getMainDiv().remove();
+        markiereGruppen(this._treeview.config.groupExtractor, this.children);   // GSG
     }
 
     public sort(comparator?: (object1: E, object2: E) => number) {
@@ -965,6 +969,7 @@ export class TreeviewNode<E, K> {
                     return ret;
                 }
             }
+            comparator = mitGruppen(this._treeview.config.groupExtractor, comparator);   // GSG
         }
 
         if (!comparator) return;
@@ -977,6 +982,7 @@ export class TreeviewNode<E, K> {
             node.sort(comparator);
         }
         );
+        markiereGruppen(this._treeview.config.groupExtractor, this.children);   // GSG
     }
 
     public getDepth(): number {

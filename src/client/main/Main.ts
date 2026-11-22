@@ -60,6 +60,7 @@ import { AssemblyLanguageDebugger } from '../../compiler/assembly/debugger/Assem
 import { initLeftPanelToggle } from './gui/LeftPanelToggle.js';
 import { initHeaderFit } from './gui/HeaderFit.js';
 import { initGrosseAnsicht } from './gui/GrosseAnsicht.js';
+import { initModern } from './gui/GsgModern.js';
 
 
 export class Main implements MainBase {
@@ -264,6 +265,7 @@ export class Main implements MainBase {
 
         this.themeManager = new ThemeManager(<HTMLDivElement>jQuery('.joeCssFence')[0]);
         this.themeManager.switchTheme("dark");
+        try { initModern(this); } catch (e) { console.error(e); }   // GSG: Aussehen „Modern“ (Blöckly F, sonst A │ B)
 
         let breakpointManager = new BreakpointManager(this);
         this.debuggerDiv = <HTMLDivElement>jQuery('#leftpanel>.jo_debugger')[0];

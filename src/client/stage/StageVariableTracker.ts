@@ -1,7 +1,7 @@
 import type { Interpreter } from "../../compiler/common/interpreter/Interpreter";
 import { SchedulerState } from "../../compiler/common/interpreter/SchedulerState";
 import { captureCalls, captureCurrentFrame, captureParts, captureMainClassFields, mainProgramRunning, startedMainClass, type Pos } from "../objects/HeapCapture";
-import type { ScopeStyle, VariableScope } from "../objects/ScopeTitles";
+import { mainTitle, type ScopeStyle, type VariableScope } from "../objects/ScopeTitles";
 import type { RootVariable } from "../objects/HeapSnapshot";
 import { render, snapshot } from "../trace/TraceData";
 
@@ -20,14 +20,15 @@ const MAX_TEXT = 80;
 /** Reihungen und Listen haben zusätzlich ihre Elemente (für die Anzeige mit Positionen) und ihre Länge; scope: Gültigkeitsbereich */
 export type Monitor = { name: string; text: string; list?: { items: string[]; length: number }; scope?: VariableScope };
 
-const MAIN_SCOPE: VariableScope = { key: "main", title: "Hauptprogramm", inner: false };
+/** Bereich des Hauptprogramms: Überschrift ist der Name des Programms (ohne Namen „Hauptprogramm“) */
+const mainScope = (mainClass: unknown): VariableScope => ({ key: "main", title: mainTitle(mainClass), inner: false });
 
 /** so viele Elemente zeigt die Listenanzeige höchstens (die Länge stimmt trotzdem) */
 export const MAX_LIST_ITEMS = 100;
-const LIST_CLASSES = new Set(["ArrayList", "LinkedList", "CopyOnWriteArrayList", "Vector", "List", "DynArray"]);
+const LIST_CLASSES = new Set(["ArrayList", "Liste", "LinkedList", "CopyOnWriteArrayList", "Vector", "List", "DynArray"]);
 const BOXED_TYPES = new Set(["Integer", "Double", "Float", "Long", "Short", "Byte", "Character", "Boolean", "String"]);
 
-/** Elemente einer Reihung (int[] …), Liste (ArrayList) oder dynamischen Reihung; sonst undefined */
+/** Elemente einer Reihung (int[] …), Liste (Liste, ArrayList) oder dynamischen Reihung; sonst undefined */
 function listElements(value: unknown): unknown[] | undefined {
     if (Array.isArray(value)) return value;
     if (!value || typeof value !== "object") return undefined;
@@ -177,7 +178,8 @@ export class StageVariableTracker {
 
     /** Variablen des Hauptprogramms, wenn es nicht mehr läuft */
     private mainFields(interpreter: Interpreter, pos?: Pos): RootVariable[] {
-        return captureMainClassFields(interpreter, this.mainClass, pos).map((r) => ({ ...r, scope: MAIN_SCOPE }));
+        const scope = mainScope(this.mainClass);
+        return captureMainClassFields(interpreter, this.mainClass, pos).map((r) => ({ ...r, scope }));
     }
 
     /** Variablen der gerade laufenden Programmteile (eigene Threads) */

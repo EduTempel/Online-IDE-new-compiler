@@ -20,6 +20,7 @@ import { JavaBlockParser, type LineRange } from "./JavaBlockParser";
 import { Constants } from "../Constants";
 import { registerBlockImageMenu } from "./BlockImage";
 import { registerBlockHelpMenu } from "./BlockHelp";
+import { registerBlockCopyMenu } from "./BlockKopieren";
 import { ScopeHighlight } from "./BlockScope";
 import { ValueBubble } from "./BlockValueBubble";
 import { labelMode, setLabelMode, type LabelMode } from "./BlockLabels";
@@ -28,8 +29,10 @@ import { bloecklyPuzzleLine, checkPuzzle, puzzleMessage, puzzleSolution, scrambl
 import { updateHelpHint } from "./BlockWarningHelp";
 import { ensureLibraries } from "../structogram/ProjectFiles";
 import { autoCollapseLeftPanel } from "../main/gui/LeftPanelToggle";
-import { bloecklyToolbox, defineBloecklyBlocks, fuerFigurUndBuehne, registerBloecklyToolbox, setBloecklyUi } from "../bloeckly/BloecklyBlocks";
-import { BUEHNEN_KLASSE, globaleStellen, globaleUmbenannt, liesBuehne, liesFigur, liesProjekt, mitVariable, neueKopfVariable, ohneVariable, variablenDerKlasse } from "../bloeckly/BloecklyProjekt";
+import { bloecklyKopierenAnmelden } from "../bloeckly/BloecklyKopieren";
+import { bloecklyToolbox, bloecklyUi, defineBloecklyBlocks, fuerFigurUndBuehne, registerBloecklyToolbox, setBloecklyUi } from "../bloeckly/BloecklyBlocks";
+import { kopfAusFlaeche } from "../bloeckly/BloecklyKopf";
+import { BUEHNEN_KLASSE, globaleStellen, globaleUmbenannt, liesBuehne, liesFigur, liesProjekt, ohneVariable, variablenDerKlasse } from "../bloeckly/BloecklyProjekt";
 import { setFigurVariablen, type BloecklyContext } from "../bloeckly/BloecklySpec";
 import { setProjectMessages } from "./BlockParts";
 import {
@@ -37,6 +40,7 @@ import {
     type KatalogKategorie, type Mikrowelt, type ToolboxEintrag,
 } from "./BlockMikrowelt";
 import { katalogAus } from "./BlockMikroweltKatalog";
+import { ohneGesperrte, sperrenAus, sperrenToolbox, type BlockSperren } from "./BlockFreigaben";
 
 /**
  * Blockansicht einer Java-Datei: links die Blöcke (Blockly), rechts der daraus erzeugte
@@ -101,11 +105,23 @@ export class BlockView {
 
     constructor(private main: Main, private host: HTMLElement) {
         Blockly.setLocale(De as unknown as { [key: string]: string });
+        // Blockly 13 hat die Hinweise zur Tastatur noch nicht auf Deutsch (und schreibt „Control + V“)
+        const einfuegen = /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘+V" : "Strg+V";
+        Object.assign(Blockly.Msg, {
+            KEYBOARD_NAV_COPIED_HINT: `Kopiert. Mit ${einfuegen} fügst du die Blöcke ein` + (Constants.isBloecklyApp ? " – auch bei einer anderen Figur oder der Bühne." : "."),
+            KEYBOARD_NAV_CUT_HINT: `Ausgeschnitten. Mit ${einfuegen} fügst du die Blöcke wieder ein.`,
+            KEYBOARD_NAV_BLOCK_NAVIGATION_HINT: "Mit %1 bewegst du dich innerhalb der Blöcke.",
+            KEYBOARD_NAV_CONSTRAINED_MOVE_HINT: "Verschiebe mit den Pfeiltasten, dann %1 zum Ablegen.",
+            KEYBOARD_NAV_UNCONSTRAINED_MOVE_HINT: "Halte %1 und verschiebe frei mit den Pfeiltasten, dann %2 zum Ablegen.",
+            KEYBOARD_NAV_FLYOUT_LABEL_HINT: "Mit den Pfeiltasten gehst du zu einem Block, mit %1 zur nächsten Überschrift.",
+            KEYBOARD_NAV_WORKSPACE_NAVIGATION_HINT: "Mit den Pfeiltasten bewegst du dich durch die Blöcke.",
+        });
         defineBlocks();
         defineBloecklyBlocks();
         registerRenderer();
         registerBlockImageMenu(() => this.file?.name);   // Rechtsklick: Blöcke als Bild speichern
         registerBlockHelpMenu();                         // Rechtsklick: Hilfe (Handbuch)
+        registerBlockCopyMenu();                         // Rechtsklick: Kopieren, Verdoppeln (auch ab hier), Einfügen
         // Paket 19k: Mikrowelten – Auswahl der Aufgabe geändert: Werkzeugleiste neu bauen
         setzeKatalogQuelle(() => this.katalog());
         beiMikroweltAenderung(() => {
@@ -137,7 +153,7 @@ export class BlockView {
         this.resetButton.addEventListener("click", () => this.resetToOpened());
         const keys = this.keysHint = document.createElement("span");
         keys.className = "gsg-blocks-keys";
-        keys.textContent = "Strg+B: Blöcke ↔ Java";
+        keys.textContent = "Strg+B: Blöcke ↔ Code";
         // Paket 17d: Beschriftung der Blöcke Deutsch oder Java (pro Gerät gemerkt)
         this.labelSwitch = document.createElement("span");
         this.labelSwitch.className = "gsg-label-switch";
@@ -145,7 +161,7 @@ export class BlockView {
         const caption = document.createElement("span");
         caption.textContent = "Beschriftung:";
         this.labelSwitch.append(caption);
-        for (const [m, text] of [["de", "Deutsch"], ["java", "Java"]] as [LabelMode, string][]) {
+        for (const [m, text] of [["de", "Deutsch"], ["java", "Code"]] as [LabelMode, string][]) {
             const b = document.createElement("button");
             b.type = "button";
             b.textContent = text;
@@ -176,10 +192,10 @@ export class BlockView {
         preview.className = "gsg-blocks-preview";
         const head = document.createElement("div");
         head.className = "gsg-preview-head";
-        head.innerHTML = `<span class="gsg-preview-title">Java</span><span class="gsg-preview-sub">aus den Blöcken erzeugt</span>`;
+        head.innerHTML = `<span class="gsg-preview-title">Code</span><span class="gsg-preview-sub">aus den Blöcken erzeugt</span>`;
         const toggle = document.createElement("button");
         toggle.className = "gsg-preview-toggle";
-        toggle.title = "Java-Vorschau ein-/ausblenden";
+        toggle.title = "Code-Vorschau ein-/ausblenden";
         toggle.textContent = "⟩";
         toggle.addEventListener("click", () => {
             const collapsed = preview.classList.toggle("collapsed");
@@ -218,7 +234,7 @@ export class BlockView {
         this.previewBox.style.display = perms.preview ? "" : "none";
         // neu aufbauen, wenn sich Ansicht, Thema, Beschriftung oder Freigaben (andere Anmeldung) geändert haben
         const puzzle = this.solutionOf(file) !== undefined;
-        if (!this.ws || this.wsReadOnly !== readOnly || this.wsDark !== dark || this.wsHidden !== this.hiddenCategories().join(",")
+        if (!this.ws || this.wsReadOnly !== readOnly || this.wsDark !== dark || this.wsHidden !== this.freigabeKey()
             || this.wsPuzzle !== puzzle || this.wsLabels !== labelMode() || this.wsScope !== perms.scope
             || this.wsWelt !== JSON.stringify(this.mikrowelt() ?? null)) {
             this.createWorkspace(readOnly, dark, puzzle);
@@ -518,7 +534,7 @@ export class BlockView {
     private readonly looseText = (Constants.isBloecklyApp
         ? "Graue Blöcke hängen an keinem Startblock (z. B. „Wenn 🚩 angeklickt“) und werden nicht ausgeführt. "
         : "Graue Blöcke hängen nicht am Hauptprogramm oder an einer Operation und werden nicht ausgeführt. ")
-        + "Beim Wechsel in die Java-Ansicht gehen sie verloren.";
+        + "Beim Wechsel in die Code-Ansicht gehen sie verloren.";
 
     hasLooseBlocks(): boolean {
         return !!this.ws && this.ws.getTopBlocks(false).some((b) => !isHat(b));
@@ -526,7 +542,7 @@ export class BlockView {
 
     /**
      * Freigaben der Lerngruppe (Verwaltung → Freigaben). Java-Vorschau und Java-Beschriftung schränkt sie nur in den
-     * Anwendungen „Blöckva“ und „Blöckly“ ein (in der Java-IDE sehen alle ohnehin Java), den Gültigkeitsbereich überall.
+     * Anwendungen „Blöckva“ und „Blöckly“ ein (in Texva sehen alle ohnehin Java), den Gültigkeitsbereich überall.
      */
     private permissions(): BlockPermissions {
         const p = blockPermissions(this.main.user, Constants.isBloecklyApp);
@@ -544,11 +560,24 @@ export class BlockView {
         return Array.isArray(hidden) ? hidden.filter((h): h is string => typeof h === "string") : [];
     }
 
+    /** In Blöckva und Blöckly: einzelne Blöcke, die die Lerngruppe nicht bekommt (Verwaltung → Freigaben) */
+    private gesperrteBloecke(): BlockSperren | undefined {
+        if (!Constants.isBlocksApp) return undefined;
+        const f = (this.main.user as { gsgFreigaben?: { bloeckeGesperrt?: unknown; bloecklyGesperrt?: unknown } } | undefined)?.gsgFreigaben;
+        return sperrenAus(Constants.isBloecklyApp ? f?.bloecklyGesperrt : f?.bloeckeGesperrt);
+    }
+
+    /** ändert sich das (andere Anmeldung), wird die Werkzeugleiste neu gebaut */
+    private freigabeKey(): string {
+        return this.hiddenCategories().join(",") + "|" + JSON.stringify(this.gesperrteBloecke() ?? null);
+    }
+
     // ------------------------------------------------------------------ Mikrowelten (Paket 19k)
 
     /** Werkzeugleiste ohne Mikrowelt (mit den von der Lerngruppe ausgeblendeten Kategorien) */
     private fullToolbox(): Blockly.utils.toolbox.ToolboxDefinition {
-        return Constants.isBloecklyApp ? bloecklyToolbox(this.hiddenCategories()) : toolbox(this.hiddenCategories());
+        const def = Constants.isBloecklyApp ? bloecklyToolbox(this.hiddenCategories()) : toolbox(this.hiddenCategories());
+        return sperrenToolbox(def as { contents?: unknown }, this.gesperrteBloecke()) as Blockly.utils.toolbox.ToolboxDefinition;
     }
 
     /** erlaubte Blöcke der Aufgabe – außer eine Lehrkraft lässt sich alle zeigen */
@@ -566,14 +595,21 @@ export class BlockView {
             : "Die Aufgabe bietet nur ausgewählte Blöcke an – als Lehrkraft alle Blöcke zeigen";
     }
 
-    /** Inhalt der geöffneten Kategorie auf die erlaubten Blöcke kürzen (dynamische Kategorien hier auflösen) */
+    /**
+     * Inhalt der geöffneten Kategorie auf die erlaubten Blöcke kürzen (dynamische Kategorien hier auflösen):
+     * Mikrowelt der Aufgabe und gesperrte Blöcke der Lerngruppe
+     */
     private mitWelt(welt: Mikrowelt | undefined, tb: Blockly.Toolbox, contents: Blockly.utils.toolbox.FlyoutDefinition | string) {
-        if (!welt || !this.ws) return contents;
+        const sperren = this.gesperrteBloecke();
+        if ((!welt && !sperren) || !this.ws) return contents;
         const id = tb.getSelectedItem()?.getId() ?? "";
         let items: unknown = contents;
         if (typeof contents === "string") items = this.ws.getToolboxCategoryCallback(contents)?.(this.ws);
         if (!Array.isArray(items)) return contents;
-        return filtereEintraege(items as ToolboxEintrag[], welt[id] ?? []) as unknown as Blockly.utils.toolbox.FlyoutItemInfoArray;
+        let result = items as ToolboxEintrag[];
+        if (welt) result = filtereEintraege(result, welt[id] ?? []);
+        if (sperren) result = ohneGesperrte(result, sperren[id]);
+        return result as unknown as Blockly.utils.toolbox.FlyoutItemInfoArray;
     }
 
     /** Katalog für den Aufgaben-Editor: alle Blöcke je Kategorie (aus der vollen Werkzeugleiste) */
@@ -595,7 +631,7 @@ export class BlockView {
         this.wsReadOnly = readOnly;
         this.wsDark = dark;
         this.wsPuzzle = puzzle;
-        this.wsHidden = this.hiddenCategories().join(",");
+        this.wsHidden = this.freigabeKey();
         const welt = this.mikrowelt();
         this.wsWelt = JSON.stringify(welt ?? null);
         this.wsLabels = labelMode();
@@ -638,6 +674,7 @@ export class BlockView {
         this.ws.registerToolboxCategoryCallback(CLASSES_CATEGORY, (w) => classesFlyout(w));
         this.ws.registerToolboxCategoryCallback(OBJECTS_CATEGORY, (w) => objectsFlyout(w));
         if (Constants.isBloecklyApp) registerBloecklyToolbox(this.ws);
+        if (Constants.isBloecklyApp) bloecklyKopierenAnmelden(this.main, this.ws, () => this.file, () => this.flushWrite());   // Kopieren nach … (Figur, Bühne)
 
         // Geöffnete Kategorie bleibt offen, bis man sie (oder eine andere) noch einmal anklickt – Blockly schließt sie
         // sonst bei jedem Klick oder Ziehen auf der Fläche. Die Fläche rückt dafür neben die Kategorie (nichts verdeckt).
@@ -728,13 +765,8 @@ export class BlockView {
         setExternalClasses(classes);
         const bloeckly = this.bloecklyContext(text);
         const { state, ranges } = JavaBlockParser.parse(text, { classes, ...(bloeckly ? { bloeckly } : {}) });
-        // Blöckly: Kopf der Klasse unsichtbar mitführen, in der Fläche nur die Skripte
-        this.blHeader = undefined;
-        if (bloeckly) {
-            const blocks = state.blocks?.blocks ?? [];
-            this.blHeader = blocks.find((b) => b.type === B.blFigure);
-            if (this.blHeader) state.blocks.blocks = blocks.filter((b) => b !== this.blHeader);
-        }
+        // Blöckly: Der Kopf (Klasse, Konstruktor) läuft unsichtbar mit; seine Variablen stehen oben in einem Skript
+        this.blHeader = bloeckly ? kopfAusFlaeche(state, !!this.flagElsewhere) : undefined;
         const scroll = keepScroll ? { x: this.ws.scrollX, y: this.ws.scrollY } : null;
 
         this.loading = true;
@@ -749,6 +781,11 @@ export class BlockView {
         }
         applyTypes(this.ws);
         this.ws.clearUndo();
+        // Blöckly: offene Kategorie neu füllen (Bühne und Figur haben andere Variablen-Blöcke, Namen können sich ändern)
+        if (bloeckly) setTimeout(() => {
+            (this.ws?.getToolbox() as Blockly.Toolbox | null)?.refreshSelection();
+            this.typeFlyout();
+        }, 0);
         if (scroll) this.ws.scroll(scroll.x, scroll.y);
         else this.scrollToStart();
 
@@ -808,7 +845,6 @@ export class BlockView {
             aussehen: own?.figur ?? "",
             figuren: p.figuren.map((f) => f.info.klasse),
             globals,
-            addGlobal: (name, typ) => this.addGlobal(name, typ),
             globaleUmbenennen: (alt, neu) => this.renameGlobal(alt, neu),
             globaleLoeschen: (name) => this.deleteGlobal(name),
             flagge: this.flagElsewhere,
@@ -826,34 +862,6 @@ export class BlockView {
         return { stage: stageClass, globals: isStage ? {} : globals };
     }
 
-    /** neue Variable für alle Figuren: in der Bühne anlegen (static), dann gilt sie hier sofort */
-    private addGlobal(name: string, typ: string) {
-        const files = (this.main.getCurrentWorkspace()?.getFiles() ?? []).filter((f) => !f.isFolder);
-        const stage = liesProjekt(files).buehne;
-        if (!stage) return;
-        if (stage.datei === this.file && this.blHeader) {
-            // gerade offen ist die Bühne: Variable im unsichtbaren Kopf ergänzen und zurückschreiben
-            const neu = neueKopfVariable(name, typ);
-            let last = this.blHeader.inputs?.VARS?.block;
-            while (last?.next) last = last.next.block;
-            if (last) last.next = { block: neu };
-            else this.blHeader.inputs = { ...(this.blHeader.inputs ?? {}), VARS: { block: neu } };
-            this.write();
-            this.bloecklyContext(this.lastText);
-            if (this.ws) applyTypes(this.ws);
-            return;
-        }
-        const text = stage.datei.getText();
-        const neu = mitVariable(text, name, typ, { stage: stage.info.klasse, globals: {} });
-        if (neu === text) return;
-        stage.datei.getMonacoModel();
-        stage.datei.setText(neu);
-        stage.datei.setSaved(false);
-        this.bloecklyContext(this.lastText);
-        if (this.ws) applyTypes(this.ws);
-        this.main.getCompiler()?.triggerCompile();
-    }
-
     /** Java-Dateien eines Blöckly-Projekts (ohne Ordner, Struktogramme …) */
     private bloecklyJavaFiles(): GUIFile[] {
         return (this.main.getCurrentWorkspace()?.getFiles() ?? []).filter((f) => !f.isFolder && !/\.[A-Za-z]+$/.test(f.name));
@@ -865,6 +873,26 @@ export class BlockView {
         f.getMonacoModel();
         f.setText(text);
         f.setSaved(false);
+    }
+
+    private pendingGlobalRename?: { alt: string; neu: string; timer: ReturnType<typeof setTimeout> };
+
+    /**
+     * Blöckly: Name im Block „erstelle Variable …“ der Bühne geändert – kurz nach dem letzten Tastendruck auch in
+     * allen Figuren umbenennen (Spiel.alt → Spiel.neu); in der Bühne selbst erledigt das handleRename.
+     */
+    private renameGlobalLater(e: Blockly.Events.BlockChange) {
+        if (!Constants.isBloecklyApp || e.element !== "field" || e.name !== "NAME" || !e.blockId) return;
+        const typ = this.ws?.getBlockById(e.blockId)?.type;
+        if ((typ !== B.blVar && typ !== B.blList) || !bloecklyUi().stage) return;
+        const alt = this.pendingGlobalRename?.alt ?? String(e.oldValue ?? ""), neu = String(e.newValue ?? "");
+        if (this.pendingGlobalRename) clearTimeout(this.pendingGlobalRename.timer);
+        this.pendingGlobalRename = {
+            alt, neu, timer: setTimeout(() => {
+                this.pendingGlobalRename = undefined;
+                if (alt && alt !== neu && /^[\p{L}_][\p{L}\p{N}_]*$/u.test(neu)) this.renameGlobal(alt, neu);
+            }, 1000),
+        };
     }
 
     /** Variable für alle Figuren umbenennen: Bühne (Deklaration und Stellen) und Spiel.alt in allen Figuren */
@@ -934,7 +962,7 @@ export class BlockView {
     private layoutOperations() {
         const ws = this.ws;
         const start = ws?.getBlockById("start") as Blockly.BlockSvg | null;
-        // Blöckly: kein sichtbarer Kopf – die Skripte stehen von oben an untereinander
+        // Blöckly: „start“ ist der Kopfblock (Bühne bzw. Figur), die Skripte stehen darunter
         if (!ws || (!start && !this.blHeader)) return;
         const methods = ws.getTopBlocks(false).filter((b) => b.type === B.method || b.type === B.class || isPartHat(b.type))
             .sort((a, b) => a.getRelativeToSurfaceXY().y - b.getRelativeToSurfaceXY().y);
@@ -979,7 +1007,7 @@ export class BlockView {
     /** Hauptprogramm oben links in den sichtbaren Bereich holen */
     private scrollToStart() {
         const ws = this.ws;
-        // Blöckly: oberstes Skript (der Kopf ist unsichtbar)
+        // Blöckly: der Kopfblock („start“), sonst das oberste Skript
         const start = (ws?.getBlockById("start") ?? ws?.getTopBlocks(true)[0] ?? null) as Blockly.BlockSvg | null;
         if (!ws || !start) return;
         const rect = start.getBoundingRectangle();
@@ -1026,6 +1054,7 @@ export class BlockView {
         if (e.isUiEvent || e.type === Blockly.Events.FINISHED_LOADING) return;
         if (e.type === Blockly.Events.BLOCK_CHANGE) {
             handleRename(this.ws, e as Blockly.Events.BlockChange);
+            this.renameGlobalLater(e as Blockly.Events.BlockChange);   // Blöckly: Variable für alle Figuren umbenannt
             this.typeChanged(e as Blockly.Events.BlockChange);
         }
         // Aufrufe an geänderte Operationen anpassen, Hut-Blöcke auseinanderhalten (im selben Rückgängig-Schritt)

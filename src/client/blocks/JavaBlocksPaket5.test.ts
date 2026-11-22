@@ -45,7 +45,7 @@ export const ARRAYS = lines(
 );
 
 export const LISTS = lines(
-    "ArrayList<Integer> liste = new ArrayList<Integer>();",
+    "Liste<Integer> liste = new Liste<>();",
     "liste.add(3);",
     "liste.add(0, 9);",
     "liste.set(1, 4);",
@@ -55,23 +55,22 @@ export const LISTS = lines(
     "for (Integer z : liste) {",
     "    println(z);",
     "}",
-    "ArrayList<String> woerter = new ArrayList<String>();",
+    "Liste<String> woerter = new Liste<>();",
     "woerter.add(\"Hallo\");",
     "println(woerter.get(0).length());",
 );
 
 export const DYN = lines(
-    "DynArray d = new DynArray();",
+    "DynArray<Integer> d = new DynArray<>();",
     "d.append(3);",
-    "d.append(\"Ada\");",
+    "d.append(4);",
     "d.insertAt(0, 5);",
     "d.setItem(1, 7);",
     "println(d.getItem(0) + \" \" + d.getLength() + \" \" + d.isEmpty());",
-    "int x = (int) d.getItem(0);",
+    "int x = d.getItem(0);",
     "println(x + 1);",
-    "println(((String) d.getItem(2)).length());",
     "d.delete(0);",
-    "for (Object o : d) {",
+    "for (Integer o : d) {",
     "    println(o);",
     "}",
 );
@@ -90,7 +89,7 @@ describe("Paket 5: Reihungen und Listen", () => {
         expect(r.output).toBe(lines("5 6 2", "AdaBoCem!", "3 4 7", "000000700000!"));
     });
 
-    test("ArrayList: Blöcke, unverändert zurück, läuft", async () => {
+    test("Liste: Blöcke, unverändert zurück, läuft", async () => {
         expect(roundTrip(LISTS)).toBe(LISTS);
         noJavaText(LISTS);
         const t = types(LISTS);
@@ -111,18 +110,66 @@ describe("Paket 5: Reihungen und Listen", () => {
         }
         const r = await runJava(DYN, ["niedersachsen"]);
         expect(r.errors).toEqual([]);
-        expect(r.output).toBe(lines("5 3 false", "6", "3", "7", "Ada"));
+        expect(r.output).toBe(lines("5 3 false", "6", "7", "4"));
     });
 
     test("Listen und dynamische Reihungen sind getrennte Blöcke (auch bei isEmpty)", () => {
-        const t = types(lines("ArrayList<Integer> l = new ArrayList<Integer>();", "DynArray d = new DynArray();", "println(l.isEmpty() + \" \" + d.isEmpty());"));
+        const t = types(lines("Liste<Integer> l = new Liste<>();", "DynArray<String> d = new DynArray<>();", "println(l.isEmpty() + \" \" + d.isEmpty());"));
         expect(t.has(B.collIsEmpty)).toBe(true);
         expect(t.has(B.dynIsEmpty)).toBe(true);
     });
 
+    test("Liste braucht einen Inhaltstyp; ältere Programme mit ArrayList werden zur Liste (22.11.2026)", async () => {
+        const roh = await runJava("Liste l = new Liste<>();");
+        expect(roh.errors.join(" ")).toContain("Gib den Inhaltstyp an: Liste<…>");
+        const alt = lines(
+            "ArrayList<Integer> l = new ArrayList<Integer>();",
+            "l.add(4);",
+            "l.add(5);",
+            "println(summe(l));",
+            "",
+            "int summe(ArrayList<Integer> z) {",
+            "    int s = 0;",
+            "    for (Integer x : z) {",
+            "        s += x;",
+            "    }",
+            "    return s;",
+            "}",
+        );
+        const neu = roundTrip(alt);
+        expect(neu).toBe(alt.replace("ArrayList<Integer> l = new ArrayList<Integer>();", "Liste<Integer> l = new Liste<>();").replace("summe(ArrayList<Integer> z)", "summe(Liste<Integer> z)"));
+        const r = await runJava(neu);
+        expect(r.errors).toEqual([]);
+        expect(r.output).toBe(lines("9"));
+    });
+
+    test("eine eigene Klasse Liste überdeckt die Liste aus der Bibliothek", async () => {
+        const code = lines(
+            "Liste l = new Liste();",
+            "l.anhaengen(3);",
+            "println(l.anzahl);",
+            "",
+            "class Liste {",
+            "    int anzahl = 0;",
+            "",
+            "    void anhaengen(int x) {",
+            "        anzahl++;",
+            "    }",
+            "}",
+        );
+        const r = await runJava(code);
+        expect(r.errors).toEqual([]);
+        expect(r.output).toBe(lines("1"));
+        expect(roundTrip(code)).toBe(code);
+        expect(types(code).has(B.listNew)).toBe(false);
+        const generisch = await runJava(lines("Liste<String> l = new Liste<>();", "l.add(\"x\");", "println(l.get(0));", "", "class Liste<T> {", "    T e;", "    void add(T x) { e = x; }", "    T get(int i) { return e; }", "}"));
+        expect(generisch.errors).toEqual([]);
+        expect(generisch.output).toBe(lines("x"));
+    });
+
     test("Schreibweisen werden vereinheitlicht", () => {
         expect(roundTrip(lines("int[] a = new int[]{1, 2};", "ArrayList<Double> l = new ArrayList<>();")))
-            .toBe(lines("int[] a = {1, 2};", "ArrayList<Double> l = new ArrayList<Double>();"));
+            .toBe(lines("int[] a = {1, 2};", "Liste<Double> l = new Liste<>();"));
     });
 
     test("Reihungen in Operationen sind dort bekannt, nicht im Hauptprogramm", () => {

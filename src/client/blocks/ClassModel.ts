@@ -1,15 +1,18 @@
 import { B, VAR_TYPES, WRAPPERS, type BlockState, type CollKind, type Param, type WorkspaceState } from "./BlockTypes";
 
 /**
- * Datentypen als Text (wie in Java: "int", "String[]", "int[][]", "ArrayList<Integer>", "Hund",
+ * Datentypen als Text (wie in Java: "int", "String[]", "int[][]", "Liste<Integer>", "Hund",
  * "DynArray") und die Beschreibung von Klassen (Attribute, Konstruktoren, Operationen) –
  * ohne Blockly, damit Parser, Generator und Blockansicht dasselbe benutzen (Paket 6).
  */
 
 export type TypeKind = "scalar" | "class" | CollKind;
+
+/** Listenklassen, die die Blöcke lesen: Liste (GSG, 22.11.2026) und ArrayList (ältere Programme, wird zu Liste) */
+export const LISTEN_KLASSEN: ReadonlySet<string> = new Set(["Liste", "ArrayList"]);
 export type TypeInfo = { kind: TypeKind; elem: string };
 
-/** Hüllklasse für ArrayList: int -> Integer; Klassen bleiben, wie sie sind */
+/** Hüllklasse für Liste und Abiturklassen: int -> Integer; Klassen bleiben, wie sie sind */
 export function wrapperOf(elem: string): string {
     return WRAPPERS[elem] ?? elem;
 }
@@ -28,9 +31,12 @@ export function typeInfo(t: string): TypeInfo {
     const s = t.trim();
     if (s.endsWith("[][]")) return { kind: "array2d", elem: s.slice(0, -4) };
     if (s.endsWith("[]")) return { kind: "array", elem: s.slice(0, -2) };
-    const list = /^ArrayList\s*<\s*([\p{L}_$][\p{L}\p{N}_$]*)\s*>$/u.exec(s);
+    // Liste<Integer> (22.11.2026); ArrayList<Integer> aus älteren Programmen wird zur Liste
+    const list = /^(?:Liste|ArrayList)\s*<\s*([\p{L}_$][\p{L}\p{N}_$]*)\s*>$/u.exec(s);
     if (list) return { kind: "list", elem: unwrap(list[1]) };
-    if (s === "DynArray") return { kind: "dyn", elem: "Object" };
+    const dyn = /^DynArray\s*<\s*([\p{L}_$][\p{L}\p{N}_$]*)\s*>$/u.exec(s);   // Inhaltstyp (22.11.2026)
+    if (dyn) return { kind: "dyn", elem: unwrap(dyn[1]) };
+    if (s === "DynArray") return { kind: "dyn", elem: "Object" };   // ältere Programme ohne Inhaltstyp
     return { kind: isScalar(s) ? "scalar" : "class", elem: s };
 }
 
@@ -39,8 +45,8 @@ export function collectionType(kind: CollKind, elem: string | null): string {
     switch (kind) {
         case "array": return `${elem ?? "int"}[]`;
         case "array2d": return `${elem ?? "int"}[][]`;
-        case "list": return `ArrayList<${wrapperOf(elem ?? "int")}>`;
-        case "dyn": return "DynArray";
+        case "list": return `Liste<${wrapperOf(elem ?? "int")}>`;
+        case "dyn": return `DynArray<${wrapperOf(elem ?? "int")}>`;
     }
 }
 
@@ -49,7 +55,7 @@ export function collectionOfType(t: string | undefined): { kind: CollKind; elem:
     if (!t) return undefined;
     const info = typeInfo(t);
     if (info.kind === "scalar" || info.kind === "class") return undefined;
-    return { kind: info.kind, elem: info.kind === "dyn" ? null : info.elem };
+    return { kind: info.kind, elem: info.elem };
 }
 
 /** Ist das ein Objekt-Typ (Klasse, nicht String)? */

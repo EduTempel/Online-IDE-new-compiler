@@ -1,13 +1,13 @@
 import { lines, type HandbookSection } from "./Handbook";
 
 /**
- * Handbuch für Java: von der ersten Ausgabe bis zu Vererbung, Abiturklassen und Grafik.
+ * Handbuch für Texva (Java mit didaktischen Anpassungen): von der ersten Ausgabe bis zu Vererbung, Abiturklassen und Grafik.
  * Jedes Beispiel wird in Handbook.test.ts übersetzt (und, wo möglich, ausgeführt).
  */
 export const JAVA_HANDBOOK: HandbookSection[] = [
     {
         id: "aufbau", title: "Programmaufbau & Ausgabe", icon: "▶️",
-        intro: "In dieser IDE dürfen die Anweisungen des Hauptprogramms direkt in der Datei stehen – eine Klasse mit `main`-Methode ist nicht nötig. Jede Anweisung endet mit einem **Semikolon** `;`.",
+        intro: "In der Anwendung **Code** schreibst du Java mit einigen Anpassungen für den Unterricht (siehe **Code und echtes Java** am Ende). Die Anweisungen des Hauptprogramms direkt in der Datei stehen – eine Klasse mit `main`-Methode ist nicht nötig. Jede Anweisung endet mit einem **Semikolon** `;`.",
         entries: [
             {
                 title: "Ausgeben",
@@ -46,7 +46,7 @@ export const JAVA_HANDBOOK: HandbookSection[] = [
             },
             {
                 title: "Klassische Form mit main-Methode",
-                text: "So sieht ein Java-Programm außerhalb dieser IDE aus. Hier funktioniert beides: Gibt es eine `main`-Methode, startet das Programm dort.",
+                text: "So sieht ein Programm in echtem Java aus (außerhalb von InfoLab). Hier funktioniert beides: Gibt es eine `main`-Methode, startet das Programm dort.",
                 code: lines(
                     "public class Main {",
                     "    public static void main(String[] args) {",
@@ -118,8 +118,8 @@ export const JAVA_HANDBOOK: HandbookSection[] = [
                 title: "Gültigkeitsbereich (Scope)",
                 text: "Eine lokale Variable gilt **ab ihrer Deklaration bis zur schließenden Klammer `}`** des Blocks, in dem sie steht. " +
                     "Die Zählvariable einer `for`-Schleife gilt nur in der Schleife, Parameter gelten in der ganzen Methode. " +
-                    "Jede Methode hat ihre eigenen Variablen – auch die Variablen des Hauptprogramms kennt eine Methode in Java nicht. " +
-                    "Die Online-IDE führt solche Programme trotzdem aus, zeigt aber eine **Warnung**: Übergib den Wert besser als Parameter. " +
+                    "Jede Methode hat ihre eigenen Variablen – auch die Variablen des Hauptprogramms kennt eine Methode in echtem Java nicht. " +
+                    "InfoLab führt solche Programme trotzdem aus, zeigt aber eine **Warnung**: Übergib den Wert besser als Parameter. " +
                     "Ausnahme: Programmteile wie `@WennTaste` arbeiten mit den Variablen des Hauptprogramms.\n\n" +
                     "Steht der Cursor auf einer Variablen, zeigt ein **grüner Balken** am linken Rand, wo sie gilt. " +
                     "Hat eine Variable denselben Namen wie ein Attribut oder eine Variable von weiter außen, **verdeckt** sie diese: Für das Attribut schreibst du dann `this.name`. " +
@@ -189,7 +189,7 @@ export const JAVA_HANDBOOK: HandbookSection[] = [
     },
     {
         id: "rechnen", title: "Rechnen & Operatoren", icon: "🧮",
-        intro: "Java rechnet mit `+ - * / %`. Es gilt **Punkt vor Strich**, Klammern werden zuerst ausgewertet.",
+        intro: "Gerechnet wird wie in Java mit `+ - * / %`. Es gilt **Punkt vor Strich**, Klammern werden zuerst ausgewertet.",
         entries: [
             {
                 title: "Grundrechenarten und Ganzzahldivision",
@@ -536,7 +536,7 @@ export const JAVA_HANDBOOK: HandbookSection[] = [
                 title: "Umwandeln und durchsuchen",
                 text: "Strings sind unveränderlich: Methoden wie `toUpperCase` liefern einen **neuen** String.",
                 code: lines(
-                    "String satz = \"Java macht Spaß\";",
+                    "String satz = \"Programmieren macht Spaß\";",
                     "println(satz.toUpperCase());",
                     "println(satz.toLowerCase());",
                     "println(satz.contains(\"macht\"));",
@@ -651,14 +651,14 @@ export const JAVA_HANDBOOK: HandbookSection[] = [
         ],
     },
     {
-        id: "arraylist", title: "ArrayList", icon: "📋",
-        intro: "Eine `ArrayList` ist eine Liste, die beim Einfügen wächst. In spitzen Klammern steht der Elementtyp – für primitive Typen die **Hüllklasse**: `Integer` statt `int`, `Double` statt `double`.",
+        id: "arraylist", title: "Liste", icon: "📋",
+        intro: "Eine `Liste` wächst beim Einfügen. In spitzen Klammern steht der Inhaltstyp – für primitive Typen die **Hüllklasse**: `Integer` statt `int`, `Double` statt `double`. Ohne Inhaltstyp meldet der Compiler einen Fehler. Die Befehle sind dieselben wie bei `ArrayList` aus echtem Java – `ArrayList` geht hier auch.",
         entries: [
             {
                 title: "Grundoperationen",
                 text: "`add` hängt an (oder fügt an einer Position ein), `get` liest, `set` ersetzt, `remove` entfernt, `size` liefert die Anzahl.",
                 code: lines(
-                    "ArrayList<String> namen = new ArrayList<String>();",
+                    "Liste<String> namen = new Liste<>();",
                     "namen.add(\"Ada\");",
                     "namen.add(\"Alan\");",
                     "namen.add(0, \"Grace\");",
@@ -673,7 +673,7 @@ export const JAVA_HANDBOOK: HandbookSection[] = [
                 title: "Durchlaufen und filtern",
                 text: "Zum Entfernen während des Durchlaufens zählt man am besten **rückwärts** – sonst werden Elemente übersprungen.",
                 code: lines(
-                    "ArrayList<Integer> zahlen = new ArrayList<Integer>();",
+                    "Liste<Integer> zahlen = new Liste<>();",
                     "for (int i = 1; i <= 10; i++) {",
                     "    zahlen.add(i);",
                     "}",
@@ -857,6 +857,39 @@ export const JAVA_HANDBOOK: HandbookSection[] = [
                     ),
                 },
             },
+            {
+                title: "Klassendiagramme zeichnen",
+                text: [
+                    "Ein **Klassendiagramm** zeigt die Klassen eines Programms in der Schreibweise des Abiturs: oben der Name, darunter die Attribute (`- name: Zeichenkette`), unten Konstruktoren (`c Person(name: Zeichenkette)`) und Operationen (`+ getName(): Zeichenkette`). `-` heißt privat, `+` öffentlich, `...` steht für weggelassene Einträge. Eine **Linie** verbindet Klassen, die miteinander zu tun haben (Assoziation), ein **Pfeil mit offener Spitze** zeigt zur Oberklasse (Vererbung).",
+                    "",
+                    "- **Neu anlegen:** eine Datei mit der Endung `.klassendiagramm` (z. B. `Schule.klassendiagramm`) – oder im Reiter **Klassen** auf **＋ Als Datei**: Dann stehen die Klassen des Projekts schon darin.",
+                    "- **Bearbeiten:** **Neu: Klasse** (oder Doppelklick auf eine freie Stelle), Klasse anklicken und **Attribut**, **Konstruktor** oder **Operation** hinzufügen; Name, Sichtbarkeit und Datentyp stehen in der Leiste darüber. Kästen lassen sich mit der Maus verschieben.",
+                    "- **Beziehungen:** Klasse anklicken, **— Assoziation** bzw. **△ Vererbung** und dann die andere Klasse (bei Vererbung: die Oberklasse) anklicken.",
+                    "- **Typen: Abitur / Java** schaltet zwischen `Ganzzahl` und `int` usw. um. Eine „dyn. Reihung“ wird im Code die Abiturklasse `DynArray`, eine „Liste“ eine `Liste` (z. B. `Liste<String>`).",
+                    "- **⇢ In Code umwandeln** legt für jede Klasse eine Datei an – mit allen Attributen und leeren Methoden zum Ausprogrammieren (`// TODO`). Das Beispiel zeigt, was aus der Klasse `Person` mit `- name: Zeichenkette`, `- alter: Ganzzahl`, `c Person(name: Zeichenkette)` und `+ getName(): Zeichenkette` wird – hier schon ausprogrammiert.",
+                    "",
+                    "Mehr dazu – Bedienung, alle Schreibweisen, Beispiele und Übungen zum Modellieren – steht im **Handbuch Klassendiagramme** (oben im Handbuch auf **Klassendiagramm** umschalten oder im Editor auf **? Hilfe** klicken).",
+                ].join("\n"),
+                code: lines(
+                    "Person p = new Person(\"Ada\");",
+                    "println(p.getName());",
+                    "",
+                    "public class Person {",
+                    "",
+                    "    private String name;",
+                    "    private int alter;",
+                    "",
+                    "    public Person(String name) {",
+                    "        this.name = name;",
+                    "    }",
+                    "",
+                    "    public String getName() {",
+                    "        return name;",
+                    "    }",
+                    "}",
+                ),
+                runs: true,
+            },
         ],
     },
     {
@@ -899,7 +932,7 @@ export const JAVA_HANDBOOK: HandbookSection[] = [
                 title: "Polymorphie",
                 text: "Eine Variable vom Typ der Oberklasse kann Objekte jeder Unterklasse aufnehmen. Beim Aufruf wird die Methode der **tatsächlichen** Klasse ausgeführt.",
                 code: lines(
-                    "ArrayList<Form> formen = new ArrayList<Form>();",
+                    "Liste<Form> formen = new Liste<>();",
                     "formen.add(new Quadrat(2));",
                     "formen.add(new Kreis(1));",
                     "for (Form f : formen) {",
@@ -988,18 +1021,21 @@ export const JAVA_HANDBOOK: HandbookSection[] = [
     },
     {
         id: "abitur", title: "Abiturklassen", icon: "🎓",
-        intro: "Die Klassen aus den Vorgaben für das Abitur in Niedersachsen: `DynArray`, `Stack`, `Queue` und `BinTree`. Sie speichern `Object` – beim Lesen wandelt man mit einem **Cast** in den passenden Typ um, z. B. `(String)` oder `(int)`. Die Bibliothek wird in den Projekteinstellungen eingeschaltet.",
+        intro: "Die Klassen aus den Vorgaben für das Abitur in Niedersachsen: `DynArray`, `Stack`, `Queue` und `BinTree`. Wie in den Ergänzenden Hinweisen haben sie einen **Inhaltstyp**: `Stack<String>` ist ein Stapel vom Inhaltstyp Zeichenkette. Bei Zahlen, Zeichen und Wahrheitswerten schreibt man die **Hüllklasse** (`Integer`, `Double`, `Character`, `Boolean`) – hineinlegen und herausholen geht trotzdem mit `int` usw. Ohne Inhaltstyp meldet der Compiler einen Fehler. Rechts genügt `new Stack<>()`. Die Bibliothek wird in den Projekteinstellungen eingeschaltet.",
         entries: [
             {
                 title: "DynArray",
                 text: "Eine dynamische Reihung: `append`, `insertAt`, `setItem`, `getItem`, `delete`, `getLength`, `isEmpty`. Positionen ab 0.",
                 code: lines(
-                    "DynArray reihe = new DynArray();",
+                    "DynArray<String> reihe = new DynArray<>();",
                     "reihe.append(\"Ada\");",
                     "reihe.append(\"Grace\");",
                     "reihe.insertAt(1, \"Alan\");",
                     "for (int i = 0; i < reihe.getLength(); i++) {",
-                    "    println((String) reihe.getItem(i));",
+                    "    println(reihe.getItem(i));",
+                    "}",
+                    "for (String name : reihe) {",
+                    "    println(name.length());",
                     "}",
                 ),
                 libs: ["niedersachsen"],
@@ -1009,18 +1045,18 @@ export const JAVA_HANDBOOK: HandbookSection[] = [
                 title: "Stack und Queue",
                 text: "Beim **Stapel** kommt das zuletzt Abgelegte zuerst heraus (`push`, `top`, `pop`), bei der **Schlange** das zuerst Eingereihte (`enqueue`, `head`, `dequeue`).",
                 code: lines(
-                    "Stack s = new Stack();",
-                    "Queue q = new Queue();",
+                    "Stack<Integer> s = new Stack<>();",
+                    "Queue<Integer> q = new Queue<>();",
                     "for (int i = 1; i <= 3; i++) {",
                     "    s.push(i);",
                     "    q.enqueue(i);",
                     "}",
                     "while (!s.isEmpty()) {",
-                    "    print((int) s.pop() + \" \");",
+                    "    print(s.pop() + \" \");",
                     "}",
                     "println();",
                     "while (!q.isEmpty()) {",
-                    "    print((int) q.dequeue() + \" \");",
+                    "    print(q.dequeue() + \" \");",
                     "}",
                     "println();",
                 ),
@@ -1031,19 +1067,19 @@ export const JAVA_HANDBOOK: HandbookSection[] = [
                 title: "BinTree rekursiv durchlaufen",
                 text: "Bäume bearbeitet man meist **rekursiv**: erst der linke Teilbaum, dann die Wurzel, dann der rechte (Inorder).",
                 code: lines(
-                    "BinTree baum = new BinTree(5);",
-                    "baum.setLeft(new BinTree(3));",
-                    "baum.setRight(new BinTree(8));",
-                    "baum.getLeft().setLeft(new BinTree(1));",
+                    "BinTree<Integer> baum = new BinTree<>(5);",
+                    "baum.setLeft(new BinTree<>(3));",
+                    "baum.setRight(new BinTree<>(8));",
+                    "baum.getLeft().setLeft(new BinTree<>(1));",
                     "inorder(baum);",
                     "println();",
                     "",
-                    "void inorder(BinTree b) {",
+                    "void inorder(BinTree<Integer> b) {",
                     "    if (b == null || b.isEmpty()) {",
                     "        return;",
                     "    }",
                     "    inorder(b.getLeft());",
-                    "    print((int) b.getItem() + \" \");",
+                    "    print(b.getItem() + \" \");",
                     "    inorder(b.getRight());",
                     "}",
                 ),
@@ -1117,6 +1153,87 @@ export const JAVA_HANDBOOK: HandbookSection[] = [
                     "    Thread.sleep(20);",
                     "}",
                 ),
+            },
+        ],
+    },
+    {
+        id: "texva", title: "Code und echtes Java", icon: "☕",
+        intro: "In **Code** schreibst du **Java** mit einigen Anpassungen für den Unterricht. Fast alles, was du hier lernst, gilt genauso in Java. Dieser Abschnitt zeigt, was hier anders ist – und wie du es außerhalb von InfoLab in echtem Java schreibst.",
+        entries: [
+            {
+                title: "Hauptprogramm ohne Klasse",
+                text: "Hier dürfen Anweisungen direkt in der Datei stehen. In Java gehören sie in die `main`-Methode einer Klasse. InfoLab versteht beide Formen. Die erste Zeile kann dem Programm einen Namen geben: `// Hauptprogramm „Name“`.",
+                code: lines(
+                    "// Hauptprogramm „Begrüßung“",
+                    "println(\"Hier reicht eine Zeile.\");",
+                ),
+                runs: true,
+            },
+            {
+                title: "Dasselbe in echtem Java",
+                text: "In Java braucht jedes Programm eine Klasse mit `public static void main(String[] args)`. Ausgaben schreibt man mit `System.out.println`. Auch das läuft hier.",
+                code: lines(
+                    "public class Begruessung {",
+                    "    public static void main(String[] args) {",
+                    "        System.out.println(\"In Java steht alles in einer Klasse.\");",
+                    "    }",
+                    "}",
+                ),
+                runs: true,
+            },
+            {
+                title: "print und println",
+                text: "Hier gibt es `print` und `println` ohne Vorsilbe. In Java heißen sie `System.out.print` und `System.out.println` – diese Schreibweise geht hier auch.",
+                code: lines(
+                    "println(\"kurz, nur in InfoLab\");",
+                    "System.out.println(\"lang, wie in Java\");",
+                ),
+                runs: true,
+            },
+            {
+                title: "Variablen des Hauptprogramms in Methoden",
+                text: "Hier kann eine Methode die Variablen des Hauptprogramms sehen. InfoLab zeigt dann aber eine **Warnung**, denn in echtem Java geht das nicht: Jede Methode hat ihre eigenen Variablen. Übergib Werte deshalb als **Parameter** und gib Ergebnisse mit `return` zurück – dann läuft das Programm auch in Java.",
+                code: lines(
+                    "int zahl = 21;",
+                    "println(verdoppelt(zahl));",
+                    "",
+                    "int verdoppelt(int x) {",
+                    "    return 2 * x;",
+                    "}",
+                ),
+                runs: true,
+            },
+            {
+                title: "Programmteile mit Annotationen",
+                text: "Methoden mit `@BeimStart`, `@WennTaste(\"…\")`, `@WennNachricht(\"…\")`, `@WennAngeklickt`, `@WennIchAlsKlonEntstehe`, `@WennBuehnenbild(\"…\")` oder `@WennStoppuhrUeber(…)` laufen gleichzeitig mit dem Hauptprogramm und dürfen dessen Variablen benutzen. Diese Annotationen gibt es nur in InfoLab. In Java bräuchte man dafür Threads und Ereignis-Listener.",
+                code: lines(
+                    "int zahl = 0;",
+                    "println(\"Pfeil hoch zählt.\");",
+                    "",
+                    "@WennTaste(\"ArrowUp\")",
+                    "void hoch() {",
+                    "    zahl++;",
+                    "    println(zahl);",
+                    "}",
+                ),
+            },
+            {
+                title: "Zusätzliche Klassen",
+                text: "InfoLab bringt Klassen mit, die es in Java nicht gibt: Grafik (`Circle`, `Rectangle`, `Sprite`, `Turtle` …), Eingaben (`Input`, `Mouse`), die deutschen Klassen `Figur` und `Buehne` aus Blocks und Mix sowie die Abiturklassen `DynArray`, `Stack`, `Queue` und `BinTree`. In echtem Java muss man solche Klassen selbst schreiben oder als Bibliothek einbinden.",
+                code: lines(
+                    "Circle ball = new Circle(400, 300, 50);",
+                    "ball.setFillColor(\"green\");",
+                ),
+            },
+            {
+                title: "Fehlermeldungen auf Deutsch",
+                text: "InfoLab erklärt Fehler auf Deutsch, oft mit einem Link ins Handbuch, und warnt bei typischen Anfängerfehlern. Java selbst meldet Fehler auf Englisch und knapper. Texte vergleicht man in beiden mit `equals`, nicht mit `==`.",
+                code: lines(
+                    "String a = \"Hallo\";",
+                    "String b = \"Hal\" + \"lo\";",
+                    "println(a.equals(b));",
+                ),
+                runs: true,
             },
         ],
     },

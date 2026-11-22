@@ -372,11 +372,11 @@ describe("19g Malstift", () => {
 
 describe("19f Listen", () => {
     const LISTEN = [
-        "    static ArrayList<Double> zahlen = new ArrayList<Double>();",
-        "    static ArrayList<String> namen = new ArrayList<String>();",
+        "    static Liste<Double> zahlen = new Liste<>();",
+        "    static Liste<String> namen = new Liste<>();",
         "",
     ];
-    const CTX_L: BloecklyContext = { stage: "Spiel", globals: { zahlen: "ArrayList<Double>", namen: "ArrayList<String>" } };
+    const CTX_L: BloecklyContext = { stage: "Spiel", globals: { zahlen: "Liste<Double>", namen: "Liste<String>" } };
     const skript = [
         "    @BeimStart",
         "    void beimStart() {",
@@ -400,14 +400,14 @@ describe("19f Listen", () => {
         // so schreibt der Generator die Bühne: Variablen vor dem Konstruktor
         const stage = ["class Spiel extends Buehne {", "", ...LISTEN, "    Spiel() {", "        super(\"Schulhof\");", "    }", "", "}", ""].join("\n");
         const blocks = rundweg(stage);
-        expect(blocks.filter((b) => b.type === B.blVar).map((b) => [b.fields?.NAME, b.fields?.TYPE, !!b.inputs?.VALUE])).toEqual([
-            ["zahlen", "ArrayList<Double>", false], ["namen", "ArrayList<String>", false],
+        expect(blocks.filter((b) => b.type === B.blList).map((b) => [b.fields?.NAME, b.fields?.TYPE, !!b.inputs?.VALUE])).toEqual([
+            ["zahlen", "Liste<Double>", false], ["namen", "Liste<String>", false],
         ]);
-        expect(variablenDerKlasse(stage, CTX)).toEqual({ zahlen: "ArrayList<Double>", namen: "ArrayList<String>" });
-        expect(mitVariable(buehne(), "einkauf", "ArrayList<String>", CTX)).toContain("    static ArrayList<String> einkauf = new ArrayList<String>();");
-        // auch new ArrayList<>() wird zur Liste
+        expect(variablenDerKlasse(stage, CTX)).toEqual({ zahlen: "Liste<Double>", namen: "Liste<String>" });
+        expect(mitVariable(buehne(), "einkauf", "ArrayList<String>", CTX)).toContain("    static Liste<String> einkauf = new Liste<>();");
+        // auch ältere Programme mit ArrayList werden zur Liste
         const kurz = JavaBlockParser.parse(buehne(["    static ArrayList<Double> z = new ArrayList<>();", ""]), { bloeckly: CTX }).state;
-        expect(alle(kurz.blocks.blocks).find((b) => b.type === B.blVar)?.fields?.TYPE).toBe("ArrayList<Double>");
+        expect(alle(kurz.blocks.blocks).find((b) => b.type === B.blList)?.fields?.TYPE).toBe("Liste<Double>");
     });
 
     test("Java -> Blöcke -> Java: Spiel.liste in einer Figur", () => {

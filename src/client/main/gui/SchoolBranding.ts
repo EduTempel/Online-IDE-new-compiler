@@ -37,11 +37,13 @@ export const SCHOOL_TEACHER_HANDBOOK_URL = "/lehrkraefte/";
 /** Startseite des eigenen Backends: Anwendungen, Projekte per Link teilen */
 export const SCHOOL_START_URL = "/start/";
 
-/** Anwendungen "Blöckva", "Struktogramme" und "Blöckly" (dieselbe IDE): Titel, Überschrift und IServ-Rücksprung anpassen */
+/** Anwendungen „Mix“, „Strukto“, „Klassen“ und „Blocks“ (dieselbe IDE wie „Code“): Titel, Überschrift und IServ-Rücksprung
+ *  anpassen; app = interner Schlüssel beim Server (unverändert); die alten Adressen werden weiter erkannt */
 const APP_TITLES: { path: RegExp, title: string, app: string }[] = [
-    { path: /^\/bloecke(\/|$)/, title: "Blöckva", app: "bloecke" },
-    { path: /^\/struktogramme(\/|$)/, title: "Struktogramme", app: "struktogramme" },
-    { path: /^\/bloeckly(\/|$)/, title: "Blöckly", app: "bloeckly" },
+    { path: /^\/(mix|bloecke)(\/|$)/, title: "Mix", app: "bloecke" },
+    { path: /^\/(strukto|struktogramme)(\/|$)/, title: "Strukto", app: "struktogramme" },
+    { path: /^\/(klassen|klassendiagramme)(\/|$)/, title: "Klassen", app: "klassendiagramme" },
+    { path: /^\/(blocks|bloeckly)(\/|$)/, title: "Blocks", app: "bloeckly" },
 ];
 
 function applyAppBranding() {

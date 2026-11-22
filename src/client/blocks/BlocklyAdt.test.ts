@@ -35,15 +35,16 @@ describe("ADT mit Blockly", () => {
 
     test("Typen: Lesen als Ganzzahl ist eine Zahl, Teilbaum ist ein Binärbaum", () => {
         const ws = load(ADT);
-        const top = blocksOf(ws, B.stackGet)[0];
-        expect(top.getFieldValue("TYPE")).toBe("int");
+        const top = blocksOf(ws, B.stackGet)[0];   // Stapel vom Inhaltstyp Ganzzahl
         expect(top.outputConnection?.getCheck()).toEqual(["int"]);
-        expect(blocksOf(ws, B.treeChild)[0].outputConnection?.getCheck()).toEqual(["BinTree"]);
+        expect(blocksOf(ws, B.stackNew)[0].getFieldValue("TYPE")).toBe("int");
+        expect(blocksOf(ws, B.treeChild)[0].outputConnection?.getCheck()).toEqual(["BinTree<Integer>"]);
+        expect(blocksOf(ws, B.queueGet)[0].outputConnection?.getCheck()).toEqual(["String"]);
         expect(blocksOf(ws, B.adtIsEmpty)[0].outputConnection?.getCheck()).toEqual(["boolean"]);
     });
 
     test("Binärbaum ohne Inhalt", () => {
-        const code = "BinTree leer = new BinTree();\nprintln(leer.isEmpty());\n";
+        const code = "BinTree<String> leer = new BinTree<>();\nprintln(leer.isEmpty());\n";
         expect(generate(load(code))).toBe(code);
     });
 });

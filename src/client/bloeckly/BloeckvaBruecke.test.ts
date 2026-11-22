@@ -41,7 +41,7 @@ function alle(b: BlockState | undefined, out: BlockState[] = []): BlockState[] {
     return out;
 }
 
-describe("Brücke Blöckly → Blöckva (Paket 18g)", () => {
+describe("Brücke Blocks → Mix (Paket 18g)", () => {
     it("Figur als Klasse mit Oberklasse Figur, Skripte als Operationen mit Annotation", () => {
         const { state } = JavaBlockParser.parse(FIGUR);
         const blocks = state.blocks.blocks.flatMap((b) => alle(b));

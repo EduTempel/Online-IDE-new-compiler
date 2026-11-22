@@ -17,6 +17,8 @@ export type TreeviewConfig<E, K> = {
     orderExtractor?: (object: E) => number,
     orderSetter?: (object: E, order: number) => void,
     comparator?: (externalElement1: E, externalElement2: E) => number,
+    /** GSG: Gruppe eines Elements (kleinere zuerst); zwischen den Gruppen ein Trennstrich, siehe TreeviewGruppen.ts */
+    groupExtractor?: (externalElement: E) => number,
 
     orderBy: "comparator" | "user-defined",
 

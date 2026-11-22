@@ -96,7 +96,7 @@ describe("Struktogramme (Stil der Ergänzenden Hinweise Niedersachsen)", () => {
             "for (int k = 0; k < 10; k += 2) {",
             "    println(k);",
             "}",
-            "ArrayList<String> liste = new ArrayList<String>();",
+            "Liste<String> liste = new Liste<>();",
             "while (!liste.isEmpty() && zahlen[0] != 1 || false) {",
             "    liste.remove(0);",
             "}",
@@ -250,6 +250,27 @@ describe("Struktogramme: Zeilenumbruch (lesbar, nicht zu breit)", () => {
         expect(width).toBeLessThan(2 * max + 120);
         const texts = [...svg.matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map((m) => m[1]);
         expect(texts.filter((t) => t.includes("ziemlich") || t.includes("früher")).length).toBeGreaterThan(2);
-        for (const t of texts) expect(approxMeasure(t.replace(/&gt;/g, ">").replace(/&lt;/g, "<").replace(/&amp;/g, "&"))).toBeLessThanOrEqual(STYLE.titleWrap);
+        for (const t of texts) expect(approxMeasure(t.replace(/&gt;/g, ">").replace(/&lt;/g, "<").replace(/&amp;/g, "&"))).toBeLessThanOrEqual(width);
+    });
+    test("ist das Struktogramm breiter, nutzen die Texte die ganze Breite (kein unnötiger Umbruch)", () => {
+        const eingabe = 'name ← eingegebene Zeichenkette ("Wie heißt du?")';
+        const fall = (label: string) => ({ label, body: [{ kind: "stmt", text: "gib \"" + label + " kommt\" aus" } as SNode] });
+        const body: SNode[] = [{ kind: "loop", head: "wiederhole endlos", body: [
+            { kind: "if", cond: 'Taste "A" gedrückt', no: [], yes: [
+                { kind: "stmt", text: eingabe },
+                { kind: "loop", head: 'solange essen = "Pommes" ODER essen = "Burger" ODER essen = "Salat"', body: [{ kind: "stmt", text: eingabe }] },
+                // breit: mehrseitige Auswahl mit vier Fällen
+                { kind: "switch", subject: "essen", cases: ["Pommes", "Burger", "Salat"].map(fall), other: [{ kind: "stmt", text: "gib \"Gibt es nicht\" aus" }] },
+            ] },
+        ] }];
+        const { svg, width } = renderSvg([{ title: "Hauptprogramm", body }]);
+        expect(approxMeasure(eingabe)).toBeGreaterThan(STYLE.wrap);   // wäre früher umgebrochen worden
+        expect(approxMeasure(eingabe)).toBeLessThan(width - 60);
+        const texts = [...svg.matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map((m) => m[1].replace(/&gt;/g, ">").replace(/&lt;/g, "<").replace(/&amp;/g, "&"));
+        expect(texts.filter((t) => t === eingabe).length).toBe(2);
+        expect(texts).toContain('solange essen = "Pommes" ODER essen = "Burger" ODER essen = "Salat"');
+        // ohne breites Element bleibt es schmal: Texte brechen wie bisher um
+        const schmal = renderSvg([{ title: "Hauptprogramm", body: [{ kind: "stmt", text: eingabe }] }]);
+        expect(schmal.width).toBeLessThan(STYLE.wrap + 60);
     });
 });

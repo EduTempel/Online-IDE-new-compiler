@@ -150,6 +150,10 @@ export const BL_HILFE: Record<string, BlHilfe> = {
     [B.text]: h(flagge("sage(\"Hallo!\");"), "Ein Text."),
     [B.bool]: h(flagge("boolean fertig = false;", "while (!fertig) {", "    gehe(10);", "    fertig = beruehrtRand();", "}"), "Wahr oder falsch."),
     // —— Variablen und Listen ——
+    [B.blVar]: h(["int leben = 3;", "", ...angeklickt("leben = leben - 1;", "sage(leben, 1);")],
+        "Legt eine Variable an und gibt ihr einen Startwert. Der Block gehört oben in ein Skript. In einer Figur gilt die Variable dann in allen Skripten der Figur, auf der Bühne für alle Figuren."),
+    [B.blList]: h(["Liste<String> sachen = new Liste<>();", ...flagge("sachen.add(\"Ball\");", "sachen.add(\"Buch\");", "sage(sachen.size(), 2);")],
+        "Legt eine Liste an, die am Anfang leer ist. Der Block gehört oben in ein Skript. In einer Figur gilt die Liste dann in allen Skripten der Figur, auf der Bühne für alle Figuren."),
     [B.varDeclare]: h(flagge("int schritte = 2;", ...mal(5, "gehe(schritte);", "schritte += 2;")),
         "Legt eine Variable an, die nur in diesem Skript gilt, und gibt ihr einen Startwert."),
     [B.varGet]: h(VARIABLE, "Der Wert, den die Variable gerade hat."),
@@ -187,7 +191,7 @@ export const BL_HILFE: Record<string, BlHilfe> = {
 export const HILFE_FIGUR = "Waschbär";
 export const HILFE_FIGUREN = [HILFE_FIGUR, "Pinguin"];
 /** Liste für alle Figuren, die die Beispiele benutzen */
-export const HILFE_GLOBALS: Record<string, string> = { einkauf: "ArrayList<String>" };
+export const HILFE_GLOBALS: Record<string, string> = { einkauf: "Liste<String>" };
 
 /** Schlüssel für einen Block: „falls … sonst“ hat ein eigenes Beispiel */
 export function hilfeSchluessel(type: string, hatSonst: boolean): string {

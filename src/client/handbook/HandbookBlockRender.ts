@@ -5,9 +5,9 @@ import { registerRenderer } from "../blocks/BlockRenderer";
 import { applyTypes } from "../blocks/BlockTypeSystem";
 import { JavaBlockParser } from "../blocks/JavaBlockParser";
 import { blocksToSvg } from "../blocks/BlockImage";
-import { B } from "../blocks/BlockTypes";
 import { bloecklyUi, defineBloecklyBlocks, setBloecklyUi, type BloecklyUi } from "../bloeckly/BloecklyBlocks";
 import type { BloecklyContext } from "../bloeckly/BloecklySpec";
+import { kopfAusFlaeche } from "../bloeckly/BloecklyKopf";
 
 /**
  * Beispiele des Blöcke-Handbuchs als Bild: Der Java-Code wird in einer unsichtbaren, nur lesbaren
@@ -100,7 +100,8 @@ async function renderBloeckly(text: string, ctx: BloecklyContext, ui: BloecklyUi
     setBloecklyUi(ui);
     try {
         const { state } = JavaBlockParser.parse(text, { bloeckly: ctx });
-        state.blocks.blocks = (state.blocks.blocks ?? []).filter((b) => b.type !== B.blFigure);
+        // wie in der Blockansicht: kein Kopfblock, Variablen oben im Skript
+        kopfAusFlaeche(state, true);
         Blockly.Events.disable();
         try {
             w.clear();

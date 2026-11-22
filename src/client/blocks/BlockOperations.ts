@@ -381,7 +381,7 @@ export function handleRename(ws: Blockly.Workspace, e: Blockly.Events.BlockChang
         return;
     }
 
-    // Klasse: Datentypen (auch Hund[], ArrayList<Hund>), new Hund(…), Oberklassen
+    // Klasse: Datentypen (auch Hund[], Liste<Hund>), new Hund(…), Oberklassen
     if (block.type === B.class && e.name === "NAME") {
         if (classes.has(oldName)) return;   // gibt es noch (z. B. in einer anderen Datei)
         const escaped = oldName.replace(/[$]/g, "\\$");
@@ -419,6 +419,20 @@ export function handleRename(ws: Blockly.Workspace, e: Blockly.Events.BlockChang
                     const recv = receiverClass(b);
                     if (recv && isSubclass(classes, recv, cls)) b.setFieldValue(newName, "ATTR");
                 }
+            }
+        });
+        return;
+    }
+
+    // Blöckly: „erstelle Variable“ (oben in einem Skript; Variable der Figur bzw. Bühne) – alle Skripte dieser Datei, ohne gleichnamige eigene
+    if ((block.type === B.blVar || block.type === B.blList) && e.name === "NAME") {
+        const LIST_USES: string[] = [B.listAdd, B.listRemove, B.listClear, B.listInsert, B.listSet, B.listGet, B.listIndexOf, B.listSize, B.listContains];
+        if (all.some((b) => b !== block && (b.type === B.blVar || b.type === B.blList) && b.getFieldValue("NAME") === oldName)) return;
+        withGroup(e, () => {
+            for (const b of all) {
+                if (!(VAR_USES.includes(b.type) || LIST_USES.includes(b.type)) || b.getFieldValue("NAME") !== oldName) continue;
+                const root = scopeRoot(b);
+                if (!root || !scopeVariables(root).has(oldName)) b.setFieldValue(newName, "NAME");
             }
         });
         return;

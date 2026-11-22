@@ -1,5 +1,7 @@
 import type { Main } from "../Main.js";
 import { expandLeftPanel } from "./LeftPanelToggle.js";
+import { vorNeuemEintrag } from "./GsgModern.js";
+import { Constants } from "../../Constants.js";
 
 /**
  * GSG: Leer-Ansicht über dem Editor, wenn kein Projekt oder keine Datei offen ist – statt des Textes
@@ -32,8 +34,11 @@ export function zeigeLeerAnsicht(main: Main, art: Art | null) {
     const titel = art === "projekt"
         ? (hatProjekte ? "Wähle links ein Projekt aus" : "Noch kein Projekt")
         : "Dieses Projekt ist noch leer";
+    const was = Constants.isKlassendiagrammApp ? "Klassendiagramme" : Constants.isStructogramApp ? "Struktogramme" : "Programme";
     const text = art === "projekt"
-        ? (hatProjekte ? "Oder lege ein neues Projekt an." : "Lege dein erstes Projekt an – darin speicherst du deine Programme.")
+        ? (hatProjekte ? "Oder lege ein neues Projekt an." : `Lege dein erstes Projekt an – darin speicherst du deine ${was}.`)
+        : Constants.isKlassendiagrammApp ? "Lege eine Datei an, um dein erstes Klassendiagramm zu zeichnen."
+        : Constants.isStructogramApp ? "Lege eine Datei an, um dein erstes Struktogramm zu entwerfen."
         : "Lege eine Datei an, um mit dem Programmieren zu beginnen.";
     const knopfText = art === "projekt" ? "＋ Neues Projekt" : "＋ Neue Datei";
 
@@ -55,6 +60,7 @@ export function zeigeLeerAnsicht(main: Main, art: Art | null) {
         knopf.className = "gsg-leer-knopf";
         knopf.textContent = knopfText;
         knopf.addEventListener("click", () => {
+            if (vorNeuemEintrag(main, art === "projekt")) return;   // Aussehen Modern: Liste evtl. ausgeblendet
             expandLeftPanel();
             const liste = art === "projekt" ? main.projectExplorer.workspaceTreeview : main.projectExplorer.fileTreeview;
             const r = knopf.getBoundingClientRect();

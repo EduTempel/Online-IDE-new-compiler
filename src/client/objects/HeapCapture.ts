@@ -5,7 +5,7 @@ import type { BaseSymbolTable } from "../../compiler/common/BaseSymbolTable";
 import { JavaSymbolTable } from "../../compiler/java/codegenerator/JavaSymbolTable";
 import { StaticNonPrimitiveType } from "../../compiler/java/types/StaticNonPrimitiveType";
 import type { RootVariable } from "./HeapSnapshot";
-import { blockTitle, frameTitle, isFrameLevel, methodRootTable, partTitle, sourceLines, type ScopeStyle, type VariableScope } from "./ScopeTitles";
+import { blockTitle, frameTitle, isFrameLevel, mainTitle, methodRootTable, partTitle, sourceLines, type ScopeStyle, type VariableScope } from "./ScopeTitles";
 
 /**
  * Objektdiagramm (Paket 9): Variablen des angehaltenen Programms – wie die Variablenansicht des
@@ -142,7 +142,7 @@ export function captureCurrentFrame(interpreter: Interpreter, frame: "top" | "ma
     const stack = thread?.programStack ?? [];
     const programState = frame === "main" ? stack.find((p) => !p.program?.isReplProgram) : stack[stack.length - 1];
     if (!thread || !programState || programState.program?.isReplProgram) return undefined;
-    const frameScope = style && frame === "main" ? { key: "main", title: "Hauptprogramm", inner: false } : undefined;
+    const frameScope = style && frame === "main" ? { key: "main", title: mainTitle(programState.program), inner: false } : undefined;
     const variables = frameVariables(interpreter, thread, programState, style, frameScope);
     if (!variables) return undefined;
     const { roots, range, pos, mainClass } = variables;
@@ -150,7 +150,7 @@ export function captureCurrentFrame(interpreter: Interpreter, frame: "top" | "ma
     let method = (programState.program.methodIdentifierWithClass ?? "")
         .replace(/\d*\./g, ".").replaceAll("$", "").replace(/^\./, "")
         .replace(/^MainClass\./, "");   // Operationen des Hauptprogramms ohne Klassennamen
-    if (method === "main" || method === "") method = "Hauptprogramm";
+    if (method === "main" || method === "") method = mainTitle(programState.program);
     return { roots, position: interpreter.scheduler.getNextStepPosition(thread as never), method, line: range?.startLineNumber, mainClass, pos };
 }
 

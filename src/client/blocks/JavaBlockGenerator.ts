@@ -4,9 +4,9 @@ import { B, COLLECTION_CALLS, COLLECTION_DECLARATIONS, elementJavaType, isPartHa
 import { collectionOfType, collectionType, methodParams, wrapperOf } from "./ClassModel";
 import type { LineRange } from "./JavaBlockParser";
 import { colourJava, FIGURE_ACTIONS, FIGURE_CALLS, FIGURE_CREATIONS, FIGURE_PROPS, targetJava, touchesJava } from "./FigureSpec";
-import { ADT_CALLS, ADT_CREATIONS, ADT_GET_TYPES, TREE_SIDES } from "./AdtSpec";
+import { ADT_CALLS, ADT_CREATIONS, ADT_GET_TYPES, adtClassOf, adtTypeName, TREE_SIDES } from "./AdtSpec";
 import { CLICK_PART_ANNOTATION, KEY_PART_ANNOTATION, MESSAGE_PART_ANNOTATION, START_PART_ANNOTATION } from "../../compiler/common/interpreter/GsgParts";
-import { blBlock, blHat, defaultHatName, formFor, isFormLiteral, istBlListe, STAGE_SUPER, vonJava, WERT_PARAM, type BloecklyContext, type HeaderState } from "../bloeckly/BloecklySpec";
+import { alleVariablenBloecke, blBlock, blHat, defaultHatName, skriptVariablen, formFor, isFormLiteral, istBlListe, blListeTyp, STAGE_SUPER, vonJava, WERT_PARAM, type BloecklyContext, type HeaderState } from "../bloeckly/BloecklySpec";
 
 export { methodParams };
 
@@ -142,7 +142,7 @@ export class JavaBlockGenerator {
         const h = (header.extraState ?? {}) as Partial<HeaderState>;
         const klasse = h.klasse || "Figur1", oberklasse = h.oberklasse || "Figur";
         const fields = new Set<string>();
-        for (let v = header.inputs?.VARS?.block; v; v = v.next?.block) if (v.type === B.blVar && v.fields?.NAME) fields.add(v.fields.NAME);
+        for (const v of alleVariablenBloecke(top)) if (v.fields?.NAME) fields.add(v.fields.NAME);
         this.bl = {
             stage: oberklasse === STAGE_SUPER, stageClass: this.ctx?.stage ?? "Spiel",
             globals: new Set(Object.keys(this.ctx?.globals ?? {})), fields,
@@ -165,8 +165,20 @@ export class JavaBlockGenerator {
             .sort((a, b) => (a.y ?? 0) - (b.y ?? 0) || (a.x ?? 0) - (b.x ?? 0));
         for (const s of scripts) {
             this.emit("");
-            if (s.type === B.method) this.method(s, INDENT);
-            else this.bloecklyHat(s, used);
+            if (s.type === B.method) {
+                this.method(s, INDENT);
+                continue;
+            }
+            // „erstelle Variable …“ oben im Skript: Variable der Klasse direkt davor
+            const { variablen, rest } = skriptVariablen(s);
+            if (variablen.length) {
+                this.colls = new Map();
+                for (const v of variablen) this.statements({ ...v, next: undefined }, INDENT);
+            }
+            const ohne: BlockState = { ...s, inputs: { ...(s.inputs ?? {}) } };
+            if (rest) ohne.inputs!.BODY = { block: rest };
+            else delete ohne.inputs!.BODY;
+            this.bloecklyHat(ohne, used);
         }
         this.emit("");
         this.emit("}");
@@ -327,10 +339,11 @@ export class JavaBlockGenerator {
                 else this.emit(`${indent}${this.varName(f.NAME)} ${minus ? "-=" : "+="} ${this.input(b, "VALUE", Order.NONE)};`);
                 break;
             }
+            case B.blList:
             case B.blVar: {
                 const value = b.inputs?.VALUE?.block;
                 if (istBlListe(f.TYPE)) {   // Paket 19f: Liste (am Anfang leer)
-                    this.emit(`${indent}${this.bl?.stage ? "static " : ""}${f.TYPE} ${f.NAME} = new ${f.TYPE}();`);
+                    this.emit(`${indent}${this.bl?.stage ? "static " : ""}${blListeTyp(f.TYPE)} ${f.NAME} = new Liste<>();`);
                     break;
                 }
                 this.emit(`${indent}${this.bl?.stage ? "static " : ""}${f.TYPE ?? "int"} ${f.NAME}${value ? " = " + this.value(value, Order.NONE) : ""};`);
@@ -443,11 +456,11 @@ export class JavaBlockGenerator {
                 break;
             case B.listNew: {
                 const w = wrapperOf(f.TYPE ?? "int");
-                this.emit(`${indent}ArrayList<${w}> ${f.NAME} = new ArrayList<${w}>();`);
+                this.emit(`${indent}Liste<${w}> ${f.NAME} = new Liste<>();`);
                 break;
             }
             case B.dynNew:
-                this.emit(`${indent}DynArray ${f.NAME} = new DynArray();`);
+                this.emit(`${indent}${adtTypeName("DynArray", f.TYPE)} ${f.NAME} = new DynArray<>();`);
                 break;
             case B.forEach:
                 this.emit(`${indent}for (${elementJavaType(this.colls.get(f.LIST ?? ""))} ${f.VAR} : ${f.LIST}) {`);
@@ -582,7 +595,7 @@ export class JavaBlockGenerator {
             case B.thisAttrGet:
                 return [`this.${f.NAME}`, Order.ATOMIC];
             case B.objNew:
-                return [`new ${f.CLASS}${this.args(b)}`, Order.ATOMIC];
+                return [`new ${f.CLASS}${adtClassOf(f.CLASS) ? "<>" : ""}${this.args(b)}`, Order.ATOMIC];
             case B.objCallExpr:
                 return [`${this.receiver(b, "OBJ", "objekt")}.${f.METHOD}${this.args(b)}`, Order.ATOMIC];
             case B.objAttrGet:
@@ -597,10 +610,8 @@ export class JavaBlockGenerator {
                 return [`${f.NAME}.length`, Order.ATOMIC];
             case B.array2dSize:
                 return [f.DIM === "cols" ? `${f.NAME}[0].length` : `${f.NAME}.length`, Order.ATOMIC];
-            case B.dynGet: {
-                const get = `${f.NAME}.getItem(${this.input(b, "I", Order.NONE)})`;
-                return !f.TYPE || f.TYPE === "Object" ? [get, Order.ATOMIC] : [`(${f.TYPE}) ${get}`, Order.UNARY];
-            }
+            case B.dynGet:
+                return [`${f.NAME}.getItem(${this.input(b, "I", Order.NONE)})`, Order.ATOMIC];
             case B.javaExpression: {
                 const code = f.CODE ?? "";
                 return [code, rawOrder(code)];
@@ -624,7 +635,7 @@ export class JavaBlockGenerator {
         const creation = ADT_CREATIONS.find((c) => c.block === b.type);
         if (creation) {
             const item = b.type === B.treeNew && b.inputs?.V?.block ? this.input(b, "V", Order.NONE) : "";
-            return `${creation.cls} ${f.NAME} = new ${creation.cls}(${item});`;
+            return `${adtTypeName(creation.cls, f.TYPE)} ${f.NAME} = new ${creation.cls}<>(${item});`;
         }
         const call = ADT_CALLS.find((c) => c.block === b.type);
         if (call) return `${f.NAME}.${call.method}(${call.inputs.map((i) => this.input(b, i, Order.NONE)).join(", ")});`;
@@ -640,10 +651,7 @@ export class JavaBlockGenerator {
 
     private adtExpression(b: BlockState): [string, Order] | undefined {
         const f = b.fields ?? {};
-        if (ADT_GET_TYPES.has(b.type)) {
-            const get = `${f.NAME}.${f.OP || "getItem"}()`;
-            return !f.TYPE || f.TYPE === "Object" ? [get, Order.ATOMIC] : [`(${f.TYPE}) ${get}`, Order.UNARY];
-        }
+        if (ADT_GET_TYPES.has(b.type)) return [`${f.NAME}.${f.OP || "getItem"}()`, Order.ATOMIC];
         switch (b.type) {
             case B.treeChild: return [`${f.NAME}.${(TREE_SIDES.find(([, v]) => v === f.SIDE) ?? TREE_SIDES[0])[3]}()`, Order.ATOMIC];
             case B.treeTest: return [`${f.NAME}.isLeaf()`, Order.ATOMIC];

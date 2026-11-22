@@ -119,7 +119,7 @@ describe("Operationen und Programmteile", () => {
     test("Operation kennt die Variablen des Hauptprogramms nicht; Programmteil keine verschachtelten", () => {
         const ws = load(PROGRAM);
         const inMethod = gets(ws, "punkte").find((b) => b.getRootBlock().type === B.method)!;
-        expect(warning(inMethod)).toContain("„punkte“ ist eine Variable des Hauptprogramms. In Java kennt diese Operation sie nicht");
+        expect(warning(inMethod)).toContain("„punkte“ ist eine Variable des Hauptprogramms. In echtem Java kennt diese Operation sie nicht");
         expect(warning(inMethod)).toContain("Übergib den Wert als Parameter");
         const inPart = gets(ws, "schritt").find((b) => b.getRootBlock().type === B.keyStart)!;
         expect(warning(inPart)).toContain("Programmteile kennen nur Variablen, die im Hauptprogramm ganz außen");

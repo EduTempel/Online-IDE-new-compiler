@@ -46,10 +46,10 @@ const BLOECKLY_SHARED = [B.msgSend, B.msgSendWait, B.repeat, B.forever, B.if, B.
     B.not, B.concat, B.strCharAt, B.strLength, B.strContains, B.math, B.number, B.text, B.bool, B.varDeclare, B.varGet,
     B.varSet, B.varChange, B.method, B.call, B.callExpr, B.return, B.returnVoid, B.javaRaw];
 
-describe("Tooltips ohne Java (Blöckly, Blöckva)", () => {
-    test("tip(): Java nur in der Java-IDE, eigener Text für Blöckly", () => {
+describe("Tooltips ohne Java (Blocks, Mix)", () => {
+    test("tip(): Java nur in Code, eigener Text für Blocks", () => {
         setTooltipApp(1);
-        expect(tip("Erhöht.", "zahl++;", "Zählt eins dazu.")).toBe("Erhöht.\nJava: zahl++;");
+        expect(tip("Erhöht.", "zahl++;", "Zählt eins dazu.")).toBe("Erhöht.\nCode: zahl++;");
         setTooltipApp(4);
         expect(tip("Erhöht.", "zahl++;", "Zählt eins dazu.")).toBe("Erhöht.");
         setTooltipApp(6);
@@ -69,8 +69,8 @@ describe("Tooltips ohne Java (Blöckly, Blöckva)", () => {
         expect(checked.length).toBeGreaterThan(120);
     });
 
-    test("Blöckly: Texte für die Sek. I (Skripte statt Programmteile, kein Hauptprogramm)", () => {
-        const types = [...BLOECKLY_SHARED, ...BL_BLOCKS.map((b) => b.type), ...BL_HATS.map((h) => h.type), B.blFigure, B.blVar];
+    test("Blocks: Texte für die Sek. I (Skripte statt Programmteile, kein Hauptprogramm)", () => {
+        const types = [...BLOECKLY_SHARED, ...BL_BLOCKS.map((b) => b.type), ...BL_HATS.map((h) => h.type), B.blFigure, B.blVar, B.blList];
         let checked = 0;
         for (const type of types) {
             const t = tooltipOf(type);

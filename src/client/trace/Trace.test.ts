@@ -74,9 +74,9 @@ void trace() { println("eigene"); }`);
     });
 
     it("Niedersachsen: Stack und Queue", async () => {
-        const rows = await trace(`Stack s = new Stack();
+        const rows = await trace(`Stack<Integer> s = new Stack<>();
 s.push(1); s.push(2);
-Queue q = new Queue();
+Queue<String> q = new Queue<>();
 q.enqueue("a"); q.enqueue("bc");
 trace();`, ["niedersachsen"]);
         expect(cell("s", rows[0]).text).toBe("[2, 1]");

@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import "../../compiler/common/interpreter/Interpreter";
 import "../../compiler/java/JavaCompiler";
 import { docToJava, isRecognized, javaType, mainProgramName, parseSignature, translateExpr } from "./PseudoJava";
-import { docFromDiagram, emptyDoc, newId, type ENode, type StructogramDoc } from "./StructogramDoc";
+import { diagramOfDoc, docFromDiagram, emptyDoc, newId, type ENode, type StructogramDoc } from "./StructogramDoc";
 import { diagramsFromJava } from "./StructogramModel";
 import { runJava } from "../blocks/RunJava";
 
@@ -17,11 +17,13 @@ describe("Struktogramm -> Java", () => {
     test("Datentypen und Signatur", () => {
         expect(javaType("Ganzzahl")).toBe("int");
         expect(javaType("stat. Reihung vom Inhaltstyp Zeichenkette")).toBe("String[]");
-        expect(javaType("Liste vom Inhaltstyp Ganzzahl")).toBe("ArrayList<Integer>");
-        expect(javaType("dynamische Reihung vom Inhaltstyp Pixel")).toBe("DynArray");
+        expect(javaType("Liste vom Inhaltstyp Ganzzahl")).toBe("Liste<Integer>");
+        expect(javaType("dynamische Reihung vom Inhaltstyp Pixel")).toBe("DynArray<Pixel>");
         expect(javaType("statische Reihung vom Inhaltstyp Hund")).toBe("Hund[]");
         expect(javaType("statische zweidimensionale Reihung vom Inhaltstyp Zeichen")).toBe("char[][]");
-        expect(javaType("Stapel vom Inhaltstyp Objekt")).toBe("Stack");
+        expect(javaType("Stapel vom Inhaltstyp Objekt")).toBe("Stack<Object>");
+        expect(javaType("Schlange vom Inhaltstyp Ganzzahl")).toBe("Queue<Integer>");
+        expect(javaType("Binärbaum vom Inhaltstyp Zeichenkette")).toBe("BinTree<String>");
         expect(ex("statische Reihung der Länge 5 vom Inhaltstyp Fließkommazahl")).toBe("new double[5]");
         expect(ex("statische zweidimensionale Reihung mit 2 Zeilen und 3 Spalten vom Inhaltstyp Ganzzahl")).toBe("new int[2][3]");
         expect(parseSignature("minimum(a, b: Fließkommazahl): Fließkommazahl"))
@@ -36,17 +38,19 @@ describe("Struktogramm -> Java", () => {
         expect(ex("Länge von s - 1", [["s", "String"]])).toBe("s.length() - 1");
         expect(ex("Länge von zahlen", [["zahlen", "int[]"]])).toBe("zahlen.length");
         expect(ex("Element an Position i + 1 von liste", [["liste", "ArrayList<String>"]])).toBe("liste.get(i + 1)");
-        expect(ex("Element an Position 0 von d", [["d", "DynArray"]])).toBe("d.getItem(0)");
+        expect(ex("Element an Position 0 von d", [["d", "DynArray<String>"]])).toBe("d.getItem(0)");
         expect(ex("ASCII-Wert von v")).toBe("(int) v");
         expect(ex("erzeuge Pixel(255, 0, 0)")).toBe("new Pixel(255, 0, 0)");
         expect(ex("name = \"Ada\"", [["name", "String"]])).toBe("name.equals(\"Ada\")");
         expect(ex("aktuell.getNachname() = n")).toBe("aktuell.getNachname() == n");
         expect(ex("a mod 2 · 3")).toBe("a % 2 * 3");
-        expect(ex("entnimm Element aus s", [["s", "Stack"], ["s#elem", "char"]])).toBe("(char) s.pop()");
-        expect(ex("erstes Element von q", [["q", "Queue"]])).toBe("q.head()");
-        expect(ex("Element an Position 0 von f", [["f", "DynArray"], ["f#elem", "Pixel"]])).toBe("(Pixel) f.getItem(0)");
+        expect(ex("entnimm Element aus s", [["s", "Stack<Character>"]])).toBe("s.pop()");
+        expect(ex("erstes Element von q", [["q", "Queue<Integer>"]])).toBe("q.head()");
+        expect(ex("leerer Stapel vom Inhaltstyp Ganzzahl")).toBe("new Stack<>()");
+        expect(ex("neuer Binärbaum mit Inhalt 5")).toBe("new BinTree<>(5)");
+        expect(ex("Element an Position 0 von f", [["f", "DynArray<Pixel>"]])).toBe("f.getItem(0)");
         expect(ex("nimm irgendwas")).toBeUndefined();
-        expect(javaType("Stapel vom Inhaltstyp Zeichen")).toBe("Stack");
+        expect(javaType("Stapel vom Inhaltstyp Zeichen")).toBe("Stack<Character>");
     });
 
     test("Ausgabe mehrerer Werte: Summen bleiben Summen", async () => {
@@ -70,10 +74,10 @@ describe("Struktogramm -> Java", () => {
         ]);
         const out = docToJava(d);
         expect(out.code).toBe(lines(
-            "int[] anzahlZeichen(Stack s) {",
+            "int[] anzahlZeichen(Stack<Character> s) {",
             "    int[] anzahl = new int[27];",
             "    while (!s.isEmpty()) {",
-            "        char v = (char) s.pop();",
+            "        char v = s.pop();",
             "        int w = (int) v;",
             "        if (w == 32) { // v ist ein Leerzeichen",
             "            anzahl[0]++;",
@@ -106,8 +110,8 @@ describe("Struktogramm -> Java", () => {
             stmt("gib f zurück"),
         ]);
         expect(docToJava(d).code).toBe(lines(
-            "DynArray erzeugePixel() {",
-            "    DynArray f = new DynArray();",
+            "DynArray<Pixel> erzeugePixel() {",
+            "    DynArray<Pixel> f = new DynArray<>();",
             "    while (!f.isEmpty()) {",
             "        f.delete(0);",
             "    }",
@@ -134,7 +138,7 @@ describe("Struktogramm -> Java", () => {
 
     test("hin und zurück: Java -> Struktogramm -> Java (gleicher Code, gleiche Ausgabe)", async () => {
         const java = lines(
-            "boolean istEnthalten(ArrayList<Integer> d, int v) {",
+            "boolean istEnthalten(Liste<Integer> d, int v) {",
             "    for (Integer e : d) {",
             "        if (e == v) {",
             "            return true;",
@@ -151,7 +155,7 @@ describe("Struktogramm -> Java", () => {
             "for (int i = 0; i < text.length(); i++) {",
             "    summe += (int) text.charAt(i);",
             "}",
-            "ArrayList<String> namen = new ArrayList<String>();",
+            "Liste<String> namen = new Liste<>();",
             "namen.add(\"Ada\");",
             "namen.add(0, \"Bo\");",
             "int k = 10;",
@@ -251,15 +255,18 @@ describe("Name des Hauptprogramms", () => {
     test("Java -> Struktogramm -> Java: der Name bleibt", () => {
         const java = lines("// Hauptprogramm „Ballspiel“", "int x = 1;", "println(x);");
         const d = diagramsFromJava(java)[0];
-        expect(d.title).toBe("Hauptprogramm „Ballspiel“");
+        expect(d.title).toBe("Ballspiel");   // im Struktogramm steht nur der Name
+        expect(d.main).toBe(true);
+        expect(docFromDiagram(d).title).toBe("Hauptprogramm „Ballspiel“");   // in der Datei eindeutig
+        expect(diagramOfDoc(docFromDiagram(d)).title).toBe("Ballspiel");
         expect(docToJava(docFromDiagram(d)).code).toBe(java);
         expect(docToJava(doc("Hauptprogramm", [stmt("x ← 1")])).code.startsWith("//")).toBe(false);
     });
     test("benanntes Hauptprogramm erscheint auch ohne Anweisungen", () => {
         const titles = (java: string) => diagramsFromJava(java).map((d) => d.title);
         const ops = ["int summe(int n) {", "    return n;", "}"];
-        expect(titles(lines("// Hauptprogramm „Rechnen“", "// nur ein Kommentar", ...ops))).toEqual(["Hauptprogramm „Rechnen“", "summe(n: Ganzzahl): Ganzzahl"]);
-        expect(titles(lines("// Hauptprogramm „Rechnen“", ...ops))).toEqual(["Hauptprogramm „Rechnen“", "summe(n: Ganzzahl): Ganzzahl"]);
+        expect(titles(lines("// Hauptprogramm „Rechnen“", "// nur ein Kommentar", ...ops))).toEqual(["Rechnen", "summe(n: Ganzzahl): Ganzzahl"]);
+        expect(titles(lines("// Hauptprogramm „Rechnen“", ...ops))).toEqual(["Rechnen", "summe(n: Ganzzahl): Ganzzahl"]);
         expect(titles(lines("// nur ein Kommentar", ...ops))).toEqual(["summe(n: Ganzzahl): Ganzzahl"]);
     });
 });

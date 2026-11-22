@@ -4,12 +4,13 @@
  * er als Blöcke gezeigt, im Java-Handbuch als Text. „Ausprobieren“ legt ihn als neue Datei an.
  * Idee nach dem Handbuch der Python-IDE von Marc Franke (nur das Konzept, eigene Umsetzung und Inhalte).
  * Dazu ein Handbuch für Struktogramme (Beispiele als Struktogramm, „Ausprobieren“ legt eine
- * Struktogramm-Datei an).
+ * Struktogramm-Datei an) und eins für Klassendiagramme (Paket 20: Bedienung, Schreibweise, Übungen).
  */
 
 import type { StructogramDoc } from "../structogram/StructogramDoc";
+import type { KlassenDoc } from "../klassendiagramm/KlassenDoc";
 
-export type HandbookKind = "blocks" | "java" | "struktogramm";
+export type HandbookKind = "blocks" | "java" | "struktogramm" | "klassendiagramm";
 
 export type HandbookEntry = {
     /** Überschrift des Beispiels */
@@ -20,6 +21,8 @@ export type HandbookEntry = {
     code: string;
     /** Struktogramm-Handbuch: das Beispiel als Struktogramm */
     structogram?: StructogramDoc;
+    /** Klassendiagramm-Handbuch: das Beispiel als Klassendiagramm (Übung: leer, „Ausprobieren“ legt es an) */
+    klassendiagramm?: KlassenDoc;
     /** Struktogramm einer Operation: Java-Anweisungen, die sie im Test aufrufen */
     call?: string;
     /** Bibliotheken, die das Beispiel braucht (z. B. Abiturklassen „niedersachsen“) */
@@ -30,7 +33,7 @@ export type HandbookEntry = {
      * Übung „Finde den Fehler“ (Paket 16): code enthält den Fehler, solution die Lösung mit Erklärung
      * (aufklappbar). „Ausprobieren“ legt das fehlerhafte Programm an.
      */
-    solution?: { text: string; code: string };
+    solution?: { text: string; code: string; klassendiagramm?: KlassenDoc };
     /**
      * Blöckly (Paket 18h): das Beispiel ist ein ganzes Projekt (Bühne, Figuren, Hauptprogramm). Gezeichnet werden die
      * Dateien in show; „Ausprobieren“ legt ein neues Projekt mit allen Dateien an.

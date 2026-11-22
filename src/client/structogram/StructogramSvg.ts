@@ -9,7 +9,11 @@ import type { Diagram, SNode } from "./StructogramModel";
 
 export type Measure = (text: string, bold?: boolean) => number;
 
-/** wrap: höchste Textbreite in einem Feld, längere Texte werden umgebrochen (lesbar, nicht zu breit) */
+/**
+ * wrap: Textbreite, ab der ein Text umbricht, solange das Struktogramm dadurch nicht breiter wird (bestimmt die
+ * Mindestbreite). Ist ein Feld am Ende breiter (weil ein anderes Element mehr Platz braucht), nutzt der Text die
+ * ganze Breite des Feldes.
+ */
 export const STYLE = { font: 13, titleFont: 13.5, groupFont: 15, line: 22, pad: 6, bar: 18, minCol: 40, gap: 26, wrap: 230, titleWrap: 340 };
 
 /** grobe Schätzung der Textbreite (für Tests ohne Browser) */
@@ -67,7 +71,18 @@ function triangleHeight(widths: number[], span: number, min: number): number {
     return Math.ceil(h / half - 0.01) * half;
 }
 
-type Box = { w: number; h: number; draw(out: string[], x: number, y: number, width: number, height: number): void };
+/** w: Mindestbreite; h: Höhe bei dieser Breite (Texte brechen erst an der tatsächlichen Breite um) */
+type Box = { w: number; h(width: number): number; draw(out: string[], x: number, y: number, width: number, height: number): void };
+
+/** merkt sich Ergebnisse je Breite (Höhen werden beim Zeichnen mehrfach abgefragt) */
+function perWidth<T>(f: (width: number) => T): (width: number) => T {
+    const cache = new Map<number, T>();
+    return (width) => {
+        let v = cache.get(width);
+        if (v === undefined) cache.set(width, v = f(width));
+        return v;
+    };
+}
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const n = (v: number) => Math.round(v * 10) / 10;
@@ -121,7 +136,7 @@ class Layout {
     /** "?" am rechten Rand, wenn der Text in Java nicht erkannt wird */
     private todoMark(kind: SNode["kind"], label: string, x: number, y: number) {
         if (!this.opts.interactive || !this.opts.unrecognized || !label.trim() || !this.opts.unrecognized(kind, label)) return;
-        this.over.push(`<g class="gsg-todo" pointer-events="all"><title>Wird beim Umwandeln in Java ein TODO-Kommentar (Formulierung nicht erkannt).</title>`
+        this.over.push(`<g class="gsg-todo" pointer-events="all"><title>Wird beim Umwandeln in Code ein TODO-Kommentar (Formulierung nicht erkannt).</title>`
             + `<circle cx="${n(x)}" cy="${n(y)}" r="7" fill="#f0a020"/><text x="${n(x)}" y="${n(y + 4)}" text-anchor="middle" font-size="11" font-weight="bold" fill="#fff">?</text></g>`);
     }
 
@@ -138,7 +153,7 @@ class Layout {
         const boxes = nodes.map((nd) => this.node(nd));
         const { line, minCol } = STYLE;
         const w = Math.max(minCol, ...boxes.map((b) => b.w));
-        const h = boxes.length ? boxes.reduce((s, b) => s + b.h, 0) : line;
+        const h = perWidth((width) => boxes.length ? boxes.reduce((s, b) => s + b.h(width), 0) : line);
         return {
             w, h,
             draw: (out, x, y, width, height) => {
@@ -153,7 +168,7 @@ class Layout {
                 }
                 let cy = y;
                 boxes.forEach((b, i) => {
-                    const bh = i === boxes.length - 1 ? y + height - cy : b.h;   // der letzte füllt den Rest
+                    const bh = i === boxes.length - 1 ? y + height - cy : b.h(width);   // der letzte füllt den Rest
                     b.draw(out, x, cy, width, bh);
                     cy += bh;
                 });
@@ -165,12 +180,13 @@ class Layout {
         const { line, pad, bar, minCol } = STYLE;
         switch (nd.kind) {
             case "stmt": {
-                const ls = this.lines(nd.text);
+                const room = 2 * pad + (this.opts.interactive ? 16 : 0);
+                const at = perWidth((width) => this.lines(nd.text, Math.max(STYLE.wrap, width - room)));
                 return {
-                    w: this.widest(ls) + 2 * pad + (this.opts.interactive ? 16 : 0), h: ls.length * line,
+                    w: this.widest(this.lines(nd.text)) + room, h: (width) => at(width).length * line,
                     draw: (out, x, y, width, height) => {
                         rect(out, x, y, width, height);
-                        ls.forEach((l, i) => text(out, x + pad, y + i * line + BASE, l));
+                        at(width).forEach((l, i) => text(out, x + pad, y + i * line + BASE, l));
                         this.hit(out, x, y, width, height, `data-sel="${nd.id ?? ""}"`);
                         this.mark(nd.id, [x, y, width, height]);
                         this.todoMark("stmt", nd.text, x + width - 10, y + line / 2);
@@ -180,12 +196,14 @@ class Layout {
             case "loop":
             case "footloop": {
                 const label = nd.kind === "loop" ? nd.head : nd.foot;
-                const ls = this.lines(label);
-                const th = ls.length * line;
+                const room = 2 * pad + (this.opts.interactive ? 16 : 0);
+                const at = perWidth((width) => this.lines(label, Math.max(STYLE.wrap, width - room)));
                 const body = this.seq(nd.body, nd.id ? `${nd.id}:body` : undefined);
                 return {
-                    w: Math.max(this.widest(ls) + 2 * pad + (this.opts.interactive ? 16 : 0), bar + body.w), h: th + body.h,
+                    w: Math.max(this.widest(this.lines(label)) + room, bar + body.w),
+                    h: (width) => at(width).length * line + body.h(width - bar),
                     draw: (out, x, y, width, height) => {
+                        const ls = at(width), th = ls.length * line;
                         rect(out, x, y, width, height);
                         const hy = nd.kind === "loop" ? y : y + height - th;
                         this.hit(out, x, hy, width, th, `data-sel="${nd.id ?? ""}"`);
@@ -208,15 +226,25 @@ class Layout {
                 const wn = Math.max(no.w, this.measure("falsch") + 2 * pad, minCol);
                 // Bedingung im Dreieck: umbrechen; das Feld ist mindestens 1,8-mal so breit wie die
                 // längste Zeile, das Dreieck so hoch, dass jede Zeile zwischen die Schrägen passt
-                const cl = this.lines(nd.cond, Math.max(STYLE.wrap * 0.7, (wy + wn) / 1.8 - 2 * pad));
-                const cw = cl.map((l) => this.measure(l) + 2 * pad);
-                const w = Math.max(wy + wn, Math.ceil(Math.max(...cw) * 1.8));
-                const hh = triangleHeight(cw, w, 2 * line);
+                const cond = (span: number) => {
+                    const cl = this.lines(nd.cond, Math.max(STYLE.wrap * 0.7, span / 1.8 - 2 * pad));
+                    return { cl, cw: cl.map((l) => this.measure(l) + 2 * pad) };
+                };
+                const w = Math.max(wy + wn, Math.ceil(Math.max(...cond(wy + wn).cw) * 1.8));
+                // bei größerer Breite: Bedingung neu umbrechen, Zweige wachsen im Verhältnis ihrer Mindestbreiten
+                const head = perWidth((width) => {
+                    const { cl, cw } = cond(width);
+                    return { cl, cw, hh: triangleHeight(cw, width, 2 * line), wYes: wy + (width - (wy + wn)) * (wy / (wy + wn)) };
+                });
                 return {
-                    w, h: hh + Math.max(yes.h, no.h),
+                    w,
+                    h: (width) => {
+                        const { hh, wYes } = head(width);
+                        return hh + Math.max(yes.h(wYes), no.h(width - wYes));
+                    },
                     draw: (out, x, y, width, height) => {
-                        const extra = width - (wy + wn);
-                        const split = x + wy + extra * (wy / (wy + wn));
+                        const { cl, cw, hh, wYes } = head(width);
+                        const split = x + wYes;
                         rect(out, x, y, width, hh);
                         stroke(out, x, y, split, y + hh);
                         stroke(out, x + width, y, split, y + hh);
@@ -245,15 +273,25 @@ class Layout {
                 const sum = mins.reduce((s, v) => s + v, 0);
                 // Text links der Spitze: der Teil bis zur Spitze muss 1,8-mal so breit sein wie die längste Zeile
                 const share = nd.other && cols.length > 1 ? (sum - mins[mins.length - 1]) / sum : 1;
-                const sl = this.lines(nd.subject, Math.max(STYLE.wrap * 0.7, (sum * share) / 1.8 - 2 * pad));
-                const sw = sl.map((l) => this.measure(l) + 2 * pad);
-                const w = Math.max(sum, Math.ceil((Math.max(...sw) * 1.8) / share));
-                const dh = triangleHeight(sw, w * share, 1.5 * line);
-                const hh = dh + line;
+                const subject = (span: number) => {
+                    const sl = this.lines(nd.subject, Math.max(STYLE.wrap * 0.7, (span * share) / 1.8 - 2 * pad));
+                    return { sl, sw: sl.map((l) => this.measure(l) + 2 * pad) };
+                };
+                const w = Math.max(sum, Math.ceil((Math.max(...subject(sum).sw) * 1.8) / share));
+                // bei größerer Breite: Text neu umbrechen, Spalten wachsen im Verhältnis ihrer Mindestbreiten
+                const head = perWidth((width) => {
+                    const { sl, sw } = subject(width);
+                    const dh = triangleHeight(sw, width * share, 1.5 * line);
+                    return { sl, dh, hh: dh + line, widths: mins.map((m) => m + (width - sum) * (m / sum)) };
+                });
                 return {
-                    w, h: hh + Math.max(...cols.map((c) => c.box.h), line),
+                    w,
+                    h: (width) => {
+                        const { hh, widths } = head(width);
+                        return hh + Math.max(...cols.map((c, i) => c.box.h(widths[i])), line);
+                    },
                     draw: (out, x, y, width, height) => {
-                        const widths = mins.map((m) => m + (width - sum) * (m / sum));
+                        const { sl, dh, hh, widths } = head(width);
                         const starts: number[] = [];
                         let cx = x;
                         for (const w of widths) {
@@ -313,9 +351,10 @@ export function renderSvg(diagrams: Diagram[], measure: Measure = approxMeasure,
             if (opts.selected === "title") out.push(`<rect x="${margin - 4}" y="${n(y)}" width="${n(tw)}" height="${n(th)}" fill="rgba(10,102,214,.13)" stroke="${SELECT_COLOUR}" stroke-width="2" pointer-events="none"/>`);
         }
         y += th;
-        box.draw(out, margin + 0.5, y + 0.5, w, box.h);
+        const bh = box.h(w);
+        box.draw(out, margin + 0.5, y + 0.5, w, bh);
         width = Math.max(width, w, ...tl.map((l) => titleMeasure(l)));
-        y += box.h + STYLE.gap;
+        y += bh + STYLE.gap;
     }
     const W = Math.ceil(width + 2 * margin + 1), H = Math.ceil(y - STYLE.gap + margin + 1);
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="Arial, Helvetica, sans-serif" font-size="${STYLE.font}">`

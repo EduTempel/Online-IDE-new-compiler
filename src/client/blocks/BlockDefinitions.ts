@@ -474,12 +474,12 @@ export function defineBlocks() {
             ...statement, colour: COLOURS.comment, tooltip: "Eine Notiz im Programm; wird nicht ausgeführt.",
         },
         {
-            type: B.javaStatement, message0: "Java %1", args0: [{ type: "field_input", name: "CODE", text: "" }],
-            ...statement, colour: COLOURS.java, tooltip: "Eine beliebige Java-Anweisung.",
+            type: B.javaStatement, message0: "Code %1", args0: [{ type: "field_input", name: "CODE", text: "" }],
+            ...statement, colour: COLOURS.java, tooltip: "Eine beliebige Code-Anweisung (Java mit kleinen Anpassungen).",
         },
         {
-            type: B.javaExpression, message0: "Java %1", args0: [{ type: "field_input", name: "CODE", text: "" }],
-            output: null, colour: COLOURS.java, tooltip: "Ein beliebiger Java-Ausdruck.",
+            type: B.javaExpression, message0: "Code %1", args0: [{ type: "field_input", name: "CODE", text: "" }],
+            output: null, colour: COLOURS.java, tooltip: "Ein beliebiger Code-Ausdruck (Java mit kleinen Anpassungen).",
         },
     ]);
 
@@ -491,14 +491,14 @@ export function defineBlocks() {
             this.setPreviousStatement(true);
             this.setNextStatement(true);
             this.setColour(COLOURS.java);
-            this.setTooltip(tip("Java-Code, den es nicht als Block gibt. Bearbeiten in der Java-Ansicht.", undefined,
+            this.setTooltip(tip("Code, den es nicht als Block gibt. Bearbeiten in der Code-Ansicht.", undefined,
                 "Ein Teil des Programms, den es nicht als Block gibt."));
             this.setEditable(false);
             this.renderCode();
         },
         renderCode(this: RawBlock) {
             for (const input of [...this.inputList]) this.removeInput(input.name);
-            this.appendDummyInput("HEAD").appendField(new Blockly.FieldLabel("Java", "gsg-java-hint"));
+            this.appendDummyInput("HEAD").appendField(new Blockly.FieldLabel("Code", "gsg-java-hint"));
             const lines = this.code.split("\n");
             const shown = lines.length > 12 ? [...lines.slice(0, 11), `… (${lines.length - 11} weitere Zeilen)`] : lines;
             shown.forEach((line, i) => this.appendDummyInput("L" + i).appendField(new Blockly.FieldLabel(line.replace(/\t/g, "    ") || " ", "gsg-code-line")));
@@ -673,7 +673,7 @@ function fullToolbox(): { kind: string; contents: object[] } {
             { kind: "category", toolboxitemid: "klassen", name: "Klassen", colour: CLASSES_COLOUR, custom: CLASSES_CATEGORY },
             { kind: "category", toolboxitemid: "objekte", name: "Objekte", colour: OBJECTS_COLOUR, custom: OBJECTS_CATEGORY },
             {
-                kind: "category", toolboxitemid: "java", name: "Java", colour: COLOURS.java, contents: [
+                kind: "category", toolboxitemid: "java", name: "Code", colour: COLOURS.java, contents: [
                     { kind: "label", text: "Für alles, was es (noch) nicht als Block gibt." },
                     blk(B.comment),
                     blk(B.javaStatement),

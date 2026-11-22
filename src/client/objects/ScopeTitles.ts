@@ -29,11 +29,26 @@ export function isFrameLevel(t: BaseSymbolTable): boolean {
     return t === root || t.parent === root;
 }
 
-/** Name der laufenden Operation: „Hauptprogramm“, „Methode zeige()“, „Operation zeige“ … */
+/**
+ * Name des Programms aus dem Quelltext: erste Zeile „// Hauptprogramm „Name““ (so speichern ihn der Blockmodus,
+ * Blöckva und Struktogramme); ohne Namen undefined.
+ */
+export function programName(source: string | undefined): string | undefined {
+    const first = (source ?? "").replace(/^﻿/, "").split(/\r?\n/, 1)[0];
+    return /^\s*\/\/\s*Hauptprogramm\s+„([^„“]*)“\s*$/.exec(first)?.[1].trim() || undefined;
+}
+
+/** Überschrift des Hauptprogramms: der Name des Programms, ohne Namen „Hauptprogramm“. owner: Klasse oder Programm (mit Modul) */
+export function mainTitle(owner?: unknown): string {
+    const text = (owner as { module?: { file?: { getText?(): string } } } | undefined)?.module?.file?.getText?.();
+    return programName(text) ?? "Hauptprogramm";
+}
+
+/** Name der laufenden Operation: Name des Programms bzw. „Hauptprogramm“, „Methode zeige()“, „Operation zeige“ … */
 export function frameTitle(table: BaseSymbolTable | undefined, style: ScopeStyle): string {
     const method = (table as JavaSymbolTable | undefined)?.methodContext as Method | undefined;
     const cls = method?.classEnumInterface;
-    if (!method || method.identifier === "$main" || (cls?.isMainClass && method.identifier === "main")) return "Hauptprogramm";
+    if (!method || method.identifier === "$main" || (cls?.isMainClass && method.identifier === "main")) return mainTitle(cls);
     const name = method.identifier;
     if (method.isConstructor) return `Konstruktor von ${cls?.identifier ?? name}`;
     const of = cls && !cls.isMainClass ? ` von ${cls.identifier}` : "";

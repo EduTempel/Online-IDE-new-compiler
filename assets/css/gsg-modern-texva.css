@@ -1,0 +1,190 @@
+/*
+ * Aussehen „Modern“ für Texva, Blöckva und Struktogramme (Jg. 11+): Entwurf A „Klar“ (hell) und B „Nacht“ (dunkel).
+ * Gilt nur unter html.gsg-modern-a (GsgModern.ts). Gemeinsame Teile (Kopfleiste, Menü, Karten) in gsg-modern.css.
+ */
+
+/* B „Nacht“: neutrales Dunkelgrau (statt des Blautons von Blöckly) */
+html.gsg-modern-a.gsg-modern-dunkel body.joeCssFence {
+    --m-seite: #0c0e12;
+    --m-karte: #16191f;
+    --m-linie: #2b303a;
+    --m-linie-stark: #3a404b;
+    --m-tinte: #f0f3f6;
+    --m-leise: #b1bac4;
+    --m-sehr-leise: #8b949e;
+    --m-blau: #79b8ff;
+    --m-blau-hell: #1f3a57;
+    --m-blau-hell-hover: #264868;
+    --m-blau-flaeche: #00376d;
+    --m-blau-flaeche-hover: #0b4a8a;
+    --m-umschalter: #111318;
+    --m-flyout: #111318;
+    --m-feldlinie: #3a404b;
+    --m-gestrichelt: #4b525e;
+    --m-text-mittel: #c9d1d9;
+    --m-leer-1: #1c2028;
+    --m-leer-2: #16191f;
+}
+
+/* —— Kopfleiste: Pfad, Blöcke │ Texva, Start … Tempo ——
+   (Selektoren mit .joeCssFence, damit sie die Regeln aus gsg-branding.css und gsg-blocks.css übertreffen) */
+html.gsg-modern-a .gsg-kopf { gap: 10px; }
+html.gsg-modern-a .gsg-kopf-logo { display: flex; align-items: flex-end; justify-content: center; padding: 0 0 7px; }
+html.gsg-modern-a .gsg-kopf-logo > span { display: none; }
+html.gsg-modern-a .gsg-kopf-logo > span:first-child { display: block; width: 14px; height: 4px; border-radius: 2px; background: var(--m-gruen-hell); }
+html.gsg-modern-a .gsg-kopf-pfad { flex: 0 1 auto; display: flex; align-items: center; gap: 10px; min-width: 90px; color: var(--m-leise); }
+html.gsg-modern-a .gsg-kopf-pfad .gsg-kopf-projekt { min-width: 0; font-weight: 500; color: var(--m-tinte); max-width: 300px; }
+/* nur das Kürzel, der Name steht im Menü der Person (Platz für Start … Tempo) */
+html.gsg-modern-a .gsg-kopf-name { display: none; }
+html.gsg-modern-a .gsg-kopf-person { padding: 3px; }
+
+html.gsg-modern-a .joeCssFence .gsg-kopf .gsg-viewtoggle {
+    flex: none;
+    display: flex;
+    height: auto;
+    margin: 0 0 0 6px !important;
+    padding: 3px;
+    gap: 2px;
+    border: 0;
+    border-radius: 10px;
+    overflow: visible;
+    background: var(--m-umschalter);
+}
+html.gsg-modern-a .joeCssFence .gsg-kopf .gsg-viewtoggle button {
+    padding: 6px 14px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--m-leise);
+    font: 500 14px/18px var(--m-schrift);
+}
+html.gsg-modern-a .joeCssFence .gsg-kopf .gsg-viewtoggle button:hover:not(:disabled) { color: var(--m-tinte); }
+html.gsg-modern-a .joeCssFence .gsg-kopf .gsg-viewtoggle button.active {
+    background: var(--m-karte);
+    color: var(--m-blau);
+    font-weight: 600;
+    box-shadow: 0 1px 2px var(--m-schatten);
+}
+
+html.gsg-modern-a .gsg-kopf-steuerung { flex: none; display: flex; align-items: center; gap: 8px; }
+html.gsg-modern-a .joeCssFence .gsg-kopf #controls { display: flex; align-items: center; gap: 2px; height: auto; }
+/* Symbol-Knöpfe (Einzelschritt …): ohne Rahmen, der Filter des Farbschemas färbt nur das Symbol */
+html.gsg-modern-a .joeCssFence .gsg-kopf #controls > .jo_button {
+    box-sizing: border-box;
+    width: 30px;
+    height: 34px;
+    margin: 0;
+    border-radius: 8px;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+/* Start, Pause und Stopp: große beschriftete Knöpfe */
+html.gsg-modern-a .joeCssFence .gsg-kopf #controls > .img_start-dark,
+html.gsg-modern-a .joeCssFence .gsg-kopf #controls > .img_pause-dark,
+html.gsg-modern-a .joeCssFence .gsg-kopf #controls > .img_stop-dark {
+    width: auto;
+    height: 40px;
+    margin: 0 4px 0 0;
+    padding: 0 16px;
+    border: 1px solid var(--m-linie);
+    border-radius: 10px;
+    background-color: var(--m-karte);
+    color: var(--m-tinte);
+    font: 500 14px/38px var(--m-schrift);
+}
+html.gsg-modern-a .joeCssFence .gsg-kopf #controls > .img_start-dark {
+    border-color: transparent;
+    background-color: var(--m-gruen);
+    color: #ffffff;
+    font-weight: 600;
+    font-size: 15px;
+}
+html.gsg-modern-a .joeCssFence .gsg-kopf #controls > .img_start-dark.jo_active:hover { background-color: var(--m-gruen-hover); }
+html.gsg-modern-a .joeCssFence .gsg-kopf #controls > .img_stop-dark { color: var(--m-rot); }
+html.gsg-modern-a .joeCssFence .gsg-kopf .jo_speedcontrol-outer { margin: 0 6px; }
+html.gsg-modern-a .joeCssFence .gsg-kopf #view-mode { display: flex; align-items: center; gap: 2px; }
+html.gsg-modern-a .joeCssFence .gsg-kopf #view-mode > .jo_button { margin: 0 !important; }
+
+/* —— links: schmale Leiste und Dateiliste —— */
+html.gsg-modern-a .gsg-leiste {
+    width: 64px;
+    flex: none;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 12px 0;
+    background: var(--m-karte);
+    border-right: 1px solid var(--m-linie);
+}
+html.gsg-modern-a .gsg-leiste-knopf {
+    width: 52px;
+    min-height: 48px;
+    padding: 5px 0 4px;
+    border: 0;
+    border-radius: 12px;
+    background: transparent;
+    color: var(--m-sehr-leise);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    font: 500 10px/1.2 var(--m-schrift);
+    cursor: pointer;
+    position: relative;
+}
+html.gsg-modern-a .gsg-leiste-knopf svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+html.gsg-modern-a .gsg-leiste-knopf:hover { background: var(--m-seite); color: var(--m-tinte); }
+html.gsg-modern-a .gsg-leiste-knopf[aria-pressed="true"] { background: var(--m-blau-hell); color: var(--m-blau); }
+html.gsg-modern-a .gsg-leiste-knopf:focus-visible { outline: 3px solid var(--m-gruen-hell); outline-offset: 1px; }
+/* Punkt an „Aufgabe“, wenn das Projekt eine Aufgabe hat */
+html.gsg-modern-a.gsg-modern-mit-aufgabe .gsg-leiste-aufgabe::after {
+    content: "";
+    position: absolute;
+    top: 5px;
+    right: 9px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--m-gruen-hell);
+    border: 2px solid var(--m-karte);
+}
+
+html.gsg-modern-a #leftpanel { background: var(--m-seite); }
+html.gsg-modern-a #leftpanel .jo_projectexplorer { padding: 8px 0 8px 8px; box-sizing: border-box; }
+html.gsg-modern-a #leftpanel .jo_treeviewAccordion_mainDiv { font-family: var(--m-schrift); }
+html.gsg-modern-a .gsg-left-collapse,
+html.gsg-modern-a .gsg-left-strip { display: none !important; }
+html.gsg-modern-a.gsg-modern-ohne-dateien #leftpanel { display: none !important; }
+
+/* —— Mitte: Editor, Blöcke, Struktogramm und Meldungen als Karten —— */
+html.gsg-modern-a #editor,
+html.gsg-modern-a #gsg-structogram-editor,
+html.gsg-modern-a #diffEditor {
+    margin: 12px 12px 0;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 0 0 1px var(--m-linie);
+}
+html.gsg-modern-a #gsg-blocks { margin: 12px 12px 0; }
+html.gsg-modern-a #bottomdiv-outer { margin: 12px; }
+
+/* Dateiliste und Projekte: Abschnitte als Karten, Einträge mit runden Zeilen */
+html.gsg-modern-a #leftpanel .jo_treeview_outer {
+    margin: 0 0 8px;
+    border-radius: 12px;
+    background: var(--m-karte);
+    box-shadow: 0 0 0 1px var(--m-linie);
+    overflow: hidden;
+}
+html.gsg-modern-a #leftpanel .jo_treeview_caption { background: var(--m-karte); color: var(--m-sehr-leise); font-family: var(--m-schrift); }
+html.gsg-modern-a #leftpanel .jo_treeviewNode { margin: 1px 6px; border-radius: 8px; }
+html.gsg-modern-a #leftpanel .jo_treeviewNode:hover { background: var(--m-seite); }
+html.gsg-modern-a #leftpanel .jo_treeviewNode.jo_treeview_selected {
+    background: var(--m-blau-hell);
+    color: var(--m-blau);
+    border-color: transparent;
+}
+html.gsg-modern-a .gsg-leiste-knopf[hidden] { display: none; }

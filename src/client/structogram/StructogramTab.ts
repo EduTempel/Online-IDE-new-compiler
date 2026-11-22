@@ -36,7 +36,7 @@ export function addStructogramTab(base: MainBase, tabManager: TabManager) {
         const model = main.getMainEditor().getModel();
         if (file) view.show(file);
         else if (model && /\.struktogramm$/i.test(model.uri.path.replace(/ \(\d+\)$/, ""))) view.showMessage("Diese Datei ist ein Struktogramm – sie wird links bearbeitet.");
-        else view.showMessage("Struktogramme werden aus Java-Dateien erzeugt. „＋ Datei“ legt ein neues, leeres Struktogramm an.");
+        else view.showMessage("Struktogramme werden aus Code-Dateien erzeugt. „＋ Datei“ legt ein neues, leeres Struktogramm an.");
     };
     tab.onShow = () => { update(); };
     tab.onHide = () => { loading?.then((v) => v.hide()); };

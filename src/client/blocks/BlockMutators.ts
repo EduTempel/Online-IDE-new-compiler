@@ -98,8 +98,8 @@ export const hintLabel = (text: string): Blockly.FieldLabel => new JavaHintLabel
 
 /**
  * Blockdefinitionen (JSON) ohne die Java-Schnipsel (Felder der Klasse gsg-java-hint): aus der Beschriftung
- * entfernt, stattdessen am Ende des Tooltips („Java: .setFillColor“) – für Neugierige und Lehrkräfte; nur in der
- * Java-IDE, Blöckly und Blöckva zeigen kein Java.
+ * entfernt, stattdessen am Ende des Tooltips („Texva: .setFillColor“) – für Neugierige und Lehrkräfte; nur im
+ * Blockmodus von Texva, Blöckly und Blöckva zeigen kein Texva.
  */
 export function withoutJavaHints<T extends Record<string, unknown>>(json: T[]): T[] {
     return json.map((def) => {
@@ -111,7 +111,7 @@ export function withoutJavaHints<T extends Record<string, unknown>>(json: T[]): 
             const renumber = new Map<number, number>();
             args.forEach((a, j) => {
                 if (a?.class === "gsg-java-hint") {
-                    if (a.text && a.text !== "Java") hints.push(a.text);
+                    if (a.text && a.text !== "Code") hints.push(a.text);
                 } else {
                     keep.push(a);
                     renumber.set(j + 1, keep.length);
@@ -125,7 +125,7 @@ export function withoutJavaHints<T extends Record<string, unknown>>(json: T[]): 
             else delete d[`args${i}`];
         }
         if (hints.length && javaInTooltips() && (d.tooltip === undefined || typeof d.tooltip === "string")) {
-            d.tooltip = `${d.tooltip ? d.tooltip + "\n" : ""}Java: ${hints.join(" ")}`;
+            d.tooltip = `${d.tooltip ? d.tooltip + "\n" : ""}Code: ${hints.join(" ")}`;
         }
         return d as T;
     });

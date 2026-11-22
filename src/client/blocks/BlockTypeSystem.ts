@@ -1,7 +1,8 @@
 import * as Blockly from "blockly/core";
+import { Constants } from "../Constants";
 import { updateHelpHint } from "./BlockWarningHelp";
 import { FIGURE_BLOCK_TYPES, FIGURE_CREATIONS, FIGURE_OUTPUT_TYPES, figureInputType } from "./FigureSpec";
-import { ADT_BLOCK_TYPES, ADT_CREATIONS, ADT_GET_TYPES } from "./AdtSpec";
+import { ADT_BLOCK_TYPES, ADT_CREATIONS, ADT_GET_TYPES, adtTypeName, adtTypeOf, isAdtClass } from "./AdtSpec";
 import { BL_OUTPUT_TYPES, blInputTypes, vonTyp } from "../bloeckly/BloecklySpec";
 import { B, COLLECTION_DECLARATIONS, COLLECTION_USES, isPartHat, PART_HATS, type Collections } from "./BlockTypes";
 import { addMember, attributesOf, collectionOfType, collectionType, findConstructor, findMethod, isClassType, isScalar, isSubclass, methodsOf, typeInfo, type ClassInfo, type ClassMap } from "./ClassModel";
@@ -22,7 +23,7 @@ import { addMember, attributesOf, collectionOfType, collectionType, findConstruc
  * das Loch bleibt offen und der Block bekommt einen Hinweis.
  */
 
-/** Datentyp als Text: int, double, String, boolean, char – und int[], ArrayList<Integer>, Hund … */
+/** Datentyp als Text: int, double, String, boolean, char – und int[], Liste<Integer>, Hund … */
 export type JType = string;
 /** null = unbekannt bzw. beliebig */
 export type TypeSet = JType[] | null;
@@ -51,16 +52,20 @@ export function typeLabel(t: string): string {
         case "array": return `Reihung von ${of}`;
         case "array2d": return `zweidim. Reihung von ${of}`;
         case "list": return `Liste von ${of}`;
-        case "dyn": return "dynamische Reihung";
+        case "dyn": return `dynamische Reihung von ${of}`;
     }
     const adt: Record<string, string> = { Stack: "Stapel", Queue: "Schlange", BinTree: "Binärbaum" };
-    return adt[t] ?? t;
+    const a = adtTypeOf(t);   // Stack<Integer>: Stapel von Ganzzahlen
+    if (a && a.cls !== "DynArray") return a.elem ? `${adt[a.cls]} von ${PLURAL[a.elem] ?? a.elem}` : adt[a.cls];
+    return t;
 }
 
 /** Was passt in eine Variable dieses Typs? (Ganzzahlen auch in Kommazahl-Variablen, Unterklassen in Oberklassen) */
 export function acceptsForType(t: JType): JType[] | null {
     if (t === "double") return ["double", "int"];
     if (t === "Object") return null;
+    const adt = adtTypeOf(t);   // in Stack<Integer> passt auch new Stack<>() (Block „neues Objekt“ heißt Stack)
+    if (adt?.elem) return [t, adt.cls];
     if (isClassType(t) && activeClasses) {
         const subs = [...activeClasses.values()].filter((c) => isSubclass(activeClasses!, c.name, t)).map((c) => c.name);
         return [...new Set([t, ...subs])];
@@ -134,11 +139,14 @@ export function setFixedVariables(vars: Map<string, JType>) {
 
 /**
  * Blöckly: Variablen für alle Figuren und die der Figur (feste Variablen; der Kopf der Klasse läuft unsichtbar mit).
- * Steht der Kopf doch in der Fläche, zählen auch seine Variablen; die der Figur verdecken die anderen.
+ * Dazu jedes „erstelle Variable …“ in der Fläche (oben in einem Skript bzw. im Kopf): Es gilt in allen Skripten.
+ * Die der Figur verdecken die anderen.
  */
 function bloecklyVariables(ws: Blockly.Workspace): Map<string, JType> {
-    const header = mainWorkspace(ws).getTopBlocks(false).find((b) => b.type === B.blFigure);
-    return new Map([...fixedVariables, ...(header ? variablesOf(innerBlocks(header)) : [])]);
+    const main = mainWorkspace(ws);
+    const header = main.getTopBlocks(false).find((b) => b.type === B.blFigure);
+    const vars = main.getAllBlocks(false).filter((b) => b.type === B.blVar || b.type === B.blList);
+    return new Map([...fixedVariables, ...(header ? variablesOf(innerBlocks(header)) : []), ...variablesOf(vars)]);
 }
 
 /** Klassenblock, in dem der Block steckt */
@@ -187,9 +195,12 @@ function variablesOf(blocks: Blockly.Block[]): Map<string, JType> {
     };
     for (const b of blocks) {
         const kind = COLLECTION_DECLARATIONS[b.type];
-        if (kind) add(String(b.getFieldValue("NAME") ?? ""), collectionType(kind, kind === "dyn" ? null : String(b.getFieldValue("TYPE") ?? "int")));
-        else if (b.type === B.varDeclare || b.type === B.attribute || b.type === B.blVar) add(String(b.getFieldValue("NAME") ?? ""), String(b.getFieldValue("TYPE") ?? "int"));
-        else if (FIGURE_CLASS_OF[b.type]) add(String(b.getFieldValue("NAME") ?? ""), FIGURE_CLASS_OF[b.type]);
+        if (kind) add(String(b.getFieldValue("NAME") ?? ""), collectionType(kind, String(b.getFieldValue("TYPE") ?? "int")));
+        else if (b.type === B.varDeclare || b.type === B.attribute || b.type === B.blVar || b.type === B.blList) add(String(b.getFieldValue("NAME") ?? ""), String(b.getFieldValue("TYPE") ?? "int"));
+        else if (FIGURE_CLASS_OF[b.type]) {
+            const cls = FIGURE_CLASS_OF[b.type];   // Stapel usw. mit Inhaltstyp: Stack<Integer>
+            add(String(b.getFieldValue("NAME") ?? ""), isAdtClass(cls) ? adtTypeName(cls, String(b.getFieldValue("TYPE") ?? "int")) : cls);
+        }
         else if (b.type === B.for) add(String(b.getFieldValue("VAR") ?? ""), "int");
         else if (b.type === B.method || b.type === B.ctor || b.type === B.classMethod) for (const p of methodParamsOf(b)) add(p.name, p.type);
     }
@@ -199,7 +210,7 @@ function variablesOf(blocks: Blockly.Block[]): Map<string, JType> {
         const c = collectionOfType(result.get(String(b.getFieldValue("LIST") ?? "")));
         const v = String(b.getFieldValue("VAR") ?? "");
         if (c?.kind === "array2d") add(v, `${c.elem}[]`);
-        else if (c && c.kind !== "dyn" && c.elem) add(v, c.elem);
+        else if (c?.elem) add(v, c.elem);
     }
     for (const c of conflicts) result.delete(c);
     return result;
@@ -277,7 +288,7 @@ export function visibleVariables(b: Blockly.Block): Map<string, JType> {
             const v = String(p.getFieldValue("VAR") ?? "");
             layers.push((outer) => {
                 const c = collectionOfType(outer.get(String(p.getFieldValue("LIST") ?? "")));
-                const type = c?.kind === "array2d" ? `${c.elem}[]` : c && c.kind !== "dyn" && c.elem ? c.elem : undefined;
+                const type = c?.kind === "array2d" ? `${c.elem}[]` : c?.elem ? c.elem : undefined;
                 return v && type ? [[v, type]] : [];
             });
         }
@@ -352,7 +363,7 @@ export function scopeProblem(b: Blockly.Block, name: string): string | undefined
     // Variable des Hauptprogramms in einer Operation: wie die Warnung in Java
     if (start && (root.type === B.method || root.type === B.ctor || root.type === B.classMethod)) {
         for (let d = start.getInputTargetBlock("BODY"); d; d = d.getNextBlock()) {
-            if (declares(d, name)) return `${q} ist eine Variable des Hauptprogramms. In Java kennt ${where} sie nicht – jede Operation hat ihre eigenen Variablen. Übergib den Wert als Parameter und gib ein Ergebnis mit „gib zurück“ zurück.`;
+            if (declares(d, name)) return `${q} ist eine Variable des Hauptprogramms. In echtem Java kennt ${where} sie nicht – jede Operation hat ihre eigenen Variablen. Übergib den Wert als Parameter und gib ein Ergebnis mit „gib zurück“ zurück.`;
         }
     }
     const owner = ws.getAllBlocks(false).find((d) => !d.isInFlyout && declares(d, name) && scopeRoot(d))
@@ -361,7 +372,9 @@ export function scopeProblem(b: Blockly.Block, name: string): string | undefined
         const ownerRoot = SCOPE_ROOTS.has(owner.type) ? owner : scopeRoot(owner);
         return `${q} gehört ${ownerRoot ? ownerName(ownerRoot) : "zu einer anderen Stelle des Programms"}. Jede Operation hat ihre eigenen Variablen – ${where} kennt ${q} nicht. Übergib den Wert als Parameter oder lege hier eine eigene Variable an.`;
     }
-    return `Die Variable ${q} ist nirgends angelegt. Lege sie zuerst mit „erstelle neue Variable …“ an.`;
+    return Constants.isBloecklyApp
+        ? `Die Variable ${q} ist nirgends angelegt. Lege sie zuerst mit „erstelle Variable …“ an (Kategorie Variablen, oben in ein Skript der Figur ziehen – auf der Bühne gilt sie für alle Figuren).`
+        : `Die Variable ${q} ist nirgends angelegt. Lege sie zuerst mit „erstelle neue Variable …“ an.`;
 }
 
 /**
@@ -706,8 +719,8 @@ export function outputType(b: Blockly.Block, vars: Map<string, JType>, memo = ne
         case B.arrayLength: case B.array2dSize: case B.listSize: case B.listIndexOf: case B.dynLength: t = ["int"]; break;
         case B.listContains: case B.collIsEmpty: case B.dynIsEmpty: t = ["boolean"]; break;
         case B.dynGet: {
-            const type = String(b.getFieldValue("TYPE") ?? "Object");
-            t = type === "Object" ? null : [type as JType];
+            const c = collectionNamed(b);
+            t = c?.elem ? [c.elem as JType] : null;
             break;
         }
         case B.javaExpression: t = null; break;
@@ -721,14 +734,14 @@ export function outputType(b: Blockly.Block, vars: Map<string, JType>, memo = ne
             t = typ ? [typ as JType] : null;
             break;
         }
-        case B.treeChild: t = ["BinTree"]; break;
+        case B.treeChild: t = [vars.get(String(b.getFieldValue("NAME") ?? "")) ?? "BinTree"]; break;
         case B.treeTest: case B.adtIsEmpty: t = ["boolean"]; break;
         default:
             if (FIGURE_OUTPUT_TYPES[b.type]) t = [FIGURE_OUTPUT_TYPES[b.type] as JType];
             else if (BL_OUTPUT_TYPES[b.type]) t = [BL_OUTPUT_TYPES[b.type] as JType];
             else if (ADT_GET_TYPES.has(b.type)) {
-                const type = String(b.getFieldValue("TYPE") ?? "Object");
-                t = type === "Object" ? null : [type as JType];
+                const elem = adtTypeOf(vars.get(String(b.getFieldValue("NAME") ?? "")))?.elem;   // Inhaltstyp
+                t = elem ? [elem as JType] : null;
             }
     }
     memo.set(b.id, t);
@@ -813,11 +826,17 @@ export function inputType(b: Blockly.Block, input: string, vars: Map<string, JTy
     if (FIGURE_BLOCK_TYPES.has(b.type)) return figureInputType(b.type, input) as TypeSet;
     const bl = blInputTypes(b.type, input);
     if (bl !== undefined) return bl as TypeSet;
-    if (ADT_BLOCK_TYPES.has(b.type)) return input === "T" ? ["BinTree"] : null;   // Inhalte: beliebige Werte (Object)
+    if (ADT_BLOCK_TYPES.has(b.type)) {
+        // Teilbaum: derselbe Binärbaum-Typ (new BinTree<>(…) heißt hier BinTree); Inhalte: der Inhaltstyp
+        const own = b.type === B.treeNew ? adtTypeName("BinTree", String(b.getFieldValue("TYPE") ?? "int")) : varType("NAME");
+        if (input === "T") return own ? [own, "BinTree"] : ["BinTree"];
+        const elem = adtTypeOf(own)?.elem;
+        return elem ? acceptsForType(elem as JType) : null;
+    }
     if (COLLECTION_USES.includes(b.type)) {
         if (input !== "V") return ["int"];   // Position, Zeile, Spalte
         const c = collectionNamed(b);
-        return c?.elem && c.kind !== "dyn" ? acceptsForType(c.elem as JType) : null;
+        return c?.elem ? acceptsForType(c.elem as JType) : null;
     }
     return null;
 }

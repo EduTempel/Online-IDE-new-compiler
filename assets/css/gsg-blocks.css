@@ -274,8 +274,32 @@
     background-image: url('../icons/file-dark-struktogramm.svg');
 }
 
-/* Editor für Struktogramm-Dateien: nimmt den Platz des Editors ein */
-#gsg-structogram-editor {
+/* Dateisymbol für Klassendiagramm-Dateien (GSG, Paket 20) */
+.img_file-dark-klassendiagramm {
+    width: 16px;
+    height: 16px;
+    background-repeat: no-repeat;
+    background-image: url('../icons/file-dark-klassendiagramm.svg');
+}
+
+/* Reiter „Klassen“: Knopf „＋ Als Datei“ (Paket 20e) */
+.gsg-kd-alsdatei {
+    position: absolute;
+    right: 10px;
+    top: 10px;
+    z-index: 10;
+    font: 600 11px/20px Roboto, "Segoe UI", sans-serif;
+    padding: 0 9px;
+    border: 1px solid var(--slider, #555);
+    border-radius: 5px;
+    background: var(--backgroundLight, #2d2d2d);
+    color: var(--fontColorNormal, #ccc);
+    cursor: pointer;
+}
+.gsg-kd-alsdatei:hover { filter: brightness(1.2); }
+
+/* Editor für Struktogramm- bzw. Klassendiagramm-Dateien: nimmt den Platz des Editors ein */
+#gsg-structogram-editor, #gsg-klassen-editor {
     flex-grow: 1;
     min-height: 0;
     display: flex;

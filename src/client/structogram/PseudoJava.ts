@@ -25,15 +25,23 @@ export function javaType(de: string): string {
     m = /^Liste vom Inhaltstyp (.+)$/i.exec(s);
     if (m) {
         const e = javaType(m[1]);
-        return `ArrayList<${WRAP[e] ?? e}>`;
+        return `Liste<${WRAP[e] ?? e}>`;
     }
-    if (/^dyn(?:\.|amische) Reihung\b/i.test(s)) return "DynArray";
-    // abstrakte Datentypen der Abiturklassen Niedersachsen
-    if (/^Stapel\b/i.test(s)) return "Stack";
-    if (/^Schlange\b/i.test(s)) return "Queue";
-    if (/^Binärbaum\b/i.test(s)) return "BinTree";
+    // abstrakte Datentypen der Abiturklassen Niedersachsen, mit Inhaltstyp (22.11.2026): Stack<Integer>
+    const adt = /^dyn(?:\.|amische) Reihung\b/i.test(s) ? "DynArray" : /^Stapel\b/i.test(s) ? "Stack"
+        : /^Schlange\b/i.test(s) ? "Queue" : /^Binärbaum\b/i.test(s) ? "BinTree" : undefined;
+    if (adt) return withContent(adt, elemType(s));
     return TYPE_JAVA[s] ?? s;
 }
+
+/** Stack mit Inhaltstyp int -> Stack<Integer> (unbekannt: Object) */
+export function withContent(cls: string, elem: string | undefined): string {
+    const e = elem ?? "Object";
+    return `${cls}<${WRAP[e] ?? e}>`;
+}
+
+/** Klasse ohne Inhaltstyp: Stack<Integer> -> Stack */
+const baseOf = (t: string | undefined) => (t ?? "").replace(/\s*<.*$/, "");
 
 /** Inhaltstyp von dynamischer Reihung, Stapel, Schlange, Binärbaum (für Typumwandlungen beim Lesen) */
 export function elemType(de: string): string | undefined {
@@ -236,8 +244,8 @@ class ExprParser {
         const t = x.type ?? "";
         if (t.endsWith("[][]")) return "array2d";
         if (t.endsWith("[]")) return "array";
-        if (t.startsWith("ArrayList")) return "list";
-        if (t === "DynArray") return "dyn";
+        if (/^(?:Liste|ArrayList)</.test(t)) return "list";
+        if (baseOf(t) === "DynArray") return "dyn";
         if (t === "String") return "string";
         return undefined;
     }
@@ -245,7 +253,7 @@ class ExprParser {
     private elemOf(x: JX): string | undefined {
         const t = x.type ?? "";
         if (t.endsWith("[]")) return t.slice(0, -2);
-        const m = /^ArrayList<(.+)>$/.exec(t);
+        const m = /^(?:Liste|ArrayList|DynArray|Stack|Queue|BinTree)<(.+)>$/.exec(t);
         if (m) return ({ Integer: "int", Double: "double", Boolean: "boolean", Character: "char" } as Record<string, string>)[m[1]] ?? m[1];
         return undefined;
     }
@@ -320,20 +328,18 @@ class ExprParser {
             const i = this.sum(); this.expectWord("von"); const x = this.primary();
             const k = this.kindOf(x);
             if (k === "array") return { code: `${x.code}[${i.code}]`, prec: P.ATOM, type: this.elemOf(x) };
-            if (k === "dyn") return x.elem
-                ? { code: `(${x.elem}) ${x.code}.getItem(${i.code})`, prec: P.UNARY, type: x.elem }
-                : { code: `${x.code}.getItem(${i.code})`, prec: P.ATOM };
+            if (k === "dyn") return { code: `${x.code}.getItem(${i.code})`, prec: P.ATOM, type: x.elem ?? this.elemOf(x) };
             return { code: `${ExprParser.wrap(x, P.ATOM)}.get(${i.code})`, prec: P.ATOM, type: this.elemOf(x) };
         }
         if (this.take("entnimm", "Element", "aus") || this.take("entnimm", "oberstes", "Element", "von") || this.take("entnimm", "erstes", "Element", "von")) {
             const x = this.primary();
-            const call = `${x.code}.${x.type === "Queue" ? "dequeue" : "pop"}()`;
-            return x.elem ? { code: `(${x.elem}) ${call}`, prec: P.UNARY, type: x.elem } : { code: call, prec: P.ATOM };
+            const call = `${x.code}.${baseOf(x.type) === "Queue" ? "dequeue" : "pop"}()`;
+            return { code: call, prec: P.ATOM, type: x.elem ?? this.elemOf(x) };
         }
         if (this.take("oberstes", "Element", "von") || this.take("erstes", "Element", "von")) {
             const x = this.primary();
-            const call = `${x.code}.${x.type === "Queue" ? "head" : "top"}()`;
-            return x.elem ? { code: `(${x.elem}) ${call}`, prec: P.UNARY, type: x.elem } : { code: call, prec: P.ATOM };
+            const call = `${x.code}.${baseOf(x.type) === "Queue" ? "head" : "top"}()`;
+            return { code: call, prec: P.ATOM, type: x.elem ?? this.elemOf(x) };
         }
         if (this.take("Zeichen", "an", "Position")) {
             const i = this.sum(); this.expectWord("von"); const x = this.primary();
@@ -375,37 +381,41 @@ class ExprParser {
             if (cls?.t !== "id") throw new Fail();
             this.pos++;
             const args = this.isOp("(") ? this.args() : [];
+            if (["DynArray", "Stack", "Queue", "BinTree"].includes(cls.v)) {
+                return { code: `new ${cls.v}<>(${args.join(", ")})`, prec: P.ATOM, type: withContent(cls.v, undefined) };
+            }
             return { code: `new ${cls.v}(${args.join(", ")})`, prec: P.ATOM, type: cls.v };
         }
         if (this.take("leere", "Liste", "vom", "Inhaltstyp")) {
             const e = this.typeWords();
             const w = WRAP[e] ?? e;
-            return { code: `new ArrayList<${w}>()`, prec: P.ATOM, type: `ArrayList<${w}>` };
+            return { code: "new Liste<>()", prec: P.ATOM, type: `Liste<${w}>` };
         }
         // Binärbaum: neuer Binärbaum [mit Inhalt …], Inhalt von b, linker/rechter Teilbaum von b
         if (this.take("neuer", "Binärbaum")) {
             if (this.take("mit", "Inhalt")) {
                 const v = this.sum();
-                return { code: `new BinTree(${v.code})`, prec: P.ATOM, type: "BinTree" };
+                const elem = v.type && v.type !== "var" ? v.type : undefined;
+                return { code: `new BinTree<>(${v.code})`, prec: P.ATOM, type: withContent("BinTree", elem), elem };
             }
             const elem = this.take("vom", "Inhaltstyp") ? this.typeWords() : undefined;
-            return { code: "new BinTree()", prec: P.ATOM, type: "BinTree", elem };
+            return { code: "new BinTree<>()", prec: P.ATOM, type: withContent("BinTree", elem), elem };
         }
         if (this.take("Inhalt", "von")) {
             const x = this.primary();
-            const call = `${x.code}.getItem()`;
-            return x.elem ? { code: `(${x.elem}) ${call}`, prec: P.UNARY, type: x.elem } : { code: call, prec: P.ATOM };
+            return { code: `${x.code}.getItem()`, prec: P.ATOM, type: x.elem ?? this.elemOf(x) };
         }
         if (this.take("linker", "Teilbaum", "von") || this.take("rechter", "Teilbaum", "von")) {
             const left = this.toks[this.pos - 3].v.toLowerCase() === "linker";
             const x = this.primary();
-            return { code: `${x.code}.${left ? "getLeft" : "getRight"}()`, prec: P.ATOM, type: "BinTree", elem: x.elem };
+            const elem = x.elem ?? this.elemOf(x);
+            return { code: `${x.code}.${left ? "getLeft" : "getRight"}()`, prec: P.ATOM, type: withContent("BinTree", elem), elem };
         }
         if (this.take("leere", "dynamische", "Reihung") || this.take("leerer", "Stapel") || this.take("leere", "Schlange")) {
             const t = this.toks[this.pos - 1].v.toLowerCase();
             const type = t === "stapel" ? "Stack" : t === "schlange" ? "Queue" : "DynArray";
             const elem = this.take("vom", "Inhaltstyp") ? this.typeWords() : undefined;
-            return { code: `new ${type}()`, prec: P.ATOM, type, elem };
+            return { code: `new ${type}<>()`, prec: P.ATOM, type: withContent(type, elem), elem };
         }
         if (this.take("stat") || this.take("statische")) {
             if (this.isOp(".")) this.pos++;
@@ -640,7 +650,7 @@ class Translator {
                 return;
             }
             const t = list.type ?? "";
-            const elem = t.endsWith("[]") ? t.slice(0, -2) : /^ArrayList<(.+)>$/.exec(t)?.[1] ?? (t === "DynArray" ? "Object" : "var");
+            const elem = t.endsWith("[]") ? t.slice(0, -2) : /^(?:Liste|ArrayList|DynArray)<(.+)>$/.exec(t)?.[1] ?? (t === "DynArray" ? "Object" : "var");
             this.vars.set(v, ({ Integer: "int", Double: "double", Boolean: "boolean", Character: "char" } as Record<string, string>)[elem] ?? elem);
             this.emit(indent, `for (${elem} ${v} : ${list.code}) {`);
         } else {
@@ -712,18 +722,19 @@ class Translator {
         if ((m = /^füge\s+(.+?)\s+an\s+Position\s+(.+?)\s+in\s+(.+?)\s+ein$/i.exec(s))) {
             const v = x(m[1]), i = x(m[2]), l = x(m[3]);
             if (!v || !i || !l) return undefined;
-            return l.type === "DynArray" ? `${l.code}.insertAt(${i.code}, ${v.code});` : `${l.code}.add(${i.code}, ${v.code});`;
+            return baseOf(l.type) === "DynArray" ? `${l.code}.insertAt(${i.code}, ${v.code});` : `${l.code}.add(${i.code}, ${v.code});`;
         }
         if ((m = /^füge\s+(.+?)\s+(?:zu|an)\s+(.+?)\s+(?:hinzu|an)$/i.exec(s))) {
             const v = x(m[1]), l = x(m[2]);
             if (!v || !l) return undefined;
-            const method = l.type === "DynArray" ? "append" : l.type === "Stack" ? "push" : l.type === "Queue" ? "enqueue" : "add";
+            const b = baseOf(l.type);
+            const method = b === "DynArray" ? "append" : b === "Stack" ? "push" : b === "Queue" ? "enqueue" : "add";
             return `${l.code}.${method}(${v.code});`;
         }
         // Stapel, Schlange, Binärbaum
         if ((m = /^entnimm\s+(?:das\s+)?(?:oberstes\s+|erstes\s+)?Element\s+(?:von|aus)\s+(.+)$/i.exec(s))) {
             const l = x(m[1]);
-            return l ? `${l.code}.${l.type === "Queue" ? "dequeue" : "pop"}();` : undefined;
+            return l ? `${l.code}.${baseOf(l.type) === "Queue" ? "dequeue" : "pop"}();` : undefined;
         }
         if ((m = /^setze\s+Inhalt\s+von\s+(.+?)\s+auf\s+(.+)$/i.exec(s))) {
             const t = x(m[1]), v = x(m[2]);
@@ -748,13 +759,13 @@ class Translator {
         if ((m = /^(?:lösche|entferne)\s+(?:das\s+)?Element\s+an\s+Position\s+(.+?)\s+(?:von|aus)\s+(.+)$/i.exec(s))) {
             const i = x(m[1]), l = x(m[2]);
             if (!i || !l) return undefined;
-            return l.type === "DynArray" ? `${l.code}.delete(${i.code});` : `${l.code}.remove(${i.code});`;
+            return baseOf(l.type) === "DynArray" ? `${l.code}.delete(${i.code});` : `${l.code}.remove(${i.code});`;
         }
         if ((m = /^(?:ersetze|setze)\s+(?:das\s+)?Element\s+an\s+Position\s+(.+?)\s+von\s+(.+?)\s+(?:durch|auf)\s+(.+)$/i.exec(s))) {
             const i = x(m[1]), l = x(m[2]), v = x(m[3]);
             if (!i || !l || !v) return undefined;
             if (l.type?.endsWith("[]")) return `${l.code}[${i.code}] = ${v.code};`;
-            return l.type === "DynArray" ? `${l.code}.setItem(${i.code}, ${v.code});` : `${l.code}.set(${i.code}, ${v.code});`;
+            return baseOf(l.type) === "DynArray" ? `${l.code}.setItem(${i.code}, ${v.code});` : `${l.code}.set(${i.code}, ${v.code});`;
         }
         // Tracetabelle (Paket 10): trage in die Tracetabelle ein [(„Bemerkung“)]
         if ((m = /^trage\s+(?:die\s+Werte\s+)?in\s+die\s+Tracetabelle\s+ein(?:\s*\(\s*[„"“](.*)[“"”]\s*\))?$/i.exec(s))) {

@@ -107,7 +107,7 @@ export function helpUri(kind: HandbookKind, t: HelpTarget): string {
 }
 
 export function parseHelpUri(uri: string): { kind: HandbookKind; target: HelpTarget } | undefined {
-    const m = /^gsg-handbuch:\/*(blocks|java|struktogramm)\/([^/]+)\/(.+)$/.exec(uri);
+    const m = /^gsg-handbuch:\/*(blocks|java|struktogramm|klassendiagramm)\/([^/]+)\/(.+)$/.exec(uri);
     if (!m) return undefined;
     return { kind: m[1] as HandbookKind, target: { section: decodeURIComponent(m[2]), entry: decodeURIComponent(m[3]) } };
 }

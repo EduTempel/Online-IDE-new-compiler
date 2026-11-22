@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { addCase, emptyDoc, findNode, insertNode, moveNode, newNode, parseDoc, removeCase, removeNode, serializeDoc, setCaseLabel, setText, setTitle, textOf, toggleOther, withNewIds, type ENode } from "./StructogramDoc";
+import { addCase, arrowFromTyping, emptyDoc, findNode, insertNode, moveNode, newNode, parseDoc, removeCase, removeNode, serializeDoc, setCaseLabel, setText, setTitle, textOf, toggleOther, withNewIds, type ENode } from "./StructogramDoc";
 
 const texts = (nodes: ENode[]): string[] => nodes.map((n) => textOf(n));
 
@@ -60,4 +60,15 @@ describe("Struktogramm-Datei: Bearbeitungsschritte", () => {
         const copy = withNewIds(sw);
         expect(copy.id).not.toBe(sw.id);
     });
+});
+
+test("„<-“ wird beim Tippen zum Zuweisungspfeil", () => {
+    expect(arrowFromTyping("x <-", 4)).toEqual({ text: "x ←", caret: 3 });
+    expect(arrowFromTyping("x <- 5", 4)).toEqual({ text: "x ← 5", caret: 3 });
+    // eingefügt: alle Vorkommen, Schreibmarke dahinter
+    expect(arrowFromTyping("a <- 1; b <- 2", 14)).toEqual({ text: "a ← 1; b ← 2", caret: 12 });
+    // „-“ vor einem schon getippten „<“ ergänzt
+    expect(arrowFromTyping("x <- 5", 3)).toEqual({ text: "x ← 5", caret: 3 });
+    expect(arrowFromTyping("x ← 5", 5)).toEqual({ text: "x ← 5", caret: 5 });
+    expect(arrowFromTyping("x < 5", 3)).toEqual({ text: "x < 5", caret: 3 });
 });

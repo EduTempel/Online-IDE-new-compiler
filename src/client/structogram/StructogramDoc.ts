@@ -78,12 +78,15 @@ export function docFromDiagram(d: Diagram): StructogramDoc {
             case "footloop": return { id, kind: "footloop", foot: n.foot, body: n.body.map(conv) };
         }
     };
-    return { format: FORMAT, version: 1, title: d.title, body: d.body.map(conv) };
+    // Hauptprogramm mit Namen: in der Datei „Hauptprogramm „Name““ (eindeutig als Hauptprogramm lesbar)
+    const title = d.main && d.title !== "Hauptprogramm" ? `Hauptprogramm „${d.title}“` : d.title;
+    return { format: FORMAT, version: 1, title, body: d.body.map(conv) };
 }
 
-/** Dokument als Diagramm (zum Zeichnen) */
+/** Dokument als Diagramm (zum Zeichnen); ein benanntes Hauptprogramm zeigt nur seinen Namen */
 export function diagramOfDoc(doc: StructogramDoc): Diagram {
-    return { title: doc.title, body: doc.body as SNode[] };
+    const name = /^\s*Hauptprogramm\s+„(.+)“\s*$/u.exec(doc.title)?.[1].trim();
+    return { title: name || doc.title, body: doc.body as SNode[], ...(name || /^\s*Hauptprogramm\s*$/.test(doc.title) ? { main: true } : {}) };
 }
 
 // ------------------------------------------------------------------ Neue Elemente
@@ -197,6 +200,19 @@ export function textOf(n: ENode): string {
         case "loop": return n.head;
         case "footloop": return n.foot;
     }
+}
+
+/**
+ * „<-“ wird beim Tippen zum Zuweisungspfeil „←“ (nur in Anweisungen – in Bedingungen kann „x <-1“ auch
+ * „x kleiner als −1“ heißen). caret: Position der Schreibmarke; geliefert werden Text und neue Position.
+ */
+export function arrowFromTyping(text: string, caret: number): { text: string; caret: number } {
+    if (!text.includes("<-")) return { text, caret };
+    const before = text.slice(0, caret).replace(/<-/g, "←");
+    const after = text.slice(caret).replace(/<-/g, "←");
+    // „<“ vor und „-“ hinter der Schreibmarke (z. B. „-“ vor „<“ getippt)
+    if (before.endsWith("<") && after.startsWith("-")) return { text: before.slice(0, -1) + "←" + after.slice(1), caret: before.length };
+    return { text: before + after, caret: before.length };
 }
 
 export function setText(doc: StructogramDoc, id: string, text: string): StructogramDoc {

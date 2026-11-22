@@ -4,7 +4,7 @@ import { B, isPartHat, type BlockState } from "../blocks/BlockTypes";
 import { JavaBlockParser } from "../blocks/JavaBlockParser";
 import { methodParams, typeInfo, type ClassInfo } from "../blocks/ClassModel";
 import { colourLabel, FIGURE_ACTIONS, FIGURE_PROPS, keyLabel, targetLabel, touchesLabel } from "../blocks/FigureSpec";
-import { ADT_GETS } from "../blocks/AdtSpec";
+import { ADT_GETS, adtTypeOf } from "../blocks/AdtSpec";
 
 /**
  * Struktogramme (Nassi-Shneiderman) aus Java-Code – im Stil der Ergänzenden Hinweise für das
@@ -25,7 +25,8 @@ export type SNode =
     | { kind: "loop"; head: string; body: SNode[]; id?: string }
     | { kind: "footloop"; foot: string; body: SNode[]; id?: string };
 
-export type Diagram = { title: string; group?: string; body: SNode[] };
+/** main: Hauptprogramm (Titel ist dann sein Name bzw. „Hauptprogramm“) */
+export type Diagram = { title: string; group?: string; body: SNode[]; main?: boolean };
 
 // ------------------------------------------------------------------ Datentypen
 
@@ -58,8 +59,8 @@ export function typeDe(t: string, content?: string): string {
         case "array2d": return `statische zweidimensionale Reihung vom Inhaltstyp ${elem}`;
         case "list": return `Liste vom Inhaltstyp ${elem}`;
     }
-    const adt = ADT_DE[t.trim()];
-    if (adt) return `${adt} vom Inhaltstyp ${typeDe(content ?? "Object")}`;
+    const a = adtTypeOf(t);   // Stack<Integer>: der Inhaltstyp steht im Datentyp (22.11.2026)
+    if (a) return `${ADT_DE[a.cls]} vom Inhaltstyp ${typeDe(a.elem ?? content ?? "Object")}`;
     return TYPE_DE[t] ?? t;
 }
 
@@ -80,6 +81,7 @@ export function signature(name: string, params: { name: string; type: string }[]
 }
 
 const ADT_READS = new Set<string>([B.dynGet, B.stackGet, B.queueGet, B.treeItem]);
+const ADT_CREATIONS_WITH_TYPE = new Set<string>([B.dynNew, B.stackNew, B.queueNew, B.treeNew]);
 const ADT_WRITES = new Set<string>([B.dynAppend, B.dynInsert, B.dynSet, B.stackPush, B.queueEnqueue, B.treeSetItem, B.treeNew]);
 
 /**
@@ -133,6 +135,14 @@ export function contentTypes(roots: (BlockState | undefined)[], declared: { name
         const t = r?.size === 1 ? [...r][0] : !r && w?.size === 1 ? [...w][0] : undefined;
         if (t) result.set(name, t);
     }
+    // Inhaltstyp im Datentyp (Stack<Integer>, Feld TYPE der Blöcke) gilt vor dem aus der Verwendung
+    for (const [name, t] of types) {
+        const elem = adtTypeOf(t)?.elem;
+        if (elem) result.set(name, elem);
+    }
+    for (const r of roots) each(r, (b) => {
+        if (ADT_CREATIONS_WITH_TYPE.has(b.type) && b.fields?.NAME && b.fields.TYPE) result.set(b.fields.NAME, b.fields.TYPE);
+    });
     const ret = new Set([...returned].map((n) => result.get(n) ?? outer?.get(n)).filter((t): t is string => !!t));
     if (ret.size === 1) result.set("", [...ret][0]);
     return result;
@@ -509,7 +519,7 @@ export function diagramsFromJava(code: string, classes: ClassInfo[] = []): Diagr
     // Hauptprogramm nur, wenn es mehr als Kommentare enthält, einen Namen hat (oder es sonst nichts gibt)
     const onlyComments = mainBody.every((n) => n.kind === "stmt" && n.text.startsWith("//"));
     const name = String(start?.fields?.NAME ?? "").trim();
-    if ((mainBody.length && !onlyComments) || name || !others.length) result.push({ title: name ? `Hauptprogramm „${name}“` : "Hauptprogramm", body: mainBody });
+    if ((mainBody.length && !onlyComments) || name || !others.length) result.push({ title: name || "Hauptprogramm", main: true, body: mainBody });
     for (const h of others) {
         if (isPartHat(h.type)) {
             // Programmteil (wenn Taste …, wenn ich Nachricht … usw.): Variablen wie im Hauptprogramm

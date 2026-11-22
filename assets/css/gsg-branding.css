@@ -1,7 +1,7 @@
 /*
  * Gestaltung für das Graf-Stauffenberg-Gymnasium Osnabrück (GSG).
  * Logofarben: Dunkelblau #00376D, Grün #45B82F.
- * Gleiche Datei in Java-IDE und SQL-IDE. Wird nach den Original-Stylesheets geladen (IDEStarter.ts) und überschreibt nur,
+ * Gleiche Datei in Texva und SQL-IDE. Wird nach den Original-Stylesheets geladen (IDEStarter.ts) und überschreibt nur,
  * was für Login-Seite und Schulfarben nötig ist. Farben im laufenden Editor: SchoolBranding.ts.
  */
 
@@ -66,6 +66,16 @@
     width: 112px;
     height: 112px;
     margin: 0 0 12px;
+}
+
+/* Produktname über dem Namen der Anwendung */
+.joeCssFence #login.gsg-login .gsg-login-produkt {
+    margin: 0 0 2px;
+    font-size: 0.8em;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--gsg-muted);
 }
 
 .joeCssFence #login.gsg-login .gsg-login-title {
@@ -396,6 +406,13 @@
 .joeCssFence .jo_treeviewNode:hover.jo_treeview_selected { background-color: var(--gsg-sel-hover, #0b4a8a); }
 .joeCssFence .jo_treeviewNode.jo_treeview_selected .jo_treeviewNode_caption { color: inherit; }
 
+/* Explorer in Bereichen (TreeviewGruppen.ts): Ordner, Klassendiagramme, Struktogramme, Code – sanfter Strich dazwischen */
+.joeCssFence .jo_treeviewNodeWithChildren.gsg-tv-gruppenstart {
+    border-top: 1px solid color-mix(in srgb, currentColor 16%, transparent);
+    margin-top: 3px;
+    padding-top: 3px;
+}
+
 /* aktiver Reiter: grüner Balken statt dünner Linie */
 .joeCssFence .jo_tabheading.jo_active {
     border-bottom-color: transparent;
@@ -411,7 +428,7 @@
     outline-offset: 1px;
 }
 
-/* Start, Pause und Stopp beschriftet statt winziger Symbole (Java-IDE, Blöckva, Struktogramme;
+/* Start, Pause und Stopp beschriftet statt winziger Symbole (Texva, Blöckva, Struktogramme;
    Blöckly hat eigene große Knöpfe an der Bühne) */
 html:not([data-gsg-app="bloeckly"]) .joeCssFence #controls > .img_start-dark,
 html:not([data-gsg-app="bloeckly"]) .joeCssFence #controls > .img_pause-dark,

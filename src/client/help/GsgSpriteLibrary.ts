@@ -14,8 +14,8 @@ export function gsgFigurenZeigen(entries: HTMLElement) {
     };
     const teil = document.createDocumentFragment();
     teil.append(
-        el("h2", "gsg-sl-titel", "Figuren und Bühnenbilder der Schule (Blöckly)"),
-        el("p", "gsg-sl-text", "In Blöckly und Blöckva: new Figur(\"Waschbaer\", 0, 0) bzw. class Waschbär extends Figur; Kostüme mit " +
+        el("h2", "gsg-sl-titel", "Figuren und Bühnenbilder der Schule (Blocks)"),
+        el("p", "gsg-sl-text", "In Blocks und Mix: new Figur(\"Waschbaer\", 0, 0) bzw. class Waschbär extends Figur; Kostüme mit " +
             "wechsleZuKostuem(\"laufen 1\"). Als Sprite: new Sprite(100, 150, SpriteLibrary.Waschbaer, 3)."),
     );
     const box = (name: string, nummer: number, b: number, h: number, groesse: string, titel: string) => {
@@ -42,7 +42,7 @@ export function gsgFigurenZeigen(entries: HTMLElement) {
     }
     reihe(`${GSG_BUEHNENBILD_NAME} – Bühnenbilder`,
         GSG_BUEHNENBILDER.map((b) => box(GSG_BUEHNENBILD_NAME, b.index, 240, 180, "480 x 360", b.titel)));
-    teil.append(el("h2", "gsg-sl-titel", "Bilder der Online-IDE"));
+    teil.append(el("h2", "gsg-sl-titel", "Weitere Bilder (aus der Online-IDE von Martin Pabst)"));
     entries.prepend(teil);
 
     const stil = document.createElement("style");

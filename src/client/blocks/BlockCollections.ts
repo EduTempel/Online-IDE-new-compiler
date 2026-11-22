@@ -12,7 +12,7 @@ import { BL_LISTEN_FARBE } from "../bloeckly/BloecklySpec";
 /**
  * Paket 5 des Blockmodus, drei getrennte Kategorien (Positionen zählen immer ab 0):
  *  - Reihungen: Arrays, auch zweidimensional
- *  - Listen: ArrayList
+ *  - Listen: Liste<…> (GSG-Klasse wie ArrayList, 22.11.2026)
  *  - ADT (abstrakte Datentypen der Abiturklassen Niedersachsen): dynamische Reihung (DynArray)
  * Reihungen, Listen und ADT werden über ihren Namen ausgewählt (wie Variablen).
  */
@@ -157,11 +157,11 @@ export function defineCollectionBlocks(defineJson: (json: object[]) => void) {
                 + "entfernen – dann werden Elemente übersprungen. Figuren lieber verstecken.",
         },
 
-        // ------------------------------------------------------------ Liste (ArrayList)
+        // ------------------------------------------------------------ Liste (Liste<…>, wie ArrayList)
         {
-            type: B.listNew, message0: "erstelle neue Liste %1 vom Datentyp %2 %3", args0: [{ ...nameField, text: "liste" }, typeField, hint("new ArrayList")],
+            type: B.listNew, message0: "erstelle neue Liste %1 vom Datentyp %2 %3", args0: [{ ...nameField, text: "liste" }, typeField, hint("new Liste")],
             ...statement, ...l, extensions: ["gsg_identifier"],
-            tooltip: tip("Legt eine leere Liste an. Sie wächst beim Anhängen.", "ArrayList<Integer> liste = new ArrayList<Integer>();"),
+            tooltip: tip("Legt eine leere Liste an. Sie wächst beim Anhängen.", "Liste<Integer> liste = new Liste<>();"),
         },
         {
             type: B.listAdd, message0: "hänge %1 an Liste %2 an %3", args0: [value("V"), coll(LIST), hint(".add")],
@@ -206,10 +206,11 @@ export function defineCollectionBlocks(defineJson: (json: object[]) => void) {
 
         // ------------------------------------------------------------ ADT: dynamische Reihung (DynArray, Abiturklassen Niedersachsen)
         {
-            type: B.dynNew, message0: "erstelle neue dynamische Reihung %1 %2", args0: [{ ...nameField, text: "reihe" }, hint("new DynArray()")],
+            type: B.dynNew, message0: "erstelle neue dynamische Reihung %1 vom Inhaltstyp %2 %3",
+            args0: [{ ...nameField, text: "reihe" }, typeField, hint("new DynArray<>()")],
             ...statement, ...d, extensions: ["gsg_identifier"],
-            tooltip: "Legt eine leere dynamische Reihung an (DynArray aus den Abiturklassen Niedersachsen). "
-                + "Die Bibliothek „Abiturklassen Niedersachsen“ wird dafür im Projekt eingeschaltet.",
+            tooltip: "Legt eine leere dynamische Reihung an (DynArray aus den Abiturklassen Niedersachsen). Der Inhaltstyp "
+                + "sagt, was hineinkommt, z. B. Ganzzahlen. Die Bibliothek „Abiturklassen Niedersachsen“ wird dafür im Projekt eingeschaltet.",
         },
         {
             type: B.dynAppend, message0: "hänge %1 an dynamische Reihung %2 an %3", args0: [value("V"), coll(DYN), hint(".append")],
@@ -228,13 +229,10 @@ export function defineCollectionBlocks(defineJson: (json: object[]) => void) {
             ...statement, ...d, tooltip: "Entfernt das Element an einer Position (ab 0 gezählt).",
         },
         {
-            type: B.dynGet, message0: "Element an Position %1 von dynamischer Reihung %2 %3 %4",
-            args0: [value("I"), coll(DYN), {
-                type: "field_dropdown", name: "TYPE", options: [["als Ganzzahl", "int"], ["als Kommazahl", "double"],
-                    ["als Text", "String"], ["als Wahrheitswert", "boolean"], ["als Zeichen", "char"], ["(beliebiger Wert)", "Object"]],
-            }, hint(".getItem")],
+            type: B.dynGet, message0: "Element an Position %1 von dynamischer Reihung %2 %3",
+            args0: [value("I"), coll(DYN), hint(".getItem")],
             output: null, ...d,
-            tooltip: tip("Das Element an einer Position (ab 0 gezählt). Zum Rechnen „als Ganzzahl“ usw. wählen.", "(int) reihe.getItem(0)"),
+            tooltip: tip("Das Element an einer Position (ab 0 gezählt) – vom Inhaltstyp der Reihung.", "reihe.getItem(0)"),
         },
         {
             type: B.dynLength, message0: "Länge von dynamischer Reihung %1 %2", args0: [coll(DYN), hint(".getLength()")],
@@ -366,12 +364,12 @@ export function adtFlyout(ws: Blockly.WorkspaceSvg): Blockly.utils.toolbox.Flyou
     const items: object[] = [
         { kind: "label", text: "Abstrakte Datentypen (Abiturklassen Niedersachsen) – die Bibliothek wird im Projekt eingeschaltet." },
         { kind: "label", text: "Dynamische Reihung: Positionen ab 0." },
-        { kind: "block", type: B.dynNew, fields: { NAME: "reihe" } },
+        { kind: "block", type: B.dynNew, fields: { NAME: "reihe", TYPE: "int" } },
         { kind: "block", type: B.dynAppend, fields: { NAME: d.name }, inputs: { V: num("1") } },
         { kind: "block", type: B.dynInsert, fields: { NAME: d.name }, inputs: { V: num("1"), I: num("0") } },
         { kind: "block", type: B.dynSet, fields: { NAME: d.name }, inputs: { I: num("0"), V: num("1") } },
         { kind: "block", type: B.dynDelete, fields: { NAME: d.name }, inputs: { I: num("0") } },
-        { kind: "block", type: B.dynGet, fields: { NAME: d.name, TYPE: "int" }, inputs: { I: num("0") } },
+        { kind: "block", type: B.dynGet, fields: { NAME: d.name }, inputs: { I: num("0") } },
         { kind: "block", type: B.dynLength, fields: { NAME: d.name } },
         { kind: "block", type: B.dynIsEmpty, fields: { NAME: d.name } },
         { kind: "block", type: B.forEach, fields: { VAR: "element", LIST: d.name } },

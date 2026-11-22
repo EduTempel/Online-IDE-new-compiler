@@ -3,7 +3,7 @@
  * { "libraries": ["niedersachsen"] }
  */
 
-Stack s = new Stack();
+Stack<String> s = new Stack<>();
 assertTrue(s.isEmpty(), "Niedersachsen-Stack: isEmpty() returns false on empty stack.");
 
 s.push("Eins");
@@ -24,7 +24,7 @@ assertEquals("Eins", s.pop(), "Niedersachsen-Stack: pop() doesn't return correct
  * Test Queue
  * { "libraries": ["niedersachsen"] }
  */
-Queue q = new Queue();
+Queue<String> q = new Queue<>();
 assertTrue(q.isEmpty(), "Niedersachsen-Queue: isEmpty() returns false on empty queue.");
 
 q.enqueue("Eins");
@@ -43,7 +43,7 @@ assertEquals("Drei", q.dequeue(), "Niedersachsen-Queue: dequeue() doesn't return
  * Test DynArray
  * { "libraries": ["niedersachsen"] }
  */
-DynArray d = new DynArray();
+DynArray<String> d = new DynArray<>();
 assertTrue(d.isEmpty(), "Niedersachsen-DynArray: isEmpty() returns false on empty dynArray.");
 
 d.append("Eins");
@@ -125,13 +125,13 @@ try {
  * Test BinTree
  * { "libraries": ["niedersachsen"] }
  */
-BinTree bt = new BinTree();
+BinTree<String> bt = new BinTree<>();
 
 bt.setItem("Wurzel");
 assertEquals("Wurzel", bt.getItem(), "Niedersachsen-BinTree: getItem() doesn't return correct value.");
 
-bt.setLeft(new BinTree("Links"));
-bt.setRight(new BinTree("Rechts"));
+bt.setLeft(new BinTree<>("Links"));
+bt.setRight(new BinTree<>("Rechts"));
 assertEquals("Links", bt.getLeft().getItem(), "Niedersachsen-BinTree: getLeft().getItem() doesn't return correct value.");
 assertEquals("Rechts", bt.getRight().getItem(), "Niedersachsen-BinTree: getRight().getItem() doesn't return correct value.");
 

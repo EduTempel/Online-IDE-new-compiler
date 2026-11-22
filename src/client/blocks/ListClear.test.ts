@@ -14,7 +14,7 @@ const NL = String.fromCharCode(10);
 const lines = (...l: string[]) => l.join(NL) + NL;
 
 const CODE = lines(
-    "ArrayList<Integer> zahlen = new ArrayList<Integer>();",
+    "Liste<Integer> zahlen = new Liste<>();",
     "zahlen.add(7);",
     "zahlen.add(9);",
     "println(zahlen.size());",

@@ -6,7 +6,7 @@ import { JavaLibraryManager } from "../../compiler/java/runtime/JavaLibraryManag
 import { CompilerFile } from "../../compiler/common/module/CompilerFile";
 import { StoreOutputPrintManager } from "../../test/StoreOutputPrintManager";
 import {
-    BUEHNEN_DATEI, buehnenQuelltext, figurQuelltext, freierName, HAUPTPROGRAMM, hauptprogrammQuelltext, klassenname,
+    BUEHNEN_DATEI, buehnenQuelltext, figurQuelltext, freierName, HAUPTPROGRAMM, hauptprogrammHatMehr, hauptprogrammQuelltext, klassenname,
     liesBuehne, liesFigur, liesHauptprogramm, liesProjekt, mitBuehnenbild, mitFigur, mitStart, namensFehler, umbenannt,
     globaleStellen, globaleUmbenannt, mitVariable, ohneVariable, variablenDerKlasse,
 } from "./BloecklyProjekt";
@@ -15,7 +15,7 @@ import {
 
 const datei = (name: string, text: string) => ({ name, getText: () => text });
 
-describe("Blöckly-Projekt: Dateien erzeugen und lesen", () => {
+describe("Blocks-Projekt: Dateien erzeugen und lesen", () => {
     test("Figur, Bühne und Hauptprogramm hin und zurück", () => {
         const figur = figurQuelltext({ klasse: "Waschbär", figur: "Waschbaer", x: -100.4, y: 20 });
         expect(figur).toContain('super("Waschbaer", -100, 20);');
@@ -65,7 +65,7 @@ describe("Blöckly-Projekt: Dateien erzeugen und lesen", () => {
         expect(namensFehler("Flitzi", ["Waschbär"])).toBeUndefined();
         expect(namensFehler("Grüne Katze", [])).toMatch(/Leerzeichen/);
         expect(namensFehler("2Katzen", [])).toMatch(/Buchstaben/);
-        expect(namensFehler("class", [])).toMatch(/Wort von Java/);
+        expect(namensFehler("class", [])).toMatch(/reserviertes Wort/);
         expect(namensFehler("Figur", [])).toMatch(/vergeben/);
         expect(namensFehler("waschbär", ["Waschbär"])).toMatch(/gibt es schon/);
         expect(freierName("Waschbär", ["Waschbär", "Waschbär2"])).toBe("Waschbär3");
@@ -86,6 +86,26 @@ describe("Blöckly-Projekt: Dateien erzeugen und lesen", () => {
         expect(p.haupt?.name).toBe(HAUPTPROGRAMM);
         expect(p.buehne?.info).toEqual({ klasse: "Spiel", bild: "Wald" });
         expect(p.figuren.map((f) => f.info.klasse)).toEqual(["Waschbär", "Pinguin", "Neu"]);
+        expect(p.weitere).toEqual([]);
+    });
+
+    test("Dateien, die weder Figur noch Bühne sind, und Blöcke im Hauptprogramm werden erkannt", () => {
+        const p = liesProjekt([
+            datei(BUEHNEN_DATEI, buehnenQuelltext("Wald")),
+            datei("Waschbär", figurQuelltext({ klasse: "Waschbär", figur: "Waschbaer", x: 0, y: 0 })),
+            datei("Bühne2", buehnenQuelltext("Strand")),
+            datei("Listen", "ArrayList<Double> zahlen = new ArrayList<>();\nzahlen.add(1.0);\n"),
+            datei("Alt.java", "println(1);"),
+            datei("Notizen.struktogramm", "{}"),
+            datei(HAUPTPROGRAMM, hauptprogrammQuelltext("Spiel", ["Waschbär"])),
+        ]);
+        expect(p.buehne?.info.bild).toBe("Wald");
+        expect(p.weitere.map((d) => d.name)).toEqual(["Bühne2", "Listen", "Alt.java"]);
+
+        expect(hauptprogrammHatMehr(hauptprogrammQuelltext("Spiel", ["Waschbär", "Pinguin"]))).toBe(false);
+        expect(hauptprogrammHatMehr("/* alt */\n// Kommentar\nnew Spiel();\n\n  new Waschbär();\n")).toBe(false);
+        expect(hauptprogrammHatMehr(hauptprogrammQuelltext("Spiel", ["Waschbär"]) + "ArrayList<Double> zahlen = new ArrayList<>();\n")).toBe(true);
+        expect(hauptprogrammHatMehr(hauptprogrammQuelltext("Spiel", []) + "@BeimStart\nvoid los() {\n}\n")).toBe(true);
     });
 
     test("die erzeugten Dateien sind ein lauffähiges Java-Programm", async () => {

@@ -13,9 +13,13 @@ import { beispielProjektOeffnen } from "../bloeckly/BloecklyBeispiel";
 import { HELP_SCHEME, parseHelpUri } from "./HelpLinks";
 import { JAVA_HANDBOOK } from "./HandbookJava";
 import { STRUCTOGRAM_HANDBOOK } from "./HandbookStructogram";
+import { KLASSENDIAGRAMM_HANDBOOK } from "./HandbookKlassendiagramm";
+import { emptyDoc as leeresKlassendiagramm, newId as neueKdId, serializeDoc as speichereKlassendiagramm, type KlassenDoc } from "../klassendiagramm/KlassenDoc";
+import { ordneAn, renderSvg as klassenSvg, STIL as KD_STIL } from "../klassendiagramm/KlassenSvg";
 import { definedTypes, exampleFileName, findBlockEntry, structogramShape } from "./HandbookSearch";
 import { diagramOfDoc, parseDoc, serializeDoc, withNewIds, type StructogramDoc } from "../structogram/StructogramDoc";
 import { renderSvg, STYLE } from "../structogram/StructogramSvg";
+import { DATEI_GEWECHSELT, dateiartVon, type Dateiart } from "../main/gui/Dateiart";
 import "/assets/css/gsg-handbook.css";
 
 /**
@@ -47,32 +51,50 @@ export function addHandbookTab(base: MainBase, tabManager: TabManager) {
     const dark = () => main.themeManager?.currentTheme?.name !== "light";
     const javaAvailable = () => {
         if (Constants.isBlocksApp) return !main.blockModeController?.isJavaLocked();
-        if (Constants.isStructogramApp) {
+        if (Constants.isStructogramApp || Constants.isKlassendiagrammApp) {
             // wie „In Java umwandeln“: nur mit Java-Freigabe der Lerngruppe (Lehrkräfte immer)
             const u = main.user as { is_teacher?: boolean; is_admin?: boolean; is_schooladmin?: boolean; gsgFreigaben?: { java?: boolean } } | undefined;
             return !u || !!(u.is_teacher || u.is_admin || u.is_schooladmin || u.gsgFreigaben?.java);
         }
         return true;
     };
-    const blocksAvailable = () => !Constants.isStructogramApp;
+    // Texva hat keine Blockansicht (13.11.2026): dort auch kein Blöcke-Handbuch
+    const blocksAvailable = () => !Constants.isStructogramApp && !Constants.isKlassendiagrammApp && !Constants.isTexvaApp;
     /** Handbücher, zwischen denen umgeschaltet werden kann (Blöckly: keine Struktogramme) */
     const kinds = (): HandbookKind[] => [
         ...(blocksAvailable() ? ["blocks" as const] : []),
         ...(Constants.isBloecklyApp ? [] : ["struktogramm" as const]),
+        ...(Constants.isBloecklyApp ? [] : ["klassendiagramm" as const]),
         ...(javaAvailable() ? ["java" as const] : []),
     ];
-    const editingStructogram = () => {
+    /** Art der offenen Datei (undefined: noch kein Editor bzw. keine Datei offen) */
+    const editingKind = (): Dateiart | undefined => {
         try {
-            return /\.struktogramm$/i.test(main.getMainEditor?.()?.getModel()?.uri.path.replace(/ \(\d+\)$/, "") ?? "");
+            const model = main.getMainEditor?.()?.getModel();
+            return model ? dateiartVon(model.uri.path) : undefined;
         } catch {
-            return false;   // beim Start der IDE gibt es den Editor noch nicht
+            return undefined;   // beim Start der IDE gibt es den Editor noch nicht
         }
     };
+    /** das Handbuch der Anwendung (ohne offene Datei bzw. wenn das passende nicht freigegeben ist) */
+    const appKind = (): HandbookKind => Constants.isKlassendiagrammApp ? "klassendiagramm" : Constants.isStructogramApp ? "struktogramm"
+        : Constants.isBlocksApp ? "blocks" : "java";
+    /** das Handbuch zur offenen Datei: Klassendiagramm, Struktogramm oder – bei Code – Blöcke bzw. Texva wie die Ansicht */
+    const fileKind = (): HandbookKind | undefined => {
+        const art = editingKind();
+        if (!art) return undefined;
+        if (art !== "code") return art;
+        return Constants.isBlocksApp || main.blockModeController?.getMode() === "blocks" ? "blocks" : "java";
+    };
+    /** Umschalter oben im Handbuch: gilt, bis eine Datei anderer Art geöffnet wird */
+    let chosenFor: HandbookKind | undefined;
     const kind = (): HandbookKind => {
-        const wanted = chosenKind ?? (Constants.isStructogramApp || editingStructogram() ? "struktogramm"
-            : Constants.isBlocksApp || main.blockModeController?.getMode() === "blocks" ? "blocks" : "java");
+        const zurDatei = fileKind();
+        if (chosenKind && chosenFor !== zurDatei) chosenKind = undefined;
         const available = kinds();
-        return available.includes(wanted) ? wanted : available[0];
+        // Code in der Blockansicht, aber kein Blöcke-Handbuch (Struktogramme, Klassendiagramme): dann Texva
+        const wanted = [chosenKind, zurDatei, zurDatei === "blocks" ? "java" as const : undefined, appKind()].find((k) => k && available.includes(k));
+        return wanted ?? available[0];
     };
     const hiddenCategories = (): string[] => {
         if (!Constants.isBlocksApp) return [];
@@ -83,6 +105,7 @@ export function addHandbookTab(base: MainBase, tabManager: TabManager) {
     const sections = (k: HandbookKind): HandbookSection[] => {
         if (k === "java") return JAVA_HANDBOOK;
         if (k === "struktogramm") return STRUCTOGRAM_HANDBOOK;
+        if (k === "klassendiagramm") return KLASSENDIAGRAMM_HANDBOOK;
         const hidden = hiddenCategories();
         if (Constants.isBloecklyApp) return BLOECKLY_HANDBOOK.filter((s) => !hidden.includes(s.id));   // Paket 18h
         return BLOCK_HANDBOOK.filter((s) => !hidden.includes(s.id) && !(s.parent && hidden.includes(s.parent)));
@@ -124,18 +147,18 @@ export function addHandbookTab(base: MainBase, tabManager: TabManager) {
         if (available.length > 1) {
             const sw = el("div", "gsg-hb-switch");
             sw.setAttribute("role", "group");
-            const labels: Record<HandbookKind, string> = { blocks: "Blöcke", struktogramm: "Struktogramm", java: "Java" };
+            const labels: Record<HandbookKind, string> = { blocks: "Blöcke", struktogramm: "Struktogramm", klassendiagramm: "Klassendiagramm", java: "Code" };
             for (const value of available) {
                 const label = labels[value];
                 const b = el("button", value === k ? "active" : "", label);
                 b.type = "button";
                 b.setAttribute("aria-pressed", String(value === k));
-                b.addEventListener("click", () => { chosenKind = value; render(); });
+                b.addEventListener("click", () => { chosenKind = value; chosenFor = fileKind(); render(); });
                 sw.append(b);
             }
             head.append(sw);
         } else {
-            head.append(el("span", "gsg-hb-title", k === "blocks" ? (Constants.isBloecklyApp ? "Handbuch Blöckly" : "Handbuch Blöcke") : k === "struktogramm" ? "Handbuch Struktogramme" : "Handbuch Java"));
+            head.append(el("span", "gsg-hb-title", k === "blocks" ? (Constants.isBloecklyApp ? "Handbuch Blocks" : "Handbuch Blöcke") : k === "struktogramm" ? "Handbuch Struktogramme" : k === "klassendiagramm" ? "Handbuch Klassendiagramme" : "Handbuch Code"));
         }
         const search = el("input", "gsg-hb-search");
         search.type = "search";
@@ -163,9 +186,11 @@ export function addHandbookTab(base: MainBase, tabManager: TabManager) {
             ? "Zu jeder Kategorie der Werkzeugleiste gibt es kleine Beispiele, dazu Beispielprojekte zum Weiterbauen. Mit <b>▶ Ausprobieren</b> wird ein Beispiel als eigenes Projekt angelegt – dein Projekt bleibt, wie es ist. Tipp: Rechtsklick auf einen Block → <b>Hilfe</b> führt direkt zum passenden Beispiel."
             : k === "blocks"
             ? "Zu jeder Kategorie der Werkzeugleiste gibt es kleine Beispielprogramme. Mit <b>▶ Ausprobieren</b> wird ein Beispiel als neue Datei in deinem Projekt angelegt. Tipp: Rechtsklick auf einen Block → <b>Hilfe</b> führt direkt zum passenden Beispiel."
+            : k === "klassendiagramm"
+                ? "Klassendiagramme in der Schreibweise der Ergänzenden Hinweise für das Abitur: wie man den Editor bedient, was die Zeichen bedeuten, wie Beziehungen aussehen und wie aus dem Diagramm Code wird – dazu Übungen zum Modellieren. Mit <b>▶ Ausprobieren</b> wird ein Beispiel als Klassendiagramm-Datei in deinem Projekt angelegt."
             : k === "struktogramm"
-                ? "Struktogramme in der Schreibweise der Ergänzenden Hinweise für das Abitur. Mit <b>▶ Ausprobieren</b> wird ein Beispiel als Struktogramm-Datei in deinem Projekt angelegt. Im Editor: Element anklicken, Text oben ändern, mit den Knöpfen unter „Einfügen“ neue Elemente dahinter einfügen. Ein Fragezeichen am Text heißt: Diese Formulierung kennt die Umwandlung in Java noch nicht."
-                : "Kleine Beispielprogramme von der ersten Ausgabe bis zur Vererbung. Mit <b>▶ Ausprobieren</b> wird ein Beispiel als neue Datei in deinem Projekt angelegt.";
+                ? "Struktogramme in der Schreibweise der Ergänzenden Hinweise für das Abitur. Mit <b>▶ Ausprobieren</b> wird ein Beispiel als Struktogramm-Datei in deinem Projekt angelegt. Im Editor: Element anklicken, Text oben ändern, mit den Knöpfen unter „Einfügen“ neue Elemente dahinter einfügen. Ein Fragezeichen am Text heißt: Diese Formulierung kennt die Umwandlung in Code noch nicht."
+                : "In <b>Code</b> schreibst du Java mit einigen Anpassungen für den Unterricht – was anders ist, steht unter <b>Code und echtes Java</b>. Kleine Beispielprogramme von der ersten Ausgabe bis zur Vererbung. Mit <b>▶ Ausprobieren</b> wird ein Beispiel als neue Datei in deinem Projekt angelegt.";
         return p;
     };
 
@@ -205,6 +230,10 @@ export function addHandbookTab(base: MainBase, tabManager: TabManager) {
         if (k === "struktogramm" && e.structogram) {
             box.append(drawStructogram(e.structogram));
             if (javaAvailable()) box.append(javaDetails(e.code));
+        } else if (k === "klassendiagramm") {
+            // Paket 20: Diagramm wie im Editor; Bedienung ohne Bild, Übung erst mit der Lösung
+            if (e.klassendiagramm?.klassen.length) box.append(drawKlassendiagramm(e.klassendiagramm));
+            if (e.code && javaAvailable()) box.append(javaDetails(e.code));
         } else if (k === "blocks" && e.bloeckly) {
             // Blöckly (Paket 18h): Skripte je Figur bzw. Bühne
             for (const name of e.bloeckly.show) {
@@ -227,10 +256,13 @@ export function addHandbookTab(base: MainBase, tabManager: TabManager) {
             colorize(pre, e.code);
         }
         if (e.solution) box.append(solutionDetails(k, e.solution));
+        if (k === "klassendiagramm" && !e.klassendiagramm) return box;   // reine Anleitung: nichts anzulegen
         const actions = el("div", "gsg-hb-actions");
         const tryIt = el("button", "gsg-hb-button gsg-hb-primary", "▶ Ausprobieren");
         tryIt.type = "button";
-        tryIt.title = e.bloeckly ? "Beispiel als eigenes Projekt anlegen und öffnen" : k === "struktogramm" ? "Beispiel als Struktogramm-Datei in deinem Projekt anlegen und öffnen" : "Beispiel als neue Datei in deinem Projekt anlegen und öffnen";
+        tryIt.title = e.bloeckly ? "Beispiel als eigenes Projekt anlegen und öffnen"
+            : k === "klassendiagramm" ? (e.solution ? "Leeres Klassendiagramm für die Übung anlegen und öffnen" : "Beispiel als Klassendiagramm-Datei in deinem Projekt anlegen und öffnen")
+            : k === "struktogramm" ? "Beispiel als Struktogramm-Datei in deinem Projekt anlegen und öffnen" : "Beispiel als neue Datei in deinem Projekt anlegen und öffnen";
         tryIt.addEventListener("click", () => tryExample(k, e));
         actions.append(tryIt);
         box.append(actions);
@@ -238,7 +270,7 @@ export function addHandbookTab(base: MainBase, tabManager: TabManager) {
     };
 
     /** Lösung einer Übung zum Aufklappen: Erklärung und Programm (Blöcke bzw. Java) */
-    const solutionDetails = (k: HandbookKind, solution: { text: string; code: string }): HTMLElement => {
+    const solutionDetails = (k: HandbookKind, solution: { text: string; code: string; klassendiagramm?: KlassenDoc }): HTMLElement => {
         const det = el("details", "gsg-hb-solution");
         det.append(el("summary", undefined, "Lösung zeigen"));
         det.addEventListener("toggle", () => {
@@ -250,6 +282,9 @@ export function addHandbookTab(base: MainBase, tabManager: TabManager) {
                 const pic = el("div", "gsg-hb-blocks", "Blöcke werden gezeichnet …");
                 det.append(pic);
                 drawBlocks(pic, solution.code);
+            } else if (k === "klassendiagramm" && solution.klassendiagramm) {
+                det.append(drawKlassendiagramm(solution.klassendiagramm));
+                if (javaAvailable()) det.append(javaDetails(solution.code));
             } else {
                 const pre = el("pre", "gsg-hb-java");
                 det.append(pre);
@@ -262,7 +297,7 @@ export function addHandbookTab(base: MainBase, tabManager: TabManager) {
     /** Java-Code zum Aufklappen (Blöcke, Struktogramme) */
     const javaDetails = (code: string): HTMLElement => {
         const det = el("details", "gsg-hb-javadetails");
-        det.append(el("summary", undefined, "Java-Code"));
+        det.append(el("summary", undefined, "Code"));
         const pre = el("pre", "gsg-hb-java");
         det.append(pre);
         det.addEventListener("toggle", () => { if (det.open && !pre.childElementCount) colorize(pre, code); });
@@ -284,6 +319,27 @@ export function addHandbookTab(base: MainBase, tabManager: TabManager) {
         img.alt = "Beispiel als Struktogramm";
         img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
         img.style.width = `clamp(${Math.round(width * 0.7)}px, 100%, ${width}px)`;
+        pic.append(img);
+        return pic;
+    };
+
+    const kdMeasureCtx = document.createElement("canvas").getContext("2d");
+    const kdMeasure = (text: string, bold: boolean) => {
+        if (!kdMeasureCtx) return [...text].length * (bold ? 7.6 : 7.1);
+        kdMeasureCtx.font = `${bold ? "bold " : ""}${KD_STIL.font}px Arial, Helvetica, sans-serif`;
+        return kdMeasureCtx.measureText(text).width;
+    };
+    /** Beispiele ohne Lage (alle Klassen bei 0/0) automatisch anordnen */
+    const angeordnet = (doc: KlassenDoc): KlassenDoc => doc.klassen.every((c) => !c.x && !c.y) ? ordneAn(doc, kdMeasure) : doc;
+
+    /** Klassendiagramm wie im Editor (schwarz auf weiß, wie gedruckt) */
+    const drawKlassendiagramm = (doc: KlassenDoc): HTMLElement => {
+        const pic = el("div", "gsg-hb-structogram gsg-hb-klassendiagramm");
+        const { svg, width } = klassenSvg(angeordnet(doc), kdMeasure);
+        const img = el("img");
+        img.alt = "Beispiel als Klassendiagramm";
+        img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+        img.style.width = `clamp(${Math.round(width * 0.6)}px, 100%, ${width}px)`;
         pic.append(img);
         return pic;
     };
@@ -369,6 +425,22 @@ export function addHandbookTab(base: MainBase, tabManager: TabManager) {
             await createFile(main, freeName(main, exampleFileName(e.title, ".struktogramm")), serializeDoc(doc));
             return;
         }
+        if (k === "klassendiagramm") {
+            // neue Kennungen, damit Beispiel und Datei unabhängig sind
+            const quelle = angeordnet(e.klassendiagramm ?? leeresKlassendiagramm());
+            const ids = new Map(quelle.klassen.map((c) => [c.id, neueKdId()]));
+            const doc: KlassenDoc = {
+                ...quelle,
+                klassen: quelle.klassen.map((c) => ({
+                    ...c, id: ids.get(c.id)!,
+                    attribute: c.attribute.map((a) => ({ ...a, id: neueKdId() })),
+                    operationen: c.operationen.map((o) => ({ ...o, id: neueKdId(), parameter: o.parameter.map((p) => ({ ...p })) })),
+                })),
+                beziehungen: quelle.beziehungen.map((b) => ({ ...b, id: neueKdId(), von: ids.get(b.von) ?? b.von, nach: ids.get(b.nach) ?? b.nach })),
+            };
+            await createFile(main, freeName(main, exampleFileName(e.title.replace(/^Übung:\s*/, ""), ".klassendiagramm")), speichereKlassendiagramm(doc));
+            return;
+        }
         const same = files.find((f) => f.getText().replace(/\r\n/g, "\n") === e.code);
         if (same) {
             main.projectExplorer.setFileActive(same);
@@ -390,7 +462,7 @@ export function addHandbookTab(base: MainBase, tabManager: TabManager) {
     // ------------------------------------------------------------------ Öffnen von außen
 
     const openAt = (o: OpenOptions) => {
-        if (o.kind) chosenKind = o.kind;
+        if (o.kind) { chosenKind = o.kind; chosenFor = fileKind(); }
         query = "";
         const k = kind();
         const list = sections(k);
@@ -429,6 +501,8 @@ export function addHandbookTab(base: MainBase, tabManager: TabManager) {
 
     setHandbookOpener(openAt);
     tab.onShow = () => render();
+    // GSG: andere Datei geöffnet bzw. Blöcke/Texva umgeschaltet – das Handbuch folgt, wenn es gerade zu sehen ist
+    document.addEventListener(DATEI_GEWECHSELT, () => { if (tab.isActive()) render(); });
 
     // Paket 17b: Link „📖 Mehr dazu im Handbuch“ im Hover einer Java-Meldung
     monaco.editor.registerLinkOpener({

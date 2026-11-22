@@ -21,12 +21,12 @@ describe("Aussehen der Blöcke", () => {
         }]);
         expect(d.message0).toBe("bewege %1 um ( %2 | %3 )");
         expect((d.args0 as unknown[]).length).toBe(3);
-        expect(d.tooltip).toBe("Verschiebt die Figur.\nJava: .move");
+        expect(d.tooltip).toBe("Verschiebt die Figur.\nCode: .move");
 
         const [only] = withoutJavaHints<Record<string, unknown>>([{ type: "y", message0: "dieses Objekt %1", args0: [{ type: "field_label", text: "this", class: "gsg-java-hint" }] }]);
         expect(only.message0).toBe("dieses Objekt");
         expect(only.args0).toBeUndefined();
-        expect(only.tooltip).toBe("Java: this");
+        expect(only.tooltip).toBe("Code: this");
     });
 
     test("in echten Blöcken ist kein Java-Schnipsel sichtbar", () => {
@@ -39,6 +39,6 @@ describe("Aussehen der Blöcke", () => {
             expect(visibleTexts, java).not.toContain(java);
         }
         const move = ws.getAllBlocks(false).find((b) => b.type === B.figMove)!;
-        expect(String(move.getTooltip())).toContain("Java: .move");
+        expect(String(move.getTooltip())).toContain("Code: .move");
     });
 });
