@@ -34,7 +34,7 @@ export type KopierZiel = { name: string; text: string; ctx: BloecklyContext; ist
 export type KopierErgebnis = { text: string; mit: string[] } | { fehler: string; lose?: boolean };
 
 const VAR_TYPEN = new Set<string>([B.varGet, B.varSet, B.varChange, B.listAdd, B.listRemove, B.listClear, B.listInsert, B.listSet, B.listGet,
-    B.listIndexOf, B.listSize, B.listContains]);
+    B.listIndexOf, B.listSize, B.listContains, B.collIsEmpty]);
 
 function* alle(b: BlockState | undefined): Generator<BlockState> {
     if (!b) return;

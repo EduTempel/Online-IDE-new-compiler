@@ -17,7 +17,7 @@ const ALLGEMEIN = [
     B.repeat, B.forever, B.if, `${B.if}:sonst`, B.while,
     B.arith, B.random, B.compare, B.logic, B.not, B.concat, B.strCharAt, B.strLength, B.strContains, B.math, B.number, B.text, B.bool,
     B.blVar, B.blList, B.varDeclare, B.varGet, B.varSet, B.varChange,
-    B.listAdd, B.listRemove, B.listClear, B.listInsert, B.listSet, B.listGet, B.listIndexOf, B.listSize, B.listContains,
+    B.listAdd, B.listRemove, B.listClear, B.listInsert, B.listSet, B.listGet, B.listIndexOf, B.listSize, B.listContains, B.collIsEmpty,
     B.blVon, B.method, B.call, B.callExpr, B.return, B.returnVoid,
 ];
 const ALLE = [...BL_BLOCKS.map((b) => b.type), ...BL_HATS.map((h) => h.type), ...ALLGEMEIN];

@@ -426,7 +426,7 @@ export function handleRename(ws: Blockly.Workspace, e: Blockly.Events.BlockChang
 
     // Blöckly: „erstelle Variable“ (oben in einem Skript; Variable der Figur bzw. Bühne) – alle Skripte dieser Datei, ohne gleichnamige eigene
     if ((block.type === B.blVar || block.type === B.blList) && e.name === "NAME") {
-        const LIST_USES: string[] = [B.listAdd, B.listRemove, B.listClear, B.listInsert, B.listSet, B.listGet, B.listIndexOf, B.listSize, B.listContains];
+        const LIST_USES: string[] = [B.listAdd, B.listRemove, B.listClear, B.listInsert, B.listSet, B.listGet, B.listIndexOf, B.listSize, B.listContains, B.collIsEmpty];
         if (all.some((b) => b !== block && (b.type === B.blVar || b.type === B.blList) && b.getFieldValue("NAME") === oldName)) return;
         withGroup(e, () => {
             for (const b of all) {

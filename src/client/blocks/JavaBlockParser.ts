@@ -1886,7 +1886,10 @@ export class JavaBlockParser {
         });
     }
 
-    /** für jedes Element: for (int x : zahlen)  (Typ passend zur Reihung bzw. Liste) */
+    /**
+     * für jedes Element: for (int x : zahlen)  (Typ passend zur Reihung). Über Listen seit 24.11.2026 in Mix nur als Java-Text;
+     * im Struktogramm bleibt es „für alle Elemente … aus …“ (Ergänzende Hinweise, Beispiel 1).
+     */
     private forEachLoop(begin: number): BlockState | undefined {
         const t = (k: number) => this.toks[begin + k];
         if (t(1)?.tt !== TokenType.leftBracket || t(2)?.tt !== TokenType.identifier) return undefined;
@@ -1897,7 +1900,7 @@ export class JavaBlockParser {
             || t(k + 3)?.tt !== TokenType.rightBracket) return undefined;
         const item = String(t(k).value), list = String(t(k + 2).value);
         const coll = this.collection(list);
-        if (!coll || elementJavaType(coll) !== type) throw new Fail();
+        if (!coll || (coll.kind === "list" && !this.extended) || elementJavaType(coll) !== type) throw new Fail();
         this.vars.set(item, unwrap(type));   // bei zweidimensionalen Reihungen: eine Zeile (Reihung)
         this.pos = begin + k + 4;
         const body = this.body();

@@ -461,8 +461,8 @@ export const BLOCK_HANDBOOK: HandbookSection[] = [
         intro: "Eine **Liste** wächst und schrumpft beim Einfügen und Entfernen. Beim Anlegen wählt man den Datentyp der Elemente – im Code steht er in spitzen Klammern: `Liste<String>`. Positionen werden **ab 0** gezählt.",
         entries: [
             {
-                title: "Liste anlegen und anhängen",
-                text: "Eine neue Liste ist leer. **hänge an** fügt hinten an, **Anzahl der Elemente** sagt, wie viele es gibt.",
+                title: "Liste anlegen und hinzufügen",
+                text: "Eine neue Liste ist leer. **füge … zu Liste … hinzu** hängt hinten an, **Anzahl der Elemente von Liste** sagt, wie viele es gibt.",
                 code: lines(
                     "Liste<String> namen = new Liste<>();",
                     "namen.add(\"Ada\");",
@@ -472,8 +472,8 @@ export const BLOCK_HANDBOOK: HandbookSection[] = [
                 runs: true,
             },
             {
-                title: "Einfügen, ersetzen, entfernen, lesen",
-                text: "**füge an Position … ein**, **setze Element**, **entferne Element**, **Element an Position**. Beim Einfügen rutschen die folgenden Elemente nach hinten, beim Entfernen nach vorne.",
+                title: "Einfügen, ersetzen, löschen, lesen",
+                text: "**füge … an Position … in Liste … ein**, **ersetze Element an Position …**, **lösche Element an Position …**, **Element an Position … von Liste …**. Beim Einfügen rutschen die folgenden Elemente nach hinten, beim Löschen nach vorne.",
                 code: lines(
                     "Liste<String> namen = new Liste<>();",
                     "namen.add(\"Ada\");",
@@ -486,8 +486,8 @@ export const BLOCK_HANDBOOK: HandbookSection[] = [
                 runs: true,
             },
             {
-                title: "alle Elemente entfernen",
-                text: "**entferne alle Elemente aus Liste** leert die Liste auf einmal; danach ist ihre Länge 0. Im Reiter **Variablen** sieht man jede Liste mit den Positionen ihrer Elemente und ihrer Länge.",
+                title: "alles löschen",
+                text: "**lösche alles aus Liste** leert die Liste auf einmal; danach hat sie 0 Elemente. Im Reiter **Variablen** sieht man jede Liste mit den Positionen ihrer Elemente und ihrer Länge.",
                 code: lines(
                     "Liste<Integer> zahlen = new Liste<>();",
                     "zahlen.add(7);",
@@ -500,7 +500,7 @@ export const BLOCK_HANDBOOK: HandbookSection[] = [
             },
             {
                 title: "enthält, Position von und ist leer",
-                text: "**enthält** und **ist leer** sind Bedingungen und passen in die sechseckigen Löcher. "
+                text: "**Liste … enthält …?** und **Liste … ist leer?** sind Bedingungen und passen in die sechseckigen Löcher. "
                     + "**Position von** liefert die erste Position des Wertes (ab 0) – kommt er nicht vor: -1.",
                 code: lines(
                     "Liste<Integer> zahlen = new Liste<>();",
@@ -515,15 +515,18 @@ export const BLOCK_HANDBOOK: HandbookSection[] = [
                 runs: true,
             },
             {
-                title: "für jedes Element der Liste",
-                text: "Wie bei Reihungen besucht **für jedes Element** alle Elemente der Reihe nach.",
+                title: "alle Elemente der Reihe nach",
+                text: "Eine Variable **i** geht die Positionen durch: Sie beginnt bei 0, **wiederhole solange** i kleiner als die **Anzahl der Elemente** ist, "
+                    + "und am Ende jedes Durchlaufs wird i um 1 erhöht. **Element an Position i von Liste …** ist dann das aktuelle Element.",
                 code: lines(
                     "Liste<Integer> zahlen = new Liste<>();",
                     "zahlen.add(3);",
                     "zahlen.add(5);",
                     "int summe = 0;",
-                    "for (Integer z : zahlen) {",
-                    "    summe += z;",
+                    "int i = 0;",
+                    "while (i < zahlen.size()) {",
+                    "    summe += zahlen.get(i);",
+                    "    i++;",
                     "}",
                     "println(summe);",
                 ),
@@ -946,8 +949,8 @@ export const BLOCK_HANDBOOK: HandbookSection[] = [
             {
                 title: "Viele Figuren in einer Liste",
                 text: "Für viele gleiche Figuren (Münzen, Gegner, Sterne) legt man eine **Liste** an, deren Elemente Figuren sind, und hängt jede neue Figur an. "
-                    + "**berührt eine Figur aus …** prüft alle auf einmal; mit **für jedes Element** findet man heraus, welche es war. "
-                    + "Eine eingesammelte Figur **versteckt** man – eine versteckte Figur berührt nichts mehr. Aus der Liste entfernen sollte man sie in der Schleife über dieselbe Liste nicht. "
+                    + "**berührt eine Figur aus …** prüft alle auf einmal; welche es war, findet man heraus, indem man mit einer Position **i** alle Elemente durchgeht. "
+                    + "Eine eingesammelte Figur **versteckt** man – eine versteckte Figur berührt nichts mehr. "
                     + "Im Reiter **Variablen** zeigt die Liste, wo jede Figur steht. Hier sammelt die Maus zehn Münzen ein.",
                 code: lines(
                     "Liste<Circle> münzen = new Liste<>();",
@@ -961,11 +964,14 @@ export const BLOCK_HANDBOOK: HandbookSection[] = [
                     "while (punkte < 10) {",
                     "    sammler.moveTo(Mouse.getX(), Mouse.getY());",
                     "    if (sammler.collidesWithAnyOf(münzen)) {",
-                    "        for (Circle m : münzen) {",
+                    "        int i = 0;",
+                    "        while (i < münzen.size()) {",
+                    "            Circle m = münzen.get(i);",
                     "            if (sammler.collidesWith(m)) {",
                     "                m.setVisible(false);",
                     "                punkte++;",
                     "            }",
+                    "            i++;",
                     "        }",
                     "    }",
                     "    Thread.sleep(20);",
@@ -1405,14 +1411,17 @@ export const BLOCK_HANDBOOK: HandbookSection[] = [
             },
             {
                 title: "Objekte in einer Liste",
-                text: "Listen können auch Objekte aufnehmen. **für jedes Element** ruft dann bei jedem Objekt eine Operation auf.",
+                text: "Listen können auch Objekte aufnehmen. Geht man sie mit einer Position **i** durch, ruft man bei jedem Objekt eine Operation auf.",
                 code: lines(
                     "Liste<Zaehler> alle = new Liste<>();",
                     "alle.add(new Zaehler());",
                     "alle.add(new Zaehler());",
-                    "for (Zaehler z : alle) {",
+                    "int i = 0;",
+                    "while (i < alle.size()) {",
+                    "    Zaehler z = alle.get(i);",
                     "    z.weiter();",
                     "    println(z.getWert());",
+                    "    i++;",
                     "}",
                     "",
                     "class Zaehler {",

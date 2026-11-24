@@ -501,6 +501,7 @@ function listItems(lists: [string, string][], belegt: string[]): Item[] {
         blk(B.listIndexOf, { fields: NAME, inputs: { V: wert() } }),
         blk(B.listSize, { fields: NAME }),
         blk(B.listContains, { fields: NAME, inputs: { V: wert() } }),
+        blk(B.collIsEmpty, { fields: NAME }),
     );
     return items;
 }
@@ -524,7 +525,7 @@ export function registerBloecklyToolbox(ws: Blockly.WorkspaceSvg) {
 }
 
 const VAR_BLOCKS: string[] = [B.varGet, B.varSet, B.varChange, B.listAdd, B.listRemove, B.listClear, B.listInsert, B.listSet, B.listGet,
-    B.listIndexOf, B.listSize, B.listContains];
+    B.listIndexOf, B.listSize, B.listContains, B.collIsEmpty];
 
 /** „Variable“ bzw. „Liste“ (Paket 19f) */
 const artDerGlobalen = (name: string | undefined) => (istBlListe(name ? ui.globals[name] : undefined) ? "Liste" : "Variable");

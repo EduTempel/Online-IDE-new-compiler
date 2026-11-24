@@ -35,11 +35,14 @@ const CODE = lines(
     "int punkte = 0;",
     "while (punkte < 10) {",
     "    if (figur.collidesWithAnyOf(münzen)) {",
-    "        for (Circle m : münzen) {",
+    "        int i = 0;",
+    "        while (i < münzen.size()) {",
+    "            Circle m = münzen.get(i);",
     "            if (figur.collidesWith(m)) {",
     "                m.setVisible(false);",
     "                punkte++;",
     "            }",
+    "            i++;",
     "        }",
     "    }",
     "    Thread.sleep(20);",
@@ -60,7 +63,7 @@ describe("Paket 15e: viele Figuren in Listen", () => {
     test("Struktogramm", () => {
         const text = JSON.stringify(diagramsFromJava(CODE)[0].body);
         expect(text).toContain("figur berührt eine Figur aus münzen");
-        expect(text).toContain("für alle Elemente m aus münzen");
+        expect(text).toContain("solange i < (Anzahl der Elemente von münzen)");
     });
 
     test("Variablen-Reiter: Figuren in Listen kurz mit Position und Zustand", () => {

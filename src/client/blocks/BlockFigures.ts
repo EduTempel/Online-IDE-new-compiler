@@ -368,13 +368,15 @@ function firstOf(figures: Map<string, FigureClass>, kinds: FigureClass[]): strin
 }
 
 /**
- * Viele Figuren (Paket 15e, statt Klonen in Scratch): in einer Liste sammeln, mit „für jedes Element“ durchgehen.
- * Muster: wiederhole 10-mal: erstelle Kreis münze …; hänge münze an münzen an.
+ * Viele Figuren (Paket 15e, statt Klonen in Scratch): in einer Liste sammeln und mit einer Position i durchgehen
+ * (24.11.2026: „wiederhole solange i < Anzahl der Elemente“ statt „für jedes Element“).
+ * Muster: wiederhole 10-mal: erstelle Kreis münze …; füge münze zu Liste münzen hinzu.
  */
 function manyFiguresItems(ws: Blockly.WorkspaceSvg, any: string): object[] {
     const lists = [...collectVariables(ws)].map(([n, t]) => [n, collectionOfType(t)] as const)
-        .filter(([, c]) => c?.kind === "list" && isFigureClass(c.elem)).map(([n]) => n).sort((a, b) => a.localeCompare(b, "de"));
-    const list = lists[0] ?? "münzen";
+        .filter(([, c]) => c?.kind === "list" && isFigureClass(c.elem)).sort((a, b) => a[0].localeCompare(b[0], "de"));
+    const list = lists[0]?.[0] ?? "münzen";
+    const elem = lists[0]?.[1]?.elem ?? "Circle";
     const coin = { block: { type: B.figCircle, fields: { NAME: "münze" }, inputs: {
         X: { block: { type: B.random, inputs: { FROM: num("20"), TO: num("780") } } },
         Y: { block: { type: B.random, inputs: { FROM: num("20"), TO: num("580") } } }, R: num("10") },
@@ -384,17 +386,26 @@ function manyFiguresItems(ws: Blockly.WorkspaceSvg, any: string): object[] {
         { kind: "block", type: B.listNew, fields: { NAME: list, TYPE: "Circle" } },
         { kind: "block", type: B.repeat, inputs: { TIMES: num("10"), DO: coin } },
         {
-            kind: "block", type: B.forEach, fields: { VAR: "m", LIST: list }, inputs: {
-                DO: {
-                    block: {
-                        type: B.if, extraState: { elseIfs: 0, hasElse: false, fixed: true },
-                        inputs: {
-                            COND: { block: { type: B.figTouches, fields: { NAME: any, OTHER: "m" } } },
-                            DO: { block: { type: B.figAction, fields: { ACTION: "hide", NAME: "m" } } },
-                        },
-                    },
+            kind: "block", type: B.varDeclare, fields: { NAME: "i", TYPE: "int" }, inputs: { VALUE: num("0") },
+            next: { block: {
+                type: B.while, fields: { MODE: "while" }, inputs: {
+                    COND: { block: { type: B.compare, fields: { OP: "<" }, inputs: {
+                        A: { block: { type: B.varGet, fields: { NAME: "i" } } },
+                        B: { block: { type: B.listSize, fields: { NAME: list } } } } } },
+                    DO: { block: {
+                        type: B.varDeclare, fields: { NAME: "m", TYPE: elem },
+                        inputs: { VALUE: { block: { type: B.listGet, fields: { NAME: list }, inputs: { I: { block: { type: B.varGet, fields: { NAME: "i" } } } } } } },
+                        next: { block: {
+                            type: B.if, extraState: { elseIfs: 0, hasElse: false, fixed: true },
+                            inputs: {
+                                COND: { block: { type: B.figTouches, fields: { NAME: any, OTHER: "m" } } },
+                                DO: { block: { type: B.figAction, fields: { ACTION: "hide", NAME: "m" } } },
+                            },
+                            next: { block: { type: B.varChange, fields: { OP: "+", NAME: "i" }, inputs: { VALUE: num("1") } } },
+                        } },
+                    } },
                 },
-            },
+            } },
         },
         { kind: "block", type: B.figTouchesList, fields: { NAME: any, LIST: list } },
     ];

@@ -139,7 +139,7 @@ describe("Paket 6 mit Blockly", () => {
         const code = generate(ws);
         expect(code).toContain("Liste<Lebewesen> tiere = new Liste<>();");
         expect(code).toContain("tiere.add(new Lebewesen(\"Katze\"));");
-        expect(code).toContain("for (Lebewesen t : tiere) {");
+        expect(code).not.toMatch(/Tier/);
         expect(code).toContain("class Hund extends Lebewesen {");
         expect(code).toContain("    public Lebewesen(String name) {");
         expect(code).toContain("    private int jahre = 0;");

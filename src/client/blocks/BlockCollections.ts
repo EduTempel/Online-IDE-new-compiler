@@ -74,27 +74,16 @@ const coll = (kinds: CollKind[]) => ({ type: "field_gsg_collection", name: "NAME
 const value = (name: string) => ({ type: "input_value", name });
 const statement = { previousStatement: null, nextStatement: null };
 /**
- * Paket 19f: In Blöckly heißen die Listen-Blöcke wie in Scratch (gleiche Eingänge in gleicher Reihenfolge; das letzte
- * %n ist der Java-Hinweis, der ohnehin entfällt). Positionen zählen auch hier ab 0.
+ * Listen-Blöcke: in Mix und Blöckly gleich beschriftet (24.11.2026; Formulierung wie in Scratch, aber immer mit
+ * „Liste“, „Element“ und „an Position“, damit klar ist, welche Liste, welche Position und welcher Inhalt gemeint ist).
+ * In Blöckly nur die Farbe wie in Scratch; der Java-Hinweis am Ende entfällt dort ohnehin.
  */
-const BLOECKLY_LISTEN: Record<string, string> = {
-    [B.listAdd]: "füge %1 zu %2 hinzu %3",
-    [B.listInsert]: "füge %1 bei %2 in %3 ein %4",
-    [B.listRemove]: "lösche Element %1 aus %2 %3",
-    [B.listClear]: "lösche alles aus %1 %2",
-    [B.listGet]: "Element %1 von %2 %3",
-    [B.listSet]: "ersetze Element %1 von %2 durch %3 %4",
-    [B.listSize]: "Länge von %1 %2",
-    [B.listContains]: "%1 enthält %2 ? %3",
-    [B.listIndexOf]: "Position von %1 in %2 %3",
-};
+const LISTEN_BLOECKE = new Set<string>([B.listAdd, B.listInsert, B.listRemove, B.listClear, B.listGet, B.listSet, B.listSize,
+    B.listContains, B.listIndexOf, B.collIsEmpty]);
 
 function bloecklyListen(defs: object[]): object[] {
     if (!Constants.isBloecklyApp) return defs;
-    return defs.map((d) => {
-        const t = (d as { type: string }).type;
-        return BLOECKLY_LISTEN[t] ? { ...d, message0: BLOECKLY_LISTEN[t], colour: BL_LISTEN_FARBE } : d;
-    });
+    return defs.map((d) => (LISTEN_BLOECKE.has((d as { type: string }).type) ? { ...d, colour: BL_LISTEN_FARBE } : d));
 }
 
 const ARRAY: CollKind[] = ["array"], ARRAY2D: CollKind[] = ["array2d"], LIST: CollKind[] = ["list"], DYN: CollKind[] = ["dyn"];
@@ -149,22 +138,22 @@ export function defineCollectionBlocks(defineJson: (json: object[]) => void) {
         },
         {
             type: B.forEach, message0: "für jedes Element %1 aus %2 %3",
-            args0: [{ type: "field_input", name: "VAR", text: "element" }, { ...coll(["array", "array2d", "list", "dyn"]), name: "LIST" }, hint("for ( : )")],
+            args0: [{ type: "field_input", name: "VAR", text: "element" }, { ...coll(["array", "array2d", "dyn"]), name: "LIST" }, hint("for ( : )")],
             message1: "%1", args1: [{ type: "input_statement", name: "DO" }],
             ...statement, colour: ARRAYS_COLOUR, extensions: ["gsg_identifier"],
-            tooltip: "Geht alle Elemente der Reihung bzw. Liste der Reihe nach durch; die Variable enthält jeweils das aktuelle Element. "
-                + "Bei einer zweidimensionalen Reihung ist jedes Element eine Zeile. Achtung: Währenddessen nichts aus der Liste "
-                + "entfernen – dann werden Elemente übersprungen. Figuren lieber verstecken.",
+            // 24.11.2026: nicht für Listen (dort mit „wiederhole … mal“ bzw. „solange“ und „Element an Position … von Liste …“)
+            tooltip: "Geht alle Elemente der Reihung bzw. dynamischen Reihung der Reihe nach durch; die Variable enthält jeweils "
+                + "das aktuelle Element. Bei einer zweidimensionalen Reihung ist jedes Element eine Zeile.",
         },
 
         // ------------------------------------------------------------ Liste (Liste<…>, wie ArrayList)
         {
-            type: B.listNew, message0: "erstelle neue Liste %1 vom Datentyp %2 %3", args0: [{ ...nameField, text: "liste" }, typeField, hint("new Liste")],
+            type: B.listNew, message0: "erstelle Liste %1 vom Datentyp %2 %3", args0: [{ ...nameField, text: "liste" }, typeField, hint("new Liste")],
             ...statement, ...l, extensions: ["gsg_identifier"],
             tooltip: tip("Legt eine leere Liste an. Sie wächst beim Anhängen.", "Liste<Integer> liste = new Liste<>();"),
         },
         {
-            type: B.listAdd, message0: "hänge %1 an Liste %2 an %3", args0: [value("V"), coll(LIST), hint(".add")],
+            type: B.listAdd, message0: "füge %1 zu Liste %2 hinzu %3", args0: [value("V"), coll(LIST), hint(".add")],
             ...statement, ...l, tooltip: "Fügt ein Element am Ende der Liste an.",
         },
         {
@@ -172,19 +161,19 @@ export function defineCollectionBlocks(defineJson: (json: object[]) => void) {
             ...statement, ...l, tooltip: "Fügt ein Element an einer Position ein (ab 0 gezählt); die folgenden rücken nach hinten.",
         },
         {
-            type: B.listRemove, message0: "entferne Element an Position %1 aus Liste %2 %3", args0: [value("I"), coll(LIST), hint(".remove")],
-            ...statement, ...l, tooltip: "Entfernt das Element an einer Position (ab 0 gezählt); die folgenden rücken nach vorn.",
+            type: B.listRemove, message0: "lösche Element an Position %1 aus Liste %2 %3", args0: [value("I"), coll(LIST), hint(".remove")],
+            ...statement, ...l, tooltip: "Löscht das Element an einer Position (ab 0 gezählt); die folgenden rücken nach vorn.",
         },
         {
-            type: B.listClear, message0: "entferne alle Elemente aus Liste %1 %2", args0: [coll(LIST), hint(".clear()")],
-            ...statement, ...l, tooltip: "Entfernt alle Elemente; danach ist die Liste leer (Länge 0).",
+            type: B.listClear, message0: "lösche alles aus Liste %1 %2", args0: [coll(LIST), hint(".clear()")],
+            ...statement, ...l, tooltip: "Löscht alle Elemente; danach ist die Liste leer.",
         },
         {
             type: B.listGet, message0: "Element an Position %1 von Liste %2 %3", args0: [value("I"), coll(LIST), hint(".get")],
             output: null, ...l, tooltip: "Das Element an einer Position (ab 0 gezählt).",
         },
         {
-            type: B.listSet, message0: "setze Element an Position %1 von Liste %2 auf %3 %4", args0: [value("I"), coll(LIST), value("V"), hint(".set")],
+            type: B.listSet, message0: "ersetze Element an Position %1 von Liste %2 durch %3 %4", args0: [value("I"), coll(LIST), value("V"), hint(".set")],
             ...statement, ...l, tooltip: "Ersetzt das Element an einer Position (ab 0 gezählt).",
         },
         {
@@ -192,7 +181,7 @@ export function defineCollectionBlocks(defineJson: (json: object[]) => void) {
             output: null, ...l, tooltip: "Wie viele Elemente die Liste hat.",
         },
         {
-            type: B.listContains, message0: "Liste %1 enthält %2 %3", args0: [coll(LIST), value("V"), hint(".contains")],
+            type: B.listContains, message0: "Liste %1 enthält %2 ? %3", args0: [coll(LIST), value("V"), hint(".contains")],
             output: null, ...l, tooltip: "Wahr, wenn der Wert in der Liste vorkommt.",
         },
         {
@@ -200,7 +189,7 @@ export function defineCollectionBlocks(defineJson: (json: object[]) => void) {
             output: null, ...l, tooltip: "Die erste Position, an der der Wert steht (ab 0 gezählt); kommt er nicht vor: -1.",
         },
         {
-            type: B.collIsEmpty, message0: "Liste %1 ist leer %2", args0: [coll(LIST), hint(".isEmpty()")],
+            type: B.collIsEmpty, message0: "Liste %1 ist leer ? %2", args0: [coll(LIST), hint(".isEmpty()")],
             output: null, ...l, tooltip: "Wahr, wenn die Liste keine Elemente hat.",
         },
 
@@ -353,7 +342,6 @@ export function listsFlyout(ws: Blockly.WorkspaceSvg): Blockly.utils.toolbox.Fly
         { kind: "block", type: B.listContains, fields: { NAME: l.name }, inputs: { V: lit(l.elem) } },
         { kind: "block", type: B.listIndexOf, fields: { NAME: l.name }, inputs: { V: lit(l.elem) } },
         { kind: "block", type: B.collIsEmpty, fields: { NAME: l.name } },
-        { kind: "block", type: B.forEach, fields: { VAR: "element", LIST: l.name } },
     ];
     return items as Blockly.utils.toolbox.FlyoutItemInfoArray;
 }

@@ -168,6 +168,7 @@ export const BL_HILFE: Record<string, BlHilfe> = {
     [B.listIndexOf]: h(flagge(`sage(${L}.indexOf("Brot"), 2);`), "An welcher Position der Wert steht – -1, wenn er nicht in der Liste ist."),
     [B.listSize]: h(flagge(`sage(${L}.size(), 2);`), "Wie viele Elemente die Liste hat."),
     [B.listContains]: h(flagge(...falls(`${L}.contains("Brot")`, "sage(\"Brot steht schon drauf.\", 2);")), "Wahr, wenn der Wert in der Liste steht."),
+    [B.collIsEmpty]: h(flagge(...falls(`${L}.isEmpty()`, "sage(\"Nichts mehr zu tun!\", 2);")), "Wahr, wenn die Liste kein Element hat."),
     // —— Meine Blöcke ——
     [B.method]: h(SPRINGE, "Ein eigener Block: fasst Blöcke zusammen, die du öfter brauchst – auch mit Parametern."),
     [B.call]: h(SPRINGE, "Führt deinen eigenen Block aus."),

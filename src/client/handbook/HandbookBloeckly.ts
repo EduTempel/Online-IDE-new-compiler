@@ -376,7 +376,7 @@ export const BLOECKLY_HANDBOOK: HandbookSection[] = [
                 title: "Listen: eine Einkaufsliste",
                 text: "Eine **Liste** merkt sich viele Werte unter einem Namen. **erstelle Liste** legt sie an (mit Zahlen oder Texten) – wie eine Variable oben in einem Skript: "
                     + "in einer Figur nur für diese Figur, auf der Bühne für alle Figuren. Am Anfang ist die Liste leer. "
-                    + "Die Positionen zählen **ab 0**: Das erste Element ist **Element 0**, das letzte **Element (Länge − 1)**. "
+                    + "Die Positionen zählen **ab 0**: Das erste ist **Element an Position 0**, das letzte **Element an Position (Anzahl der Elemente − 1)**. "
                     + "Der Waschbär schreibt drei Sachen auf und sagt sie dann der Reihe nach.",
                 figuren: [{ ...W(flagge(
                     "einkauf.add(\"Äpfel\");",
@@ -389,8 +389,8 @@ export const BLOECKLY_HANDBOOK: HandbookSection[] = [
             }),
             eintrag({
                 title: "Steht es schon auf der Liste?",
-                text: "Klick auf den Waschbären: Er fragt, was er mitbringen soll. **enthält** prüft, ob es schon auf der Liste steht; "
-                    + "sonst kommt es mit **füge … zu … hinzu** ans Ende. **Position von** sagt, an welcher Stelle etwas steht (−1: gar nicht).",
+                text: "Klick auf den Waschbären: Er fragt, was er mitbringen soll. **Liste … enthält …?** prüft, ob es schon auf der Liste steht; "
+                    + "sonst kommt es mit **füge … zu Liste … hinzu** ans Ende. **Position von … in Liste …** sagt, an welcher Stelle etwas steht (−1: gar nicht).",
                 figuren: [{ ...W(angeklickt(
                     "frage(\"Was soll ich mitbringen?\");",
                     "if (einkauf.contains(antwort())) {",
@@ -399,6 +399,20 @@ export const BLOECKLY_HANDBOOK: HandbookSection[] = [
                     "    einkauf.add(antwort());",
                     "    sage(\"Notiert! Jetzt sind es \" + einkauf.size() + \".\", 2);",
                     "}")), variablen: [LISTE("String", "einkauf")] }],
+            }),
+            eintrag({
+                title: "Ist die Liste leer?",
+                text: "**Liste … ist leer?** ist wahr, wenn die Liste kein Element hat. Der Waschbär kauft bei jedem Klick das erste Element ein "
+                    + "und **löscht das Element an Position 0** – bis nichts mehr auf der Liste steht.",
+                figuren: [{ ...W([...flagge(
+                    "einkauf.add(\"Äpfel\");",
+                    "einkauf.add(\"Brot\");"), "", ...angeklickt(
+                    "if (einkauf.isEmpty()) {",
+                    "    sage(\"Alles erledigt!\", 2);",
+                    "} else {",
+                    "    sage(\"Ich kaufe \" + einkauf.get(0) + \".\", 2);",
+                    "    einkauf.remove(0);",
+                    "}")]), variablen: [LISTE("String", "einkauf")] }],
             }),
         ],
     },

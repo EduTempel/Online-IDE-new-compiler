@@ -9,7 +9,7 @@ import { blockSchluessel, type KatalogBlock, type KatalogKategorie, type Toolbox
  */
 
 const v = (name: string) => ({ NAME: name });
-const LISTEN = [B.listAdd, B.listRemove, B.listClear, B.listInsert, B.listSet, B.listGet, B.listIndexOf, B.listSize, B.listContains];
+const LISTEN = [B.listAdd, B.listRemove, B.listClear, B.listInsert, B.listSet, B.listGet, B.listIndexOf, B.listSize, B.listContains, B.collIsEmpty];
 
 /** Blöcke, die erst mit Variablen bzw. eigenen Blöcken erscheinen (Kategorie -> Einträge) */
 const EXTRAS: Record<string, ToolboxEintrag[]> = {

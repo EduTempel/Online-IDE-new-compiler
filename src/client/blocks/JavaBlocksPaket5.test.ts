@@ -52,8 +52,10 @@ export const LISTS = lines(
     "println(liste.get(0) + liste.get(1));",
     "println(liste.size() + \" \" + liste.contains(4) + \" \" + liste.isEmpty());",
     "liste.remove(0);",
-    "for (Integer z : liste) {",
-    "    println(z);",
+    "int i = 0;",
+    "while (i < liste.size()) {",
+    "    println(liste.get(i));",
+    "    i++;",
     "}",
     "Liste<String> woerter = new Liste<>();",
     "woerter.add(\"Hallo\");",
@@ -93,12 +95,31 @@ describe("Paket 5: Reihungen und Listen", () => {
         expect(roundTrip(LISTS)).toBe(LISTS);
         noJavaText(LISTS);
         const t = types(LISTS);
-        for (const b of [B.listNew, B.listAdd, B.listInsert, B.listSet, B.listGet, B.listSize, B.listContains, B.collIsEmpty, B.listRemove, B.forEach]) {
+        for (const b of [B.listNew, B.listAdd, B.listInsert, B.listSet, B.listGet, B.listSize, B.listContains, B.collIsEmpty, B.listRemove]) {
             expect(t.has(b), b).toBe(true);
         }
         const r = await runJava(LISTS);
         expect(r.errors).toEqual([]);
         expect(r.output).toBe(lines("13", "2 true false", "4", "5"));
+    });
+
+    test("24.11.2026: kein „für jedes Element“ über Listen – bleibt Java-Text, unverändert, läuft; im Struktogramm weiter", async () => {
+        const code = lines(
+            "Liste<Integer> zahlen = new Liste<>();",
+            "zahlen.add(3);",
+            "zahlen.add(5);",
+            "for (Integer z : zahlen) {",
+            "    println(z);",
+            "}",
+        );
+        const t = types(code);
+        expect(t.has(B.forEach)).toBe(false);
+        expect(t.has(B.javaRaw) || t.has(B.javaStatement)).toBe(true);
+        expect(roundTrip(code)).toBe(code);
+        expect((await runJava(code)).output).toBe(lines("3", "5"));
+        expect(JSON.stringify(JavaBlockParser.parse(code, { structogram: true }).state)).toContain(B.forEach);
+        // für Reihungen und dynamische Reihungen bleibt der Block
+        expect(types(lines("int[] a = {1, 2};", "for (int x : a) {", "    println(x);", "}")).has(B.forEach)).toBe(true);
     });
 
     test("DynArray (Abitur Niedersachsen): Blöcke, unverändert zurück, läuft", async () => {
