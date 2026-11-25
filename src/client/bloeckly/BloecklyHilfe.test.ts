@@ -14,7 +14,7 @@ import { BL_HILFE, hilfeBeispiel, hilfeSchluessel } from "./BloecklyHilfe";
 /** Blöcke, die Blöckly aus Blöckva übernimmt (siehe categoryItems und variableItems in BloecklyBlocks.ts) */
 const ALLGEMEIN = [
     B.msgSend, B.msgSendWait, B.blSendWith, B.blSendWithWait, B.blWert,
-    B.repeat, B.forever, B.if, `${B.if}:sonst`, B.while,
+    B.repeat, B.forever, B.if, `${B.if}:sonst`, B.while, `${B.while}:solange`,
     B.arith, B.random, B.compare, B.logic, B.not, B.concat, B.strCharAt, B.strLength, B.strContains, B.math, B.number, B.text, B.bool,
     B.blVar, B.blList, B.varDeclare, B.varGet, B.varSet, B.varChange,
     B.listAdd, B.listRemove, B.listClear, B.listInsert, B.listSet, B.listGet, B.listIndexOf, B.listSize, B.listContains, B.collIsEmpty,
@@ -54,6 +54,9 @@ describe("19j Hilfe-Karte", () => {
             const mitSonst = (x: BlockState) => (x.extraState as { hasElse?: boolean } | undefined)?.hasElse === true;
             expect(treffer.some((x) => hilfeSchluessel(x.type, mitSonst(x)) === schluessel)).toBe(true);
             if (!art) expect(treffer.some(mitSonst)).toBe(false);
+        }
+        if (type === B.while) {
+            expect(treffer.some((x) => hilfeSchluessel(x.type, false, x.fields?.MODE as string) === schluessel)).toBe(true);
         }
     });
 });

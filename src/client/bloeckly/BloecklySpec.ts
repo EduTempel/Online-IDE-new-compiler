@@ -29,9 +29,9 @@ export const BL_CATEGORIES: { id: BlCategory; name: string; colour: string }[] =
     { id: "ereignisse", name: "Ereignisse", colour: "#c88330" },     // wie „sende Nachricht“
     { id: "steuerung", name: "Steuerung", colour: "#b07a00" },      // wie die Schleifen von Blöckva
     { id: "fuehlen", name: "Fühlen", colour: "#2d8aa8" },
-    { id: "operatoren", name: "Operatoren", colour: "#3a9a27" },    // wie Rechnen & Werte
+    { id: "operatoren", name: "Operatoren", colour: "#3a9a27" },    // wie Operatoren in Blöckva
     { id: "variablen", name: "Variablen", colour: "#e07b00" },      // wie die Variablen-Blöcke
-    { id: "meine", name: "Meine Blöcke", colour: "#c2477f" },       // wie Operationen
+    { id: "meine", name: "Operationen", colour: "#c2477f" },        // wie Operationen in Blöckva (bis 25.11.2026 „Meine Blöcke“)
     { id: "malstift", name: "Malstift", colour: "#17917a" },        // Paket 19g (wie die Erweiterung in Scratch)
 ];
 

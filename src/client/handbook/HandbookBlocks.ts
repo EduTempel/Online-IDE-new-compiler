@@ -8,7 +8,7 @@ import { lines, type HandbookSection } from "./Handbook";
  */
 export const BLOCK_HANDBOOK: HandbookSection[] = [
     {
-        id: "start", title: "Start", icon: "🚩",
+        id: "start", title: "Ereignisse", icon: "🚩",
         intro: "Startblöcke (dunkelblau) beginnen einen **Programmteil**. Das **Hauptprogramm** steht immer auf der Arbeitsfläche; weitere Programmteile starten bei einem Tastendruck, einem Mausklick auf eine Figur, einer Nachricht oder zusammen mit dem Programm – und laufen **gleichzeitig** mit dem Hauptprogramm und mit dessen Variablen.",
         entries: [
             {
@@ -674,7 +674,7 @@ export const BLOCK_HANDBOOK: HandbookSection[] = [
         ],
     },
     {
-        id: "rechnen", title: "Rechnen & Werte", icon: "🧮",
+        id: "rechnen", title: "Operatoren", icon: "🧮",
         intro: "Zahlen, Rechenzeichen, Zufallszahlen und mathematische Funktionen. **Achtung:** Werden zwei Ganzzahlen geteilt, ist das Ergebnis wieder eine Ganzzahl (7 / 2 ergibt 3).",
         entries: [
             {

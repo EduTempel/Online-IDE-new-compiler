@@ -48,7 +48,7 @@ async function blockvaBeispiel(block: Blockly.Block, abschnitt: string | undefin
 
 function inhaltFuer(block: Blockly.Block, abschnitt: string | undefined, dark: boolean): Inhalt | undefined {
     if (Constants.isBloecklyApp) {
-        const b = hilfeBeispiel(hilfeSchluessel(block.type, !!block.getInput("ELSE")));
+        const b = hilfeBeispiel(hilfeSchluessel(block.type, !!block.getInput("ELSE"), block.getField("MODE") ? String(block.getFieldValue("MODE")) : undefined));
         if (b) {
             return {
                 satz: b.satz,

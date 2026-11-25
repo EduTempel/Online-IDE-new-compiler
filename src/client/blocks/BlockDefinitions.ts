@@ -591,9 +591,10 @@ function fullToolbox(): { kind: string; contents: object[] } {
     return {
         kind: "categoryToolbox",
         contents: [
-            // Reihenfolge: Start, Steuerung, Ausgabe & Eingabe, Variablen, Bedingungen, Rechnen & Werte, Text, Java
+            // Reihenfolge: Ereignisse (Kennung start), Steuerung, Ausgabe & Eingabe, Variablen, Bedingungen, Operatoren (Kennung rechnen), Text, Java
+            // 25.11.2026: Namen wie in Blöckly (Ereignisse, Operatoren, Operationen); die Kennungen bleiben
             {
-                kind: "category", toolboxitemid: "start", name: "Start", colour: COLOURS.start, contents: startToolboxItems(),
+                kind: "category", toolboxitemid: "start", name: "Ereignisse", colour: COLOURS.start, contents: startToolboxItems(),
             },
             {
                 kind: "category", toolboxitemid: "steuerung", name: "Steuerung", colour: COLOURS.control, contents: [
@@ -638,7 +639,7 @@ function fullToolbox(): { kind: string; contents: object[] } {
                 ],
             },
             {
-                kind: "category", toolboxitemid: "rechnen", name: "Rechnen & Werte", colour: COLOURS.values, contents: [
+                kind: "category", toolboxitemid: "rechnen", name: "Operatoren", colour: COLOURS.values, contents: [
                     { kind: "label", text: "Rechenzeichen in der Auswahl. Zwei Ganzzahlen: 7 / 2 ergibt 3, 7 mod 2 ergibt 1." },
                     blk(B.number),
                     blk(B.arith, { inputs: { A: num("1"), B: num("1") } }),

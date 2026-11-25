@@ -195,7 +195,7 @@ export function definePartBlocks(defineJson: (json: object[]) => void) {
 
 const blk = (type: string) => ({ kind: "block", type });
 
-/** Werkzeugleiste, Kategorie Start: alle Startblöcke (Hut-Blöcke der Programmteile) */
+/** Werkzeugleiste, Kategorie Ereignisse (Kennung start): alle Startblöcke (Hut-Blöcke der Programmteile) */
 export function startToolboxItems(): object[] {
     return [
         { kind: "label", text: "Das Hauptprogramm steht schon auf der Arbeitsfläche. Weitere Programmteile laufen gleichzeitig mit ihm:" },
@@ -209,7 +209,7 @@ export function startToolboxItems(): object[] {
 /** Werkzeugleiste, Kategorie Steuerung: Nachrichten senden */
 export function messageToolboxItems(): object[] {
     return [
-        { kind: "label", text: "Nachrichten starten Programmteile „wenn ich Nachricht … empfange“ (Kategorie Start):" },
+        { kind: "label", text: "Nachrichten starten Programmteile „wenn ich Nachricht … empfange“ (Kategorie Ereignisse):" },
         blk(B.msgSend),
         blk(B.msgSendWait),
     ];

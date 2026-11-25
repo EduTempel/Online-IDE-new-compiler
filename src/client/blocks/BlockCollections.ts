@@ -6,7 +6,6 @@ import { FieldType } from "./BlockFields";
 import { visibleCollections, collectionsOf, defaultLiteral, TYPE_NAMES, type JType } from "./BlockTypeSystem";
 import { adtExtraItems, defineAdtBlocks } from "./BlockAdt";
 import { isFigureClass } from "./FigureSpec";
-import { Constants } from "../Constants";
 import { BL_LISTEN_FARBE } from "../bloeckly/BloecklySpec";
 
 /**
@@ -17,8 +16,10 @@ import { BL_LISTEN_FARBE } from "../bloeckly/BloecklySpec";
  * Reihungen, Listen und ADT werden über ihren Namen ausgewählt (wie Variablen).
  */
 
-export const ARRAYS_COLOUR = "#b5523b";
-export const LISTS_COLOUR = "#2f8a76";
+/** 25.11.2026: Listen in Mix und Blöckly rotbraun wie in Scratch (vorher blaugrün #2f8a76); Reihungen dafür braun
+ *  (vorher #b5523b), damit Reihung und Liste unterscheidbar bleiben */
+export const ARRAYS_COLOUR = "#795548";
+export const LISTS_COLOUR = BL_LISTEN_FARBE;
 export const ADT_COLOUR = "#6a5acd";
 export const ARRAYS_CATEGORY = "GSG_ARRAYS";
 export const LISTS_CATEGORY = "GSG_LISTS";
@@ -73,18 +74,11 @@ const hint = (text: string) => ({ type: "field_label", text, class: "gsg-java-hi
 const coll = (kinds: CollKind[]) => ({ type: "field_gsg_collection", name: "NAME", text: DEFAULT_NAMES[kinds[0]], kinds });
 const value = (name: string) => ({ type: "input_value", name });
 const statement = { previousStatement: null, nextStatement: null };
-/**
+/*
  * Listen-Blöcke: in Mix und Blöckly gleich beschriftet (24.11.2026; Formulierung wie in Scratch, aber immer mit
- * „Liste“, „Element“ und „an Position“, damit klar ist, welche Liste, welche Position und welcher Inhalt gemeint ist).
- * In Blöckly nur die Farbe wie in Scratch; der Java-Hinweis am Ende entfällt dort ohnehin.
+ * „Liste“, „Element“ und „an Position“, damit klar ist, welche Liste, welche Position und welcher Inhalt gemeint ist)
+ * und seit 25.11.2026 auch gleich gefärbt (LISTS_COLOUR).
  */
-const LISTEN_BLOECKE = new Set<string>([B.listAdd, B.listInsert, B.listRemove, B.listClear, B.listGet, B.listSet, B.listSize,
-    B.listContains, B.listIndexOf, B.collIsEmpty]);
-
-function bloecklyListen(defs: object[]): object[] {
-    if (!Constants.isBloecklyApp) return defs;
-    return defs.map((d) => (LISTEN_BLOECKE.has((d as { type: string }).type) ? { ...d, colour: BL_LISTEN_FARBE } : d));
-}
 
 const ARRAY: CollKind[] = ["array"], ARRAY2D: CollKind[] = ["array2d"], LIST: CollKind[] = ["list"], DYN: CollKind[] = ["dyn"];
 
@@ -98,7 +92,7 @@ export function defineCollectionBlocks(defineJson: (json: object[]) => void) {
     const d = { colour: ADT_COLOUR, inputsInline: true };
     const typeField = { type: "field_gsg_type", name: "TYPE", text: "int", mode: "element" };
     const nameField = { type: "field_input", name: "NAME", text: "zahlen" };
-    defineJson(bloecklyListen([
+    defineJson([
         // ------------------------------------------------------------ Reihungen
         {
             type: B.arrayNew, message0: "erstelle neue Reihung %1 vom Datentyp %2 mit Länge %3 %4",
@@ -231,7 +225,7 @@ export function defineCollectionBlocks(defineJson: (json: object[]) => void) {
             type: B.dynIsEmpty, message0: "dynamische Reihung %1 ist leer %2", args0: [coll(DYN), hint(".isEmpty()")],
             output: null, ...d, tooltip: "Wahr, wenn die dynamische Reihung keine Elemente hat.",
         },
-    ]));
+    ]);
 }
 
 // ------------------------------------------------------------------ Reihung mit Werten (◂ ▸)

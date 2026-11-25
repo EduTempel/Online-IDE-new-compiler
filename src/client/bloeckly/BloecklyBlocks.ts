@@ -352,7 +352,7 @@ function specItem(spec: BlBlock): Item {
 const blk = (type: string, extra: object = {}): Item => ({ kind: "block", type, ...extra });
 const label = (text: string): Item => ({ kind: "label", text });
 
-/** Beispiel „Meine Blöcke“: Operation istGerade(int x) liefert wahr/falsch (x % 2 == 0) */
+/** Beispiel „Operationen“: Operation istGerade(int x) liefert wahr/falsch (x % 2 == 0) */
 function istGeradeBeispiel(): Item {
     const v = (name: string) => ({ block: { type: B.varGet, fields: { NAME: name } } });
     const rest = { block: { type: B.arith, fields: { OP: "%" }, inputs: { A: v("x"), B: { block: { type: B.number, fields: { NUM: "2" } } } } } };
@@ -391,6 +391,7 @@ function categoryItems(id: BlCategory, ws: Blockly.WorkspaceSvg): Item[] {
                 blk(B.if, { extraState: { elseIfs: 0, hasElse: false, fixed: true } }),
                 blk(B.if, { extraState: { elseIfs: 0, hasElse: true, fixed: true } }),
                 blk(B.while, { fields: { MODE: "until" } }),
+                blk(B.while, { fields: { MODE: "while" } }),   // 25.11.2026: „solange“ zusätzlich zu „bis“
                 ...specs.filter((s) => s.type === "bl_stoppe_alles" || s.type === "bl_stoppe_andere"),
                 label("Klone"),
                 ...(ui.stage ? [] : [blk(B.blClone)]),

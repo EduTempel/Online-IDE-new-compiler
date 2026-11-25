@@ -243,6 +243,12 @@ export const BLOECKLY_HANDBOOK: HandbookSection[] = [
                 figuren: [W(flagge("zeigeInRichtung(90);", "while (!beruehrtRand()) {", "    gehe(5);", "}", "sage(\"Angekommen!\", 2);"), -200, 0)],
             }),
             eintrag({
+                title: "Wiederhole solange",
+                text: "Die Figur geht, **solange** ihre x-Position kleiner als 150 ist. „solange“ prüft das Gegenteil von „bis“: "
+                    + "Die Schleife läuft, solange die Bedingung **wahr** ist.",
+                figuren: [W(flagge("zeigeInRichtung(90);", "while (xPosition() < 150) {", "    gehe(5);", "}", "sage(\"Weit genug!\", 2);"), -200, 0)],
+            }),
+            eintrag({
                 title: "Klone erzeugen",
                 text: "**erzeuge Klon von mir selbst** macht eine Kopie der Figur. Jeder Klon startet **Wenn ich als Klon entstehe** – hier läuft jeder Klon in eine andere Richtung und verschwindet dann mit **lösche diesen Klon**.",
                 figuren: [W(skripte(
@@ -417,7 +423,7 @@ export const BLOECKLY_HANDBOOK: HandbookSection[] = [
         ],
     },
     {
-        id: "meine", title: "Meine Blöcke", icon: "🧩",
+        id: "meine", title: "Operationen", icon: "🧩",
         intro: "Brauchst du dieselben Blöcke öfter, fasse sie zu einem **eigenen Block** zusammen. Er gehört zu dieser Figur und kann **Parameter** haben – Werte, die er beim Aufruf bekommt.",
         entries: [
             eintrag({

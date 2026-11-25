@@ -110,6 +110,8 @@ export const BL_HILFE: Record<string, BlHilfe> = {
     [`${B.if}:sonst`]: h(flagge("geheZuZufaelligerPosition();", "if (xPosition() > 0) {", "    sage(\"rechts\");", "} else {", "    sage(\"links\");", "}"),
         "Ist die Bedingung wahr, laufen die oberen Blöcke, sonst die unteren."),
     [B.while]: h(flagge("while (!beruehrtRand()) {", "    gehe(5);", "}", "sage(\"Angekommen!\", 2);"), "Wiederholt die Blöcke darin, bis die Bedingung wahr ist."),
+    [`${B.while}:solange`]: h(flagge("geheZu(-200, 0);", "while (xPosition() < 150) {", "    gehe(5);", "}", "sage(\"Weit genug!\", 2);"),
+        "Wiederholt die Blöcke darin, solange die Bedingung wahr ist."),
     bl_stoppe_alles: h(flagge(...immer("gehe(8);", ...falls("beruehrtRand()", "stoppeAlles();")))),
     bl_stoppe_andere: h(skripte(flagge(...immer("dreheRechts(5);")), angeklickt("stoppeAndereSkripteDieserFigur();", "sage(\"Halt!\", 1);"))),
     [B.blClone]: h(KLON, "Startet in jedem neuen Klon dieser Figur."),
@@ -169,7 +171,7 @@ export const BL_HILFE: Record<string, BlHilfe> = {
     [B.listSize]: h(flagge(`sage(${L}.size(), 2);`), "Wie viele Elemente die Liste hat."),
     [B.listContains]: h(flagge(...falls(`${L}.contains("Brot")`, "sage(\"Brot steht schon drauf.\", 2);")), "Wahr, wenn der Wert in der Liste steht."),
     [B.collIsEmpty]: h(flagge(...falls(`${L}.isEmpty()`, "sage(\"Nichts mehr zu tun!\", 2);")), "Wahr, wenn die Liste kein Element hat."),
-    // —— Meine Blöcke ——
+    // —— Operationen ——
     [B.method]: h(SPRINGE, "Ein eigener Block: fasst Blöcke zusammen, die du öfter brauchst – auch mit Parametern."),
     [B.call]: h(SPRINGE, "Führt deinen eigenen Block aus."),
     [B.callExpr]: h(QUADRAT, "Führt deinen eigenen Block aus und liefert sein Ergebnis."),
@@ -194,9 +196,11 @@ export const HILFE_FIGUREN = [HILFE_FIGUR, "Pinguin"];
 /** Liste für alle Figuren, die die Beispiele benutzen */
 export const HILFE_GLOBALS: Record<string, string> = { einkauf: "Liste<String>" };
 
-/** Schlüssel für einen Block: „falls … sonst“ hat ein eigenes Beispiel */
-export function hilfeSchluessel(type: string, hatSonst: boolean): string {
-    return type === B.if && hatSonst ? `${B.if}:sonst` : type;
+/** Schlüssel für einen Block: „falls … sonst“ und „wiederhole solange“ (Feld MODE) haben ein eigenes Beispiel */
+export function hilfeSchluessel(type: string, hatSonst: boolean, modus?: string): string {
+    if (type === B.if && hatSonst) return `${B.if}:sonst`;
+    if (type === B.while && modus === "while") return `${B.while}:solange`;
+    return type;
 }
 
 export type HilfeBeispiel = { satz: string; text: string; buehne: boolean; ctx: BloecklyContext };
